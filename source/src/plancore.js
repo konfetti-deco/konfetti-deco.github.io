@@ -502,11 +502,24 @@ var PG = (function () {
     z_cake:   { g: 'zones', label: 'Стол для торта Ø80', kind: 'zone', sub: 'furn', shape: 'round', w: 800 },
     z_gift:   { g: 'zones', label: 'Стол для подарков 1,2×0,6', kind: 'zone', sub: 'furn', shape: 'rect', w: 1200, d: 600 },
     z_lounge: { g: 'zones', label: 'Диван, лаунж 2×0,9 м', kind: 'zone', sub: 'furn', shape: 'rect', w: 2000, d: 900 },
+    /* the upper layer: drawn over the plan, never in the way of the floor; h = height in mm (for decor and light — its lowest point) */
+    u_ceil:  { g: 'ceil',  top: true, label: 'Зона потолка 6×4 м', kind: 'ceil', sub: 'ceil', shape: 'rect', w: 6000, d: 4000, dh: 0, hl: 'Высота потолка здесь' },
+    u_hook:  { g: 'rig',   top: true, label: 'Точка подвеса', kind: 'hook', sub: 'hook', shape: 'round', w: 240, dh: 0, hl: 'Высота крепления', fixed: true },
+    u_beam:  { g: 'rig',   top: true, label: 'Балка 6 м', kind: 'truss', sub: 'beam', shape: 'rect', w: 6000, d: 250, dh: -300, hl: 'Низ балки' },
+    u_truss: { g: 'rig',   top: true, label: 'Ферма 4 м', kind: 'truss', sub: 'truss', shape: 'rect', w: 4000, d: 300, dh: -500, hl: 'Низ фермы' },
+    u_spot:  { g: 'light', top: true, label: 'Прожектор', kind: 'light', sub: 'spot', shape: 'round', w: 350, dh: -400, hl: 'Высота прожектора' },
+    u_chand: { g: 'light', top: true, label: 'Люстра Ø1 м', kind: 'light', sub: 'chand', shape: 'round', w: 1000, dh: -900, hl: 'Низ люстры' },
+    u_glin:  { g: 'light', top: true, label: 'Гирлянда-линия 5 м', kind: 'light', sub: 'gline', shape: 'rect', w: 5000, d: 120, dh: -300, hl: 'Низ гирлянды (провис)' },
+    u_cloud: { g: 'cdeco', top: true, label: 'Облако шаров Ø1,5 м', kind: 'cdeco', sub: 'cloud', shape: 'round', w: 1500, dh: -1200, hl: 'Низ облака' },
+    u_drape: { g: 'cdeco', top: true, label: 'Ткань под потолком 4×2 м', kind: 'cdeco', sub: 'drape', shape: 'rect', w: 4000, d: 2000, dh: -600, hl: 'Низ провиса ткани' },
+    u_hang:  { g: 'cdeco', top: true, label: 'Подвесная композиция Ø0,8 м', kind: 'cdeco', sub: 'hang', shape: 'round', w: 800, dh: -1100, hl: 'Низ композиции' },
   };
   function makeItem(ref, x, y) {
     const c = CAT[ref]; if (!c) return null;
     const it = { id: uid(), kind: c.kind, ref, shape: c.shape, x: Math.round(x), y: Math.round(y), w: c.w, d: c.d || c.w, rot: 0, name: '' };
     if (c.kind === 'table') { if (c.shape === 'rect') it.sides = c.sides.slice(); else it.seats = c.seats; if (c.stand) it.stand = true; }
+    if (c.top) { it.top = true; it.h = null; }   // the height is set when placed: from the ceiling at that point
+    if (c.sub === 'stage') it.h = ref === 'z_podium' ? 300 : 400;   // stage height: the clearance above it is counted from its top
     return it;
   }
   function itemLabel(it) {
@@ -572,7 +585,7 @@ var PG = (function () {
   /* what is in the way: an object crossing a wall, standing outside the rooms, in a door's swing, or on another object */
   function conflicts(p, geoms) {
     geoms = geoms || p.rooms.map(roomGeom);
-    const out = [], fps = p.items.map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
+    const out = [], fps = p.items.filter((it) => !it.top).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
     const swings = []; p.rooms.forEach((r, ri) => doorSwings(r, geoms[ri]).forEach((s) => { s.bb = bboxOf(s.poly); swings.push(s); }));
     const overlapBB = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     fps.forEach((F) => {
@@ -604,6 +617,36 @@ var PG = (function () {
     p.items.forEach((o) => { if (o.id === it.id) return; const G2 = footprint(o)[0]; out.push({ id: o.id, d: polyDist(F, G2) }); });
     return out.sort((a, b) => a.d - b.d).slice(0, k || 2);
   }
+  /* ---------- the upper layer: heights ---------- */
+  function isTop(it) { return !!it.top; }
+  /* the ceiling at a point: the room's height (or the plan's), unless a ceiling zone covers the point */
+  function ceilingAt(p, pt) {
+    let h = null;
+    const geoms = p.rooms.map(roomGeom);
+    p.rooms.forEach((r, i) => { if (h === null && pointInPoly(pt, geoms[i].pts)) h = r.h || p.h; });
+    if (h === null) h = p.h;
+    p.items.forEach((it) => { if (it.kind === 'ceil' && +it.h > 0 && pointInPoly(pt, footprint(it)[0])) h = +it.h; });
+    return h;
+  }
+  /* the height an upper object hangs at: its own, or the ceiling there plus its default drop */
+  function topH(p, it) { if (+it.h > 0) return +it.h; const c = CAT[it.ref] || {}; return ceilingAt(p, [it.x, it.y]) + (c.dh || 0); }
+  /* what the upper layer gets wrong: above the ceiling there, or too low over guests (tables, dance floor, stage) */
+  function topChecks(p) {
+    const out = [], min = +p.minClear > 0 ? +p.minClear : 2200;
+    const floor = p.items.filter((it) => !it.top && (it.kind === 'table' || (CAT[it.ref] && (CAT[it.ref].sub === 'dance' || CAT[it.ref].sub === 'stage')))).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f), base: (CAT[it.ref] && CAT[it.ref].sub === 'stage') ? (+it.h || 0) : 0 }; });
+    p.items.forEach((it) => {
+      if (!it.top || it.kind === 'ceil') return;
+      const h = topH(p, it), ceil = ceilingAt(p, [it.x, it.y]);
+      if (h > ceil + 1) out.push({ t: 'above', a: it.id, h, ceil });
+      if (it.kind === 'hook') return;
+      const F = footprint(it), bb = polyBB(F), over = [];
+      floor.forEach((q) => { if (q.bb.x0 < bb.x1 && bb.x0 < q.bb.x1 && q.bb.y0 < bb.y1 && bb.y0 < q.bb.y1 && (q.f.some((a) => polysTouch(a, F[0])) || pointInPoly([it.x, it.y], q.f[0]) || pointInPoly([q.it.x, q.it.y], F[0]))) over.push(q); });   // touching, or one centred over the other
+      let worst = null;
+      over.forEach((q) => { const cl = h - q.base; if (cl < min && (!worst || cl < worst.cl)) worst = { cl, b: q.it.id }; });
+      if (worst) out.push({ t: 'low', a: it.id, b: worst.b, h, clear: worst.cl, min });
+    });
+    return out;
+  }
   function totals(p) {
     let tables = 0, seats = 0, stand = 0;
     p.items.forEach((it) => { if (it.kind !== 'table') return; if (it.stand) stand++; else { tables++; seats += seatCount(it); } });
@@ -613,11 +656,12 @@ var PG = (function () {
   function nextNum(p) { let m = 0; p.items.forEach((it) => { if (it.kind === 'table' && !it.stand && +it.num > m) m = +it.num; }); return m + 1; }
 
   /* ---------- the plan as a whole ---------- */
-  function newPlan() { return { v: 1, unit: 'm', h: 3000, rooms: [], items: [] }; }
+  function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [] }; }
   function normalize(p) {
     const o = Object.assign(newPlan(), p && typeof p === 'object' ? p : {});
     if (!UNIT[o.unit]) o.unit = 'm';
     o.h = clamp(Math.round(+o.h || 3000), 1800, 20000);
+    o.minClear = clamp(Math.round(+o.minClear || 2200), 1000, 6000);
     o.rooms = (Array.isArray(o.rooms) ? o.rooms : []).filter((r) => r && Array.isArray(r.walls) && r.walls.length >= 3).map((r) => {
       r.id = r.id || uid(); r.name = String(r.name || '').slice(0, 60); r.x = +r.x || 0; r.y = +r.y || 0; r.h = r.h ? clamp(Math.round(+r.h), 1800, 20000) : null;
       r.diag = r.diag && typeof r.diag === 'object' ? { p: +r.diag.p || null, q: +r.diag.q || null } : { p: null, q: null };
@@ -628,6 +672,7 @@ var PG = (function () {
       it.id = it.id || uid(); it.x = +it.x; it.y = +it.y; it.w = clamp(Math.round(+it.w), 50, 60000); it.d = clamp(Math.round(+it.d || it.w), 50, 60000); it.rot = normDeg(+it.rot || 0);
       if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1); }
       it.name = String(it.name || '').slice(0, 60);
+      if (it.top) { it.top = true; it.h = +it.h > 0 ? clamp(Math.round(+it.h), 100, 30000) : null; if (it.load != null) it.load = +it.load > 0 ? Math.round(+it.load) : null; } else if (it.h != null) it.h = Math.max(0, Math.round(+it.h) || 0);
       return it; });
     return o;
   }
@@ -647,7 +692,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

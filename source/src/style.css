@@ -936,3 +936,22 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
 #plan .pnb{stroke:var(--pl-dance-l);stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none} #plan .pnb-t{fill:var(--pl-dance-l);font-weight:700;stroke:var(--pl-bg)}
 #plan .hw{cursor:pointer}
 .newver{position:fixed;left:50%;bottom:calc(46px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:200;border:0;border-radius:999px;padding:11px 18px;font:600 14px/1 var(--f-ui,system-ui,sans-serif);background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px -8px rgba(0,0,0,.6);cursor:pointer}
+/* plan, step 3: the upper layer */
+:root,:root[data-theme="dark"]{--pl-top:#E9A6FF;--pl-top-f:rgba(233,166,255,.08);--pl-ceil:#8FD3FF;--pl-ceil-f:rgba(143,211,255,.07);--pl-light:#FFD36B}
+:root[data-theme="light"]{--pl-top:#9B3FBF;--pl-top-f:rgba(155,63,191,.07);--pl-ceil:#2D7FB8;--pl-ceil-f:rgba(45,127,184,.07);--pl-light:#B07A00}
+@media (prefers-color-scheme:light){:root:not([data-theme]){--pl-top:#9B3FBF;--pl-top-f:rgba(155,63,191,.07);--pl-ceil:#2D7FB8;--pl-ceil-f:rgba(45,127,184,.07);--pl-light:#B07A00}}
+#plan .pig.top .pib{fill:var(--pl-top-f);stroke:var(--pl-top);stroke-width:1.6;stroke-dasharray:6 4}
+#plan .pig.top .tdl{fill:none;stroke:var(--pl-top);stroke-width:1.1}
+#plan .pig.top .tdot{fill:var(--pl-light);stroke:none}
+#plan .pig.top.ceil .pib{fill:var(--pl-ceil-f);stroke:var(--pl-ceil);stroke-dasharray:2 5;stroke-width:2}
+#plan .pig.top.spot .pib,#plan .pig.top.chand .pib,#plan .pig.top.gline .pib{stroke:var(--pl-light);fill:rgba(255,211,107,.10)} #plan .pig.top.spot .tdl,#plan .pig.top.chand .tdl{stroke:var(--pl-light)}
+#plan .pig.top.beam .pib,#plan .pig.top.truss .pib{stroke-dasharray:none;fill:rgba(255,255,255,.04)}
+#plan .pig.top.on .pib{stroke:var(--accent);stroke-width:2.8;stroke-dasharray:none}
+#plan .pig.top.bad .pib{stroke:var(--bad);stroke-width:2.6}
+#plan .ptl{fill:var(--pl-top);font-weight:700;stroke:var(--pl-bg)} #plan .pig.ceil .ptl{fill:var(--pl-ceil)}
+#plan[data-layer=floor] #ptop{opacity:.5;pointer-events:none}
+#plan[data-layer=top] #pitems{opacity:.32;pointer-events:none}
+#plan[data-layer=top] .prf{pointer-events:none}
+.plyr{display:flex;flex-direction:column;gap:2px;margin:0 0 4px}
+.plyr button{border:0;border-radius:6px;background:transparent;color:var(--muted);font:700 10.5px/1 var(--f-ui,system-ui,sans-serif);padding:6px 0;min-height:24px;cursor:pointer}
+.plyr button[aria-pressed=true]{background:var(--accent-soft,rgba(93,184,150,.2));color:var(--accent)}

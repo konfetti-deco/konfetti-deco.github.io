@@ -17,7 +17,10 @@ IO.fname = function(ext,prefix){return ((prefix?prefix+' ':'')+String(S.name||'Ð
 
 /* ---------- autosave in this browser (a convenience only) ---------- */
 IO.KEY = 'fotozona.autosave.v1';
-IO.autosave = function(json){clearTimeout(IO._at);IO._at=setTimeout(function(){try{window.localStorage.setItem(IO.KEY,json)}catch(e){}},400)};
+IO.autosave = function(json){clearTimeout(IO._at);IO._pend=json;IO._at=setTimeout(IO.flush,400)};
+/* leaving the page or switching to another app writes at once: the last change is not lost in the 0,4 s pause */
+IO.flush = function(){clearTimeout(IO._at);if(IO._pend==null)return;var j=IO._pend;IO._pend=null;try{window.localStorage.setItem(IO.KEY,j)}catch(e){}};
+try{window.addEventListener('pagehide',IO.flush);document.addEventListener('visibilitychange',function(){if(document.visibilityState==='hidden')IO.flush()})}catch(e){}
 IO.loadAuto = function(){try{var j=window.localStorage.getItem(IO.KEY);return j?JSON.parse(j):null}catch(e){return null}};
 /* pictures are remembered one per key; a full browser store only means they will not survive a reload */
 /* which groups of settings are open: a convenience of this browser only */

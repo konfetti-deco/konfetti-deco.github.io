@@ -12,19 +12,28 @@ var PL = (function () {
     pcol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="4"/><rect x="14" y="8" width="7" height="8" rx="1"/></svg>',
     pruler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2" stroke-linecap="round"/></svg>',
     ptable: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="4" r="1.6"/><circle cx="12" cy="20" r="1.6"/><circle cx="4" cy="12" r="1.6"/><circle cx="20" cy="12" r="1.6"/><circle cx="6.3" cy="6.3" r="1.4"/><circle cx="17.7" cy="17.7" r="1.4"/></svg>',
+    pceil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h18"/><path d="M6 5v3M12 5v6M18 5v3"/><path d="M4 20h16" stroke-dasharray="2 3"/></svg>',
+    prig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2 6h20v4H2z"/><path d="M2 10l4-4 4 4 4-4 4 4 4-4"/><path d="M12 10v6" stroke-linecap="round"/><circle cx="12" cy="18" r="2"/></svg>',
+    plight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 3v4"/><path d="M7 7h10l-2 6H9z" stroke-linejoin="round"/><path d="M8 16l-2 3M12 16v4M16 16l2 3"/></svg>',
+    pcdeco: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h18" stroke-linecap="round"/><path d="M8 4v3M16 4v5"/><circle cx="8" cy="10" r="3"/><circle cx="16" cy="12" r="3"/><circle cx="12" cy="15" r="3"/></svg>',
     pzone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1"/><path d="M6 15h12M8 19h8" stroke-linecap="round"/></svg>',
   };
   const TOOLS = [['room', 'proom', 'Помещение', 'прямоугольник, Г, П, по углам'], ['open', 'pdoor', 'Двери и окна', 'дверь, двустворчатая, выход, окна'], ['tables', 'ptable', 'Столы и стулья', 'круглые, прямоугольные, империал, П, Т, коктейльные'], ['zones', 'pzone', 'Сцена и зоны', 'сцена, танцпол, бар, DJ, фуршет, фотозона'], ['col', 'pcol', 'Колонна', 'круглая, квадратная']];
+  const TOOLS_TOP = [['ceil', 'pceil', 'Потолок', 'зоны разной высоты'], ['rig', 'prig', 'Подвес', 'точки подвеса, балки, фермы'], ['light', 'plight', 'Свет', 'прожектор, люстра, гирлянда'], ['cdeco', 'pcdeco', 'Декор под потолком', 'облако шаров, ткань, композиция']];
   const FLY = {
     room: [['rect', 'Прямоугольный зал', '12 × 8 м, потом впишите замеры'], ['L', 'Г-образный зал', '12 × 9 м'], ['U', 'П-образный зал', '15 × 10 м'], ['draw', 'Нарисовать по углам', 'коснитесь углов по порядку']],
     open: Object.keys(G.OPENINGS).map((k) => [k, G.OPENINGS[k].label, G.OPENINGS[k].type === 'window' ? 'окно' : G.OPENINGS[k].type === 'open' ? 'без полотна' : 'с полотном']),
     col: [['round', 'Колонна круглая Ø400', 'размер меняется в свойствах'], ['rect', 'Колонна квадратная 400×400', 'размер меняется в свойствах']],
     tables: Object.keys(G.CAT).filter((k) => G.CAT[k].g === 'tables').map((k) => [k, G.CAT[k].label, G.CAT[k].stand ? 'стоячий, без стульев' : G.seatCount(G.makeItem(k, 0, 0)) + ' мест, можно изменить']).concat([['P', 'П-образный стол', '3 стола 220×80, стулья снаружи'], ['T', 'Т-образный стол', '3 стола 220×80']]),
+    ceil: [['u_ceil', G.CAT.u_ceil.label, 'высота потолка внутри зоны — в свойствах']],
+    rig: ['u_hook', 'u_beam', 'u_truss'].map((k) => [k, G.CAT[k].label, 'высота и нагрузка — в свойствах']),
+    light: ['u_spot', 'u_chand', 'u_glin'].map((k) => [k, G.CAT[k].label, 'высота — от потолка, можно изменить']),
+    cdeco: ['u_cloud', 'u_drape', 'u_hang'].map((k) => [k, G.CAT[k].label, 'низ — от потолка, можно изменить']),
     zones: Object.keys(G.CAT).filter((k) => G.CAT[k].g === 'zones').map((k) => [k, G.CAT[k].label, 'размер меняется пальцем или в свойствах']),
   };
 
   /* ---------- state that is not saved: view, selection, tool ---------- */
-  const st = { v: null, sel: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
+  const st = { v: null, sel: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, layer: 'floor', tc: null, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
   function P() { if (!S.plan) S.plan = G.newPlan(); return S.plan; }
   function unit() { return P().unit || 'm'; }
   function uLab() { return G.UNIT[unit()].ru; }
@@ -109,7 +118,29 @@ var PL = (function () {
     return h;
   }
   /* objects are drawn in their own axes inside a group that is moved and turned; each keeps its own node */
+  function topHtml(it, on, bad, s) {
+    const c = G.CAT[it.ref] || {}, sub = c.sub || 'hang', h0 = G.topH(P(), it), back = -(it.rot || 0), hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2;
+    let h = '<g class="pig top ' + sub + (on ? ' on' : '') + (bad ? ' bad' : '') + '" data-r="i|' + it.id + '" data-k="' + it.id + '" transform="translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')">';
+    const ln = (x1, y1, x2, y2, cls) => '<line class="' + (cls || 'tdl') + '" x1="' + n1(x1) + '" y1="' + n1(y1) + '" x2="' + n1(x2) + '" y2="' + n1(y2) + '"/>';
+    if (sub === 'ceil') h += '<rect class="pib" x="' + n1(-hw) + '" y="' + n1(-hd) + '" width="' + n1(it.w) + '" height="' + n1(it.d) + '"/>';
+    else if (sub === 'hook') h += '<circle class="pib" r="' + n1(Math.max(hw, 6 / s)) + '"/>' + ln(-hw * 1.6, 0, hw * 1.6, 0) + ln(0, -hw * 1.6, 0, hw * 1.6);
+    else if (sub === 'beam') h += '<rect class="pib" x="' + n1(-hw) + '" y="' + n1(-hd) + '" width="' + n1(it.w) + '" height="' + n1(it.d) + '"/>';
+    else if (sub === 'truss') { h += '<rect class="pib" x="' + n1(-hw) + '" y="' + n1(-hd) + '" width="' + n1(it.w) + '" height="' + n1(it.d) + '"/>'; const k = Math.max(2, Math.round(it.w / (it.d * 1.2))); for (let j = 0; j < k; j++) { const x0 = -hw + it.w * j / k, x1 = -hw + it.w * (j + 1) / k; h += ln(x0, j % 2 ? hd : -hd, x1, j % 2 ? -hd : hd); } }
+    else if (sub === 'spot') { h += '<circle class="pib" r="' + n1(hw) + '"/>'; for (let j = 0; j < 4; j++) { const a = j * Math.PI / 2 + Math.PI / 4; h += ln(Math.cos(a) * hw * 1.15, Math.sin(a) * hw * 1.15, Math.cos(a) * hw * 1.7, Math.sin(a) * hw * 1.7); } }
+    else if (sub === 'chand') { h += '<circle class="pib" r="' + n1(hw) + '"/><circle class="tdl" r="' + n1(hw * 0.35) + '"/>'; for (let j = 0; j < 6; j++) { const a = j * Math.PI / 3; h += ln(Math.cos(a) * hw * 0.35, Math.sin(a) * hw * 0.35, Math.cos(a) * hw, Math.sin(a) * hw); } }
+    else if (sub === 'gline') { h += ln(-hw, 0, hw, 0, 'pib'); const k = Math.max(3, Math.round(it.w / 400)); for (let j = 0; j <= k; j++) h += '<circle class="tdot" cx="' + n1(-hw + it.w * j / k) + '" cy="0" r="' + n1(Math.max(40, 2.5 / s)) + '"/>'; }
+    else if (sub === 'cloud') { h += '<circle class="pib" r="' + n1(hw) + '"/>'; [[0, 0, .38], [.45, .1, .3], [-.42, .15, .3], [.1, .5, .28], [-.15, -.48, .3], [.4, -.38, .26], [-.48, -.3, .22]].forEach((q) => { h += '<circle class="tdl" cx="' + n1(q[0] * hw) + '" cy="' + n1(q[1] * hw) + '" r="' + n1(q[2] * hw) + '"/>'; }); }
+    else if (sub === 'drape') { h += '<rect class="pib" x="' + n1(-hw) + '" y="' + n1(-hd) + '" width="' + n1(it.w) + '" height="' + n1(2 * hd) + '"/>'; let d = 'M' + n1(-hw) + ' 0'; const k = Math.max(2, Math.round(it.w / 1000)); for (let j = 0; j < k; j++) { const x0 = -hw + it.w * j / k, x1 = -hw + it.w * (j + 1) / k; d += ' Q' + n1((x0 + x1) / 2) + ' ' + n1(hd * 0.9) + ' ' + n1(x1) + ' 0'; } h += '<path class="tdl" d="' + d + '"/>'; }
+    else { h += '<circle class="pib" r="' + n1(hw) + '"/>'; for (let j = 0; j < 4; j++) { const a = j * Math.PI / 4; h += ln(Math.cos(a) * hw * 0.8, Math.sin(a) * hw * 0.8, -Math.cos(a) * hw * 0.8, -Math.sin(a) * hw * 0.8); } }
+    const big = Math.max(it.w, it.d) * s;
+    if (big >= 16) {
+      const lab = sub === 'ceil' ? 'потолок ' + fs(h0) : sub === 'hook' ? fs(h0) + (it.load ? ' · ' + it.load + ' кг' : '') : '↓' + fs(h0);
+      h += text(0, sub === 'ceil' ? 0 : sub === 'gline' || sub === 'beam' || sub === 'truss' ? -(hd + 9 / s) : (sub === 'hook' ? -(Math.max(hw, 6 / s) + 9 / s) : 0), lab, sub === 'ceil' ? 11.5 : 10.5, 'ptl', back);
+    }
+    return h + '</g>';
+  }
   function itemHtml(it, on, bad, s) {
+    if (it.top) return topHtml(it, on, bad, s);
     const c = G.CAT[it.ref] || {}, sub = it.kind === 'column' ? 'col' : it.kind === 'table' ? 'tab' : (c.sub || 'furn');
     let h = '<g class="pig ' + sub + (on ? ' on' : '') + (bad ? ' bad' : '') + '" data-r="i|' + it.id + '" data-k="' + it.id + '" transform="translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')">';
     G.chairsLocal(it).forEach((q) => { h += '<rect class="pch" x="-225" y="-225" width="450" height="450" rx="90" transform="translate(' + n1(q.x) + ' ' + n1(q.y) + ') rotate(' + n1(q.a) + ')"/><line class="pchb" x1="-190" y1="200" x2="190" y2="200" transform="translate(' + n1(q.x) + ' ' + n1(q.y) + ') rotate(' + n1(q.a) + ')"/>'; });
@@ -127,8 +158,8 @@ var PL = (function () {
     return h + '</g>';
   }
   const SVGNS = 'http://www.w3.org/2000/svg';
-  function syncItems(list) {
-    const box = document.getElementById('pitems'); if (!box) return;
+  function syncItems(list, boxId) {
+    const box = document.getElementById(boxId || 'pitems'); if (!box) return;
     const have = {}; Array.prototype.forEach.call(box.children, (n) => { have[n.getAttribute('data-k')] = n; });
     const tmp = document.createElementNS(SVGNS, 'g'); let prev = null;
     list.forEach((q) => {
@@ -140,6 +171,15 @@ var PL = (function () {
     Object.keys(have).forEach((k) => have[k].remove());
   }
   /* what is in the way — computed when nothing is being dragged */
+  /* the upper layer's checks: above the ceiling there, or too low over guests */
+  function topChecks() {
+    const p = P(); if (p.warn === false) return { list: [], ids: {} };
+    if (st.drag && st.tc) return st.tc;
+    const key = JSON.stringify([p.rooms, p.items, p.h, p.minClear]);
+    if (st.tc && st.tc.key === key) return st.tc;
+    const list = G.topChecks(p), ids = {}; list.forEach((q) => { ids[q.a] = 1; });
+    st.tc = { key, list, ids }; return st.tc;
+  }
   function conflicts() {
     const p = P(); if (p.warn === false) return { list: [], ids: {} };
     if (st.drag && st.cf) return st.cf;
@@ -206,7 +246,8 @@ var PL = (function () {
         labels += text(c[0], c[1] + 9 / s, (g.allM ? '' : '≈') + m2(g.area) + ' м²', 11.5, 'pa' + (g.status === 'bad' ? ' bad' : ''));
       }
     });
-    const list = p.items.map((it) => ({ id: it.id, html: itemHtml(it, sel.t === 'item' && sel.i === it.id, !!cf.ids[it.id], s) }));
+    const tc = topChecks(), mk = (it) => ({ id: it.id, html: itemHtml(it, sel.t === 'item' && sel.i === it.id, !!(cf.ids[it.id] || tc.ids[it.id]), s) });
+    const list = p.items.filter((it) => !it.top).map(mk), listTop = p.showTop === false ? [] : p.items.filter((it) => it.top).map(mk);
     const it = sel.t === 'item' ? item(sel.i) : null;
     if (it) {
       G.itemClearances(it, geoms).forEach((q) => {
@@ -215,12 +256,13 @@ var PL = (function () {
       });
       if (!st.drag || st.drag.mode !== 'item') {   // the two nearest objects, edge to edge (chairs included)
         const H = hullish(G.footprint(it)), bb = G.itemBBox(it), near = [];
-        p.items.forEach((o) => { if (o.id === it.id) return; const ob = G.itemBBox(o); if (ob.x0 > bb.x1 + 15000 || ob.x1 < bb.x0 - 15000 || ob.y0 > bb.y1 + 15000 || ob.y1 < bb.y0 - 15000) return; const cl = closest(H, hullish(G.footprint(o))); if (cl.d > 0.5) near.push(cl); });
+        p.items.forEach((o) => { if (o.id === it.id || !!o.top !== !!it.top) return; const ob = G.itemBBox(o); if (ob.x0 > bb.x1 + 15000 || ob.x1 < bb.x0 - 15000 || ob.y0 > bb.y1 + 15000 || ob.y1 < bb.y0 - 15000) return; const cl = closest(H, hullish(G.footprint(o))); if (cl.d > 0.5) near.push(cl); });
         near.sort((a, b) => a.d - b.d).slice(0, 2).forEach((cl) => { over += '<line class="pnb" x1="' + n1(cl.a[0]) + '" y1="' + n1(cl.a[1]) + '" x2="' + n1(cl.b[0]) + '" y2="' + n1(cl.b[1]) + '"/>'; labels += text((cl.a[0] + cl.b[0]) / 2, (cl.a[1] + cl.b[1]) / 2, fl(cl.d), 11, 'pnb-t'); });
       }
       /* handles: size at the corners, a ring to turn */
       const hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2, W = (x, y) => G.toWorld(it, x, y), r = 5.5 / s;
-      if (it.shape === 'round') { const q = W(hw, 0); hnd += sq('phd', 'z|' + it.id + '|r', q[0], q[1], r); }
+      if (it.kind === 'hook') {}   // a hanging point has no size
+      else if (it.shape === 'round') { const q = W(hw, 0); hnd += sq('phd', 'z|' + it.id + '|r', q[0], q[1], r); }
       else { [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((k, j) => { const q = W(k[0] * hw, k[1] * hd); hnd += sq('phd', 'z|' + it.id + '|' + j, q[0], q[1], r); });
         const t0 = W(0, -hd), t1 = W(0, -hd - 34 / s); hnd += '<line class="prl" x1="' + n1(t0[0]) + '" y1="' + n1(t0[1]) + '" x2="' + n1(t1[0]) + '" y2="' + n1(t1[1]) + '"/>' + handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }
     }
@@ -237,7 +279,7 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
-    set('pgrid', gridSvg()); set('pbody', fill + walls); syncItems(list); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
+    set('pgrid', gridSvg()); set('pbody', fill + walls); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
     const em = document.getElementById('pempty'); if (em) em.hidden = p.rooms.length > 0 || !!st.draw || p.items.length > 0;
     const bn = document.getElementById('pbanner'); if (bn) { const b = banner(); bn.hidden = !b; if (bn._h !== b) { bn.innerHTML = b; bn._h = b; } }
@@ -441,6 +483,7 @@ var PL = (function () {
       P().items.push(it); st.tool = null; st.sel = { t: 'item', i: it.id }; label('колонна');
     } else if (tool.indexOf('it:') === 0) {
       const it = addTable(G.makeItem(tool.slice(3), r10(p[0]), r10(p[1]))); st.placed = (st.placed || 0) + 1; st.sel = { t: 'item', i: it.id };
+      if (it.kind === 'ceil') it.h = G.ceilingAt(P(), [it.x, it.y]);
       label(G.CAT[it.ref].label + (it.num != null ? ' №' + it.num : ''));   // the tool stays on: tap again for one more
     } else if (tool.indexOf('combo:') === 0) {
       const out = combo(tool.slice(6), p); st.tool = null; st.sel = { t: 'item', i: out[0].id }; label((tool.slice(6) === 'P' ? 'П' : 'Т') + '-образный стол');
@@ -478,6 +521,8 @@ var PL = (function () {
     switch (name) {
       case 'mode': setMode(v); return;
       case 'ptool': st.placed = 0; st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
+      case 'layer': st.layer = v === 'top' ? 'top' : 'floor'; st.tool = null; UI.fly = false; if (st.sel && st.sel.t === 'item') { const it = item(st.sel.i); if (it && !!it.top !== (st.layer === 'top')) st.sel = null; } if (st.layer === 'top' && P().showTop === false) P().showTop = true; render(); return;
+      case 'showtop': P().showTop = v === '1'; if (!P().showTop && st.layer === 'top') st.layer = 'floor'; label(P().showTop ? 'верхний слой показан' : 'верхний слой скрыт'); return;
       case 'pfly': UI.pgroup = v; UI.fly = !(UI.fly && UI.pgroup === v); render(); return;
       case 'fly-pick': {
         const g = a.dataset.g; UI.fly = false;
@@ -488,7 +533,7 @@ var PL = (function () {
           st.tool = 'op:' + v; render(); return;
         }
         if (g === 'col') { st.tool = 'col:' + v; render(); return; }
-        if (g === 'tables' || g === 'zones') { st.placed = 0; st.tool = (v === 'P' || v === 'T') ? 'combo:' + v : 'it:' + v; render(); return; }
+        if (g === 'tables' || g === 'zones' || g === 'ceil' || g === 'rig' || g === 'light' || g === 'cdeco') { st.placed = 0; st.tool = (v === 'P' || v === 'T') ? 'combo:' + v : 'it:' + v; render(); return; }
         return;
       }
       case 'draw-done': finishDraw(); return;
@@ -534,6 +579,7 @@ var PL = (function () {
     const base = o.type === 'window' ? (o.sill === 0 && o.w >= 2000 ? 'Панорамное окно' : 'Окно') : o.type === 'open' ? 'Проём без двери' : o.exit ? 'Аварийный выход' : o.leaves === 2 ? 'Двустворчатая дверь' : 'Дверь';
     return base + ' ' + G.nf(o.w / 10, 0);
   }
+  function topName(it) { if (!it) return ''; return it.kind === 'table' && !it.stand && it.num != null ? 'Стол №' + it.num : G.itemLabel(it); }
   function curOp() { const r = selRoom(), s = st.sel; if (!r || !s || s.t !== 'op') return null; const w = r.walls[wallIx(r, s.w)]; return w && w.ops.find((o) => o.id === s.o); }
   function focusLen() { setTimeout(() => { const n = document.getElementById('pl-wlen'); if (n && window.matchMedia && matchMedia('(pointer:fine)').matches) { n.focus(); n.select(); } }, 30); }
   /* values typed into the plan's fields */
@@ -556,6 +602,10 @@ var PL = (function () {
         G.clampOpening(op, L); label('проём: размеры'); return; }
       case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; it[path.slice(3)] = G.clamp(v, 50, 60000); if (it.shape === 'round') it.d = it.w; label('размер — ' + G.itemLabel(it)); return; }
       case 'it.rot': { const it = item(s.i); if (!it) return; const a = parseFloat(String(raw).replace(',', '.')); if (!isFinite(a)) { render(); return; } it.rot = G.normDeg(a); label('поворот — ' + G.itemLabel(it)); return; }
+      case 'it.h': { const it = item(s.i); if (!it) return; if (String(raw).trim() === '') { it.h = null; label('высота — от потолка'); return; } const v = len(); if (v === null) return; if (v < 100 || v > 30000) { toast('Высота — от 0,1 до 30 м.'); render(); return; } it.h = v; label('высота — ' + G.itemLabel(it)); return; }
+      case 'it.sh': { const it = item(s.i); if (!it) return; const v = String(raw).trim() === '0' ? 0 : len(); if (v === null) return; it.h = G.clamp(v, 0, 3000); label('высота сцены'); return; }
+      case 'it.load': { const it = item(s.i); if (!it) return; if (String(raw).trim() === '') { it.load = null; label('нагрузка'); return; } const v = parseFloat(String(raw).replace(',', '.')); if (!(v > 0 && v < 100000)) { toast('Нагрузка — число в килограммах.'); render(); return; } it.load = Math.round(v); label('нагрузка ' + it.load + ' кг'); return; }
+      case 'p.minClear': { const v = len(); if (v === null) return; if (v < 1000 || v > 6000) { toast('От 1 до 6 м.'); render(); return; } P().minClear = v; label('минимум над гостями'); return; }
       case 'it.num': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10); if (String(raw).trim() === '') { delete it.num; label('номер стола убран'); return; } if (!(v >= 1 && v <= 999)) { toast('Номер стола — от 1 до 999.'); render(); return; }
         const dup = P().items.find((o) => o !== it && o.kind === 'table' && +o.num === v); it.num = v; label('номер стола ' + v); if (dup) toast('Номер ' + v + ' уже есть у другого стола — проверьте.'); return; }
       case 'it.name': { const it = item(s.i); if (!it) return; it.name = String(raw).trim().slice(0, 60); label('подпись'); return; }
@@ -612,13 +662,14 @@ var PL = (function () {
   /* ---------- panels ---------- */
   const tb = (attrs, ico, title, on, fly) => '<button type="button" class="tb' + (fly ? ' hasfly' : '') + '" ' + attrs + ' aria-pressed="' + !!on + '" title="' + title + '" aria-label="' + title + '">' + ico + (fly ? '<i class="tri" aria-hidden="true"></i>' : '') + '</button>';
   function vTools() {
-    let h = tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + '<hr>';
-    TOOLS.forEach((t) => { h += tb('data-pact="pfly" data-v="' + t[0] + '" data-ptool="' + t[0] + '" data-tool="p' + t[0] + '"', ICO[t[1]], t[2] + ': ' + t[3], UI.fly && UI.pgroup === t[0], true); });
+    let h = '<div class="plyr" role="group" aria-label="Слой плана"><button type="button" data-pact="layer" data-v="floor" aria-pressed="' + (st.layer === 'floor') + '" title="Пол: стены, двери, столы, зоны">Пол</button><button type="button" data-pact="layer" data-v="top" aria-pressed="' + (st.layer === 'top') + '" title="Верх: потолок, подвес, свет, декор под потолком">Верх</button></div>' +
+      tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + '<hr>';
+    (st.layer === 'top' ? TOOLS_TOP : TOOLS).forEach((t) => { h += tb('data-pact="pfly" data-v="' + t[0] + '" data-ptool="' + t[0] + '" data-tool="p' + t[0] + '"', ICO[t[1]], t[2] + ': ' + t[3], UI.fly && UI.pgroup === t[0], true); });
     h += '<hr>' + tb('data-pact="ptool" data-v="ruler"', ICO.pruler, 'Линейка (R)', st.tool === 'ruler');
     return h;
   }
   function vFly() {
-    const g = UI.pgroup || 'room', t = TOOLS.find((x) => x[0] === g) || TOOLS[0];
+    const g = UI.pgroup || 'room', t = TOOLS.concat(TOOLS_TOP).find((x) => x[0] === g) || TOOLS[0];
     return '<div class="fh"><b>' + t[2] + '</b><small>' + t[3] + '</small><button type="button" class="fx" data-pact="pfly" data-v="' + g + '" aria-label="Закрыть">' + U.ico.x + '</button></div><div class="flist">' +
       FLY[g].map((x) => '<button type="button" class="frow pfrow" data-pact="fly-pick" data-g="' + g + '" data-v="' + x[0] + '"><span class="pfn">' + esc(x[1]) + '</span><small>' + esc(x[2]) + '</small></button>').join('') + '</div>';
   }
@@ -649,6 +700,17 @@ var PL = (function () {
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
       }
       const r = selRoom();
+      if (s.t === 'item' && item(s.i) && item(s.i).top) {
+        const it = item(s.i), c = G.CAT[it.ref] || {}, h0 = G.topH(p, it), ceil = G.ceilingAt(p, [it.x, it.y]), round = it.shape === 'round';
+        const warn = topChecks().list.filter((q) => q.a === it.id).map((q) => q.t === 'above' ? 'Выше потолка: ' + fs(q.h) + ' при потолке ' + fs(q.ceil) + ' ' + uLab() + '.' : 'Низ на ' + fs(q.h) + ' ' + uLab() + ' над «' + topName(item(q.b)) + '»: остаётся ' + fs(q.clear) + ' ' + uLab() + ', меньше ' + fs(q.min) + '.');
+        const auto = !(+it.h > 0), body = grp(c.label ? G.itemLabel(it) : 'Объект', fld('it.name', 'Подпись', it.name, { cls: 'full', ph: G.itemLabel(Object.assign({}, it, { name: '' })) }) +
+          (it.kind === 'hook' ? '' : fld('it.w', (round ? 'Диаметр' : 'Длина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', 'Ширина, ' + uLab(), fs(it.d)) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)))) +
+          fld('it.h', (c.hl || 'Высота') + ', ' + uLab(), auto ? '' : fs(it.h), { cls: 'full', ph: 'авто: ' + fs(h0) + (it.kind === 'ceil' ? '' : ' (потолок ' + fs(ceil) + (c.dh ? ' − ' + fs(-c.dh) : '') + ')') }) +
+          (it.kind === 'hook' || it.kind === 'truss' ? fld('it.load', 'Допустимая нагрузка, кг', it.load || '', { cls: 'full', ph: 'если знаете — от зала или по паспорту' }) : '') +
+          '<p class="muted small full">' + (it.kind === 'ceil' ? 'Внутри этой зоны потолок такой высоты — по нему считаются подвес, свет и декор.' : 'Потолок здесь ' + fs(ceil) + ' ' + uLab() + '. ' + (auto ? 'Высота сейчас считается от потолка — впишите свою, если знаете точно.' : 'Высота вписана вручную; сотрите, чтобы считать от потолка.')) + '</p>');
+        return '<div class="phead"><h3>' + esc(G.itemLabel(it)) + '</h3></div>' + (warn.length ? note('bad', warn.join(' ')) : '') + body +
+          '<div class="pacts">' + btn('it-dup', 'Дублировать') + btn('it-del', 'Удалить', { cls: 'dng' }) + '</div>';
+      }
       if (s.t === 'item') {
         const it = item(s.i), gs = p.rooms.map(G.roomGeom), cl = G.itemClearances(it, gs), cfl = conflicts().list.filter((q) => q.a === it.id || q.b === it.id);
         const isT = it.kind === 'table', isC = it.kind === 'column', round = it.shape === 'round';
@@ -661,7 +723,7 @@ var PL = (function () {
           fld('it.w', (round ? 'Диаметр' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', 'Глубина, ' + uLab(), fs(it.d || it.w)) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 1))));
         else {
           body += grp(isT ? 'Стол' : 'Объект', (isT && !it.stand ? fld('it.num', 'Номер стола', it.num != null ? it.num : '') : '') + fld('it.name', 'Подпись', it.name, { cls: isT && !it.stand ? '' : 'full', ph: G.itemLabel(Object.assign({}, it, { name: '' })) }) +
-            fld('it.w', (round ? 'Диаметр' : it.shape === 'oval' ? 'Длина' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', (it.shape === 'oval' ? 'Ширина' : 'Глубина') + ', ' + uLab(), fs(it.d))) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)) +
+            fld('it.w', (round ? 'Диаметр' : it.shape === 'oval' ? 'Длина' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', (it.shape === 'oval' ? 'Ширина' : 'Глубина') + ', ' + uLab(), fs(it.d))) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)) + ((G.CAT[it.ref] || {}).sub === 'stage' ? fld('it.sh', 'Высота сцены, ' + uLab(), fs(+it.h || 0)) : '') +
             '<p class="muted small full">Размер — тянуть за квадратики по углам, поворот — за кружок сверху.</p>');
           if (isT && !it.stand) body += grp('Стулья — ' + G.seatCount(it) + ' мест', it.shape === 'rect'
             ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => '<label class="fld"><span class="fl">' + nm + '</span><span class="stp"><button type="button" class="sb" data-pact="it-side" data-k="' + k + '" data-v="-1" aria-label="Меньше">−</button><input type="text" inputmode="numeric" data-pbind="it.side' + k + '" value="' + ((it.sides || [])[k] || 0) + '"><button type="button" class="sb" data-pact="it-side" data-k="' + k + '" data-v="1" aria-label="Больше">+</button></span></label>').join('') + '<p class="muted small full">«Сверху» и «снизу» — длинные стороны стола (до поворота).</p>'
@@ -730,8 +792,8 @@ var PL = (function () {
       r.walls.forEach((w, i) => (w.ops || []).forEach((o) => { h += '<button type="button" class="prow sub' + (s.o === o.id ? ' on' : '') + '" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">' + G.wallName(r, i) + '</span></button>'; }));
     });
     p.items.slice().sort((a, b) => (a.kind === 'table' ? 0 : 1) - (b.kind === 'table' ? 0 : 1) || (+a.num || 0) - (+b.num || 0)).forEach((it) => {
-      const lab = it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
-      h += '<button type="button" class="prow' + (s.i === it.id ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + (cf.ids[it.id] ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>';
+      const lab = it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
+      h += '<button type="button" class="prow' + (s.i === it.id ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>';
     });
     return h + '</div>';
   }
@@ -741,12 +803,15 @@ var PL = (function () {
     const cf = conflicts().list, nm = (id) => { const it = item(id); return it ? (it.kind === 'table' && it.num != null && !it.stand ? 'Стол №' + it.num : G.itemLabel(it)) : ''; };
     cf.forEach((q) => { const t = q.t === 'wall' ? nm(q.a) + ' заходит на стену.' : q.t === 'outside' ? nm(q.a) + ' стоит вне помещения.' : q.t === 'door' ? nm(q.a) + ' — в зоне открывания двери.' : nm(q.a) + ' и ' + nm(q.b) + ' пересекаются.';
       h += '<button type="button" class="prow chk" data-pact="sel" data-sel="i|' + q.a + '"><i class="cdot bad"></i><span>' + esc(t) + '</span></button>'; });
+    topChecks().list.forEach((q) => { const it = item(q.a), t = q.t === 'above' ? G.itemLabel(it) + ' выше потолка (' + fs(q.h) + ' при потолке ' + fs(q.ceil) + ' ' + uLab() + ').' : G.itemLabel(it) + ': низ ' + fs(q.h) + ' над «' + topName(item(q.b)) + '» — остаётся ' + fs(q.clear) + ', меньше ' + fs(q.min) + ' ' + uLab() + '.';
+      h += '<button type="button" class="prow chk" data-pact="sel" data-sel="i|' + q.a + '"><i class="cdot bad"></i><span>' + esc(t) + '</span></button>'; });
     if (p.warn === false) h += '<p class="muted small pad">Предупреждения о столкновениях выключены в настройках плана.</p>';
-    else if (p.items.length && !cf.length) h += '<p class="muted small pad">Объекты не заходят на стены, не стоят в дверях и не пересекаются.</p>';
+    else if (p.items.length && !cf.length && !topChecks().list.length) h += '<p class="muted small pad">Объекты не заходят на стены, не стоят в дверях и не пересекаются; верхний слой не ниже ' + fs(p.minClear || 2200) + ' ' + uLab() + ' над гостями.</p>';
     return h + '</div>';
   }
   function vSettings() { const p = P(); U.inDock = true; try { return '<div class="pad">' + '<div class="fld"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h)) +
-    '<div class="fld"><span class="fl">Столкновения</span>' + seg([['1', 'да'], ['0', 'нет']], p.warn === false ? '0' : '1', 'warn') + '</div></div>'; } finally { U.inDock = false; } }
+    '<div class="fld"><span class="fl">Столкновения</span>' + seg([['1', 'да'], ['0', 'нет']], p.warn === false ? '0' : '1', 'warn') + '</div>' + fld('p.minClear', 'Мин. над гостями, ' + uLab(), fs(p.minClear || 2200)) +
+    '<div class="fld"><span class="fl">Верхний слой</span>' + seg([['1', 'показан'], ['0', 'скрыт']], p.showTop === false ? '0' : '1', 'showtop') + '</div><p class="muted small">«Мин. над гостями» — ниже этой высоты декор и свет над столами, танцполом и сценой подсвечиваются. Цифра ваша: 2,2 м стоит по умолчанию.</p></div>'; } finally { U.inDock = false; } }
   function vOptbar() {
     const s = st.sel;
     if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
@@ -754,6 +819,8 @@ var PL = (function () {
     const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
     const of = (bind, lab, val, t) => '<label class="nf" title="' + t + '"><b>' + lab + '</b><input type="text" inputmode="decimal" autocomplete="off" data-pbind="' + bind + '" value="' + esc(val) + '"></label>';
     const x = ib('clear', 'x', 'Снять выделение (Esc)');
+    if (s.t === 'item' && item(s.i) && item(s.i).top) { const it = item(s.i), round = it.shape === 'round';
+      return '<span class="onm">' + esc(G.itemLabel(it)) + '</span><span class="sep"></span>' + (it.kind === 'hook' ? '' : of('it.w', round ? 'Ø' : 'Д', fs(it.w), uLab())) + of('it.h', 'h', +it.h > 0 ? fs(it.h) : '', 'Высота, ' + uLab() + ' (пусто — от потолка: ' + fs(G.topH(P(), it)) + ')') + '<span class="ohint">' + (+it.h > 0 ? 'высота вручную' : 'от потолка: ' + fs(G.topH(P(), it))) + '</span><span class="sp"></span>' + ib('it-dup', 'copy', 'Дублировать (Ctrl+D)') + ib('it-del', 'del', 'Удалить (Del)', 'dng') + x; }
     if (s.t === 'item') { const it = item(s.i), round = it.shape === 'round';
       return '<span class="onm">' + esc(it.kind === 'table' && !it.stand && it.num != null ? 'Стол №' + it.num : G.itemLabel(it)) + '</span><span class="sep"></span>' + of('it.w', round ? 'Ø' : 'Ш', fs(it.w), (round ? 'Диаметр, ' : 'Ширина, ') + uLab()) + (round ? '' : of('it.d', 'Г', fs(it.d || it.w), 'Глубина, ' + uLab())) + (round && it.kind === 'column' ? '' : of('it.rot', '⟳', G.nf(it.rot || 0, 0), 'Поворот, °')) +
         (it.kind === 'table' && !it.stand ? '<span class="ohint">' + G.seatCount(it) + ' мест</span>' : '') + '<span class="sp"></span>' + (it.kind === 'column' ? '' : ib('it-dup', 'copy', 'Дублировать (Ctrl+D)')) + ib('it-del', 'del', 'Удалить (Del)', 'dng') + x; }
@@ -766,12 +833,12 @@ var PL = (function () {
     return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span>' + of('w.len', 'Длина', fl(r.walls[i].m ? r.walls[i].len : g.lens[i]), 'Длина, ' + uLab()) + '<span class="ohint">' + (r.walls[i].m ? 'точно' : '≈ примерно') + ' · тяните точку на стене · двойное касание — новый угол</span><span class="sp"></span>' + x;
   }
   function vStatbar() {
-    const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial, tt = G.totals(P()), cf = conflicts().list.length;
+    const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial, tt = G.totals(P()), cf = conflicts().list.length + topChecks().list.length;
     return '<span class="zm"><button type="button" class="ib s" data-pact="zout" title="Отдалить" aria-label="Отдалить">' + U.ico.zout + '</button><button type="button" class="zl" id="pzlbl" data-pact="zfit" title="Вписать план">' + zoomText() + '</button><button type="button" class="ib s" data-pact="zin" title="Приблизить" aria-label="Приблизить">' + U.ico.zin + '</button><button type="button" class="ib s" data-pact="zfit" title="Вписать план" aria-label="Вписать план">' + U.ico.fit + '</button></span>' +
       (sm.rooms ? '<span>площадь ' + (warn || bad ? '≈' : '') + m2(sm.area) + ' м²</span>' : '<span>помещений 0</span>') + (tt.tables || tt.stand ? '<span><b>столов ' + tt.tables + ' · мест ' + tt.seats + '</b>' + (tt.stand ? ' · коктейльных ' + tt.stand : '') + '</span>' : '') +
-      (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'столкновений: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
+      (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'замечаний: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
   }
-  const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g></svg>' +
+  const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="ptop"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g></svg>' +
     '<div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
     '<div id="pempty" class="pempty2" hidden><div><b>План зала пуст</b><span>Начните с формы зала, потом впишите замеры стен — как с лазерной рулетки.</span><div class="pacts">' +
     '<button type="button" class="btn sm pri" data-pact="fly-pick" data-g="room" data-v="rect">Прямоугольный зал</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="L">Г-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="U">П-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="draw">Нарисовать по углам</button></div></div></div>';
