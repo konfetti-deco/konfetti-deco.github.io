@@ -1,0 +1,33 @@
+{
+  "id": "./",
+  "name": "Konfetti Deco",
+  "short_name": "Konfetti Deco",
+  "description": "Конструктор фотозон: сцена, смета, чертежи и предложение клиенту",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1E1F21",
+  "theme_color": "#2A2C2F",
+  "lang": "ru",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
