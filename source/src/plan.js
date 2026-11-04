@@ -1,0 +1,619 @@
+/* ===== plan.js — the «План» mode: the floor plan on screen, touch editing, and its panels.
+   The plan lives in S.plan (so it is saved, synced and undone together with the scenes); the geometry is PG (plancore.js).
+   Drawing is in millimetres inside one SVG group; panning and pinching move that group without rebuilding it,
+   a full repaint follows when the gesture ends. ===== */
+var PL = (function () {
+  'use strict';
+  const G = PG;
+  const ICO = {
+    psel: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>',
+    proom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 4h16v10h-7v6H4z"/><path d="M4 4l3 3M20 4l-3 3" stroke-width="1.2"/></svg>',
+    pdoor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 20h4M17 20h4"/><path d="M7 20V8"/><path d="M7 8a12 12 0 0 1 10 12" stroke-dasharray="2 2.4"/></svg>',
+    pcol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="4"/><rect x="14" y="8" width="7" height="8" rx="1"/></svg>',
+    pruler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2" stroke-linecap="round"/></svg>',
+    phand: null,
+  };
+  const TOOLS = [['room', 'proom', 'Помещение', 'прямоугольник, Г, П, по углам'], ['open', 'pdoor', 'Двери и окна', 'дверь, двустворчатая, выход, окна'], ['col', 'pcol', 'Колонна', 'круглая, квадратная']];
+  const FLY = {
+    room: [['rect', 'Прямоугольный зал', '12 × 8 м, потом впишите замеры'], ['L', 'Г-образный зал', '12 × 9 м'], ['U', 'П-образный зал', '15 × 10 м'], ['draw', 'Нарисовать по углам', 'коснитесь углов по порядку']],
+    open: Object.keys(G.OPENINGS).map((k) => [k, G.OPENINGS[k].label, G.OPENINGS[k].type === 'window' ? 'окно' : G.OPENINGS[k].type === 'open' ? 'без полотна' : 'с полотном']),
+    col: [['round', 'Колонна круглая Ø400', 'размер меняется в свойствах'], ['rect', 'Колонна квадратная 400×400', 'размер меняется в свойствах']],
+  };
+
+  /* ---------- state that is not saved: view, selection, tool ---------- */
+  const st = { v: null, sel: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
+  function P() { if (!S.plan) S.plan = G.newPlan(); return S.plan; }
+  function unit() { return P().unit || 'm'; }
+  function uLab() { return G.UNIT[unit()].ru; }
+  function fl(mm) { return G.fmtLen(mm, unit()); }
+  /* a short form for heights and sizes: no trailing zeros */
+  function fs(mm) { let s = fl(mm); if (s.indexOf(',') >= 0) s = s.replace(/0+$/, '').replace(/,$/, ''); return s; }
+  function m2(a) { return G.nf(a / 1e6, 2); }
+  function room(id) { return P().rooms.find((r) => r.id === id) || null; }
+  function item(id) { return P().items.find((r) => r.id === id) || null; }
+  function wallIx(r, wid) { return r ? r.walls.findIndex((w) => w.id === wid) : -1; }
+  function selRoom() { return st.sel && st.sel.r ? room(st.sel.r) : null; }
+  function validate() {
+    const s = st.sel; if (!s) return;
+    if (s.t === 'item') { if (!item(s.i)) st.sel = null; return; }
+    const r = room(s.r); if (!r) { st.sel = null; return; }
+    if (s.t === 'wall' || s.t === 'op') { const i = wallIx(r, s.w); if (i < 0) { st.sel = { t: 'room', r: r.id }; return; }
+      if (s.t === 'op' && !(r.walls[i].ops || []).some((o) => o.id === s.o)) st.sel = { t: 'wall', r: r.id, w: s.w }; }
+    if (s.t === 'corner' && !(s.c >= 0 && s.c < r.walls.length)) st.sel = { t: 'room', r: r.id };
+  }
+  function label(txt) { UI.nextLabel = 'План: ' + txt; commit(); }
+
+  /* ---------- view ---------- */
+  function host() { return document.getElementById('planhost'); }
+  function svg() { return document.getElementById('plan'); }
+  function fit(force) {
+    const h = host(); if (!h) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const bb = G.planBBox(P()) || { x0: -1000, y0: -1000, x1: 15000, y1: 10000, w: 16000, h: 11000 };
+    const mx = Math.max(bb.w * 0.12, 1200), my = Math.max(bb.h * 0.12, 1200), bw = bb.w + 2 * mx, bh = bb.h + 2 * my;
+    const s = G.clamp(Math.min(W / bw, H / bh), 0.004, 1.2);
+    st.v = { s, x: bb.x0 - mx - (W / s - bw) / 2, y: bb.y0 - my - (H / s - bh) / 2 };
+    st.lastW = W; st.lastH = H;
+  }
+  function ensureView() { const h = host(); if (!h) return; if (!st.v || (h.clientWidth && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2) && !st.v.user)) fit(); }
+  function applyView() { const g = document.getElementById('pvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('pzlbl'); if (z) z.textContent = zoomText(); }
+  function zoomText() { if (!st.v) return ''; const px = st.v.s * 1000; return px >= 10 ? '1 м = ' + Math.round(px) + ' пикс.' : '1 м = ' + px.toFixed(1) + ' пикс.'; }
+  function toMM(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
+  function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.004, 1.2); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); laterRepaint(); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+  function laterRepaint() { clearTimeout(st.repaint); st.repaint = setTimeout(() => { paint(); }, 140); }
+
+  /* ---------- painting ---------- */
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const n1 = (v) => Math.round(v * 10) / 10;
+  const pts = (a) => a.map((q) => n1(q[0]) + ',' + n1(q[1])).join(' ');
+  function upright(deg) { let r = G.normDeg(deg); if (r >= 90) r -= 180; else if (r < -90) r += 180; return r; }
+  function text(x, y, str, px, cls, rot, anchor) {
+    const s = st.v.s, fz = px / s;
+    return '<text class="' + cls + '" x="' + n1(x) + '" y="' + n1(y) + '" font-size="' + n1(fz) + '" stroke-width="' + n1(3.2 / s) + '" text-anchor="' + (anchor || 'middle') + '" dominant-baseline="central"' + (rot ? ' transform="rotate(' + n1(rot) + ' ' + n1(x) + ' ' + n1(y) + ')"' : '') + '>' + esc(str) + '</text>';
+  }
+  function gridSvg() {
+    const h = host(), v = st.v, W = h.clientWidth / v.s, H = h.clientHeight / v.s;
+    const steps = [100, 250, 500, 1000, 2000, 5000, 10000, 20000];
+    let minor = steps.find((q) => q * v.s >= 14) || 20000; const major = minor >= 1000 ? minor * 5 : 1000;
+    const x0 = Math.floor((v.x - W) / minor) * minor, x1 = v.x + 2 * W, y0 = Math.floor((v.y - H) / minor) * minor, y1 = v.y + 2 * H;
+    let a = '', b = '';
+    if ((x1 - x0) / minor > 600 || (y1 - y0) / minor > 600) return '';
+    for (let x = x0; x <= x1; x += minor) { const l = '<line x1="' + x + '" y1="' + y0 + '" x2="' + x + '" y2="' + y1 + '"/>'; if (Math.round(x) % major === 0) b += l; else a += l; }
+    for (let y = y0; y <= y1; y += minor) { const l = '<line x1="' + x0 + '" y1="' + y + '" x2="' + x1 + '" y2="' + y + '"/>'; if (Math.round(y) % major === 0) b += l; else a += l; }
+    return '<g class="pg1">' + a + '</g><g class="pg2">' + b + '</g>';
+  }
+  function opSvg(A, u, nO, op, L, cls) {
+    const nI = [-nO[0], -nO[1]], s = st.v.s, j = 9 / s, t0 = G.clamp(op.off, 0, L), t1 = G.clamp(op.off + op.w, 0, L);
+    const at = (t) => [A[0] + u[0] * t, A[1] + u[1] * t], P0 = at(t0), P1 = at(t1);
+    let h = '';
+    for (const q of [P0, P1]) h += '<line class="pj ' + cls + '" x1="' + n1(q[0] - nO[0] * j) + '" y1="' + n1(q[1] - nO[1] * j) + '" x2="' + n1(q[0] + nO[0] * j) + '" y2="' + n1(q[1] + nO[1] * j) + '"/>';
+    if (op.type === 'door') {
+      const sw = op.out ? nO : nI, leaves = op.leaves === 2 ? [[P0, P1, (t1 - t0) / 2], [P1, P0, (t1 - t0) / 2]] : [[op.flip ? P1 : P0, op.flip ? P0 : P1, t1 - t0]];
+      for (const [hinge, other, r] of leaves) {
+        const leaf = [hinge[0] + sw[0] * r, hinge[1] + sw[1] * r];
+        h += '<line class="pdl ' + cls + '" x1="' + n1(hinge[0]) + '" y1="' + n1(hinge[1]) + '" x2="' + n1(leaf[0]) + '" y2="' + n1(leaf[1]) + '"/>';
+        const a0 = Math.atan2(other[1] - hinge[1], other[0] - hinge[0]), a1 = Math.atan2(sw[1], sw[0]);
+        let da = a1 - a0; while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        const arc = []; for (let k = 0; k <= 14; k++) { const an = a0 + da * k / 14; arc.push([hinge[0] + Math.cos(an) * r, hinge[1] + Math.sin(an) * r]); }
+        h += '<polyline class="pda ' + cls + '" points="' + pts(arc) + '"/>';
+      }
+      if (op.exit) { const m = at((t0 + t1) / 2), side = op.out ? nI : nO, o = 14 / s; h += text(m[0] + side[0] * o, m[1] + side[1] * o, 'ВЫХОД', 10.5, 'pex', 0); }   // on the side away from the leaves
+    } else if (op.type === 'window') {
+      for (const k of [-1, 0, 1]) h += '<line class="pwn ' + cls + '" x1="' + n1(P0[0] + nO[0] * j * 0.7 * k) + '" y1="' + n1(P0[1] + nO[1] * j * 0.7 * k) + '" x2="' + n1(P1[0] + nO[0] * j * 0.7 * k) + '" y2="' + n1(P1[1] + nO[1] * j * 0.7 * k) + '"/>';
+    } else {
+      h += '<line class="pop ' + cls + '" x1="' + n1(P0[0]) + '" y1="' + n1(P0[1]) + '" x2="' + n1(P1[0]) + '" y2="' + n1(P1[1]) + '"/>';
+    }
+    return h;
+  }
+  function paint() {
+    const sv = svg(); if (!sv || UI.mode !== 'plan') return;
+    validate(); ensureView(); if (!st.v) return;
+    const s = st.v.s, p = P(), sel = st.sel || {}, geoms = p.rooms.map(G.roomGeom);
+    let fill = '', items = '', walls = '', labels = '', hit = '', over = '';
+    const boxes = p.items.map(G.itemBBox);
+    p.rooms.forEach((r, ri) => {
+      const g = geoms[ri], n = g.n, rs = sel.r === r.id && sel.t !== 'item';
+      fill += '<polygon class="prf' + (rs && sel.t === 'room' ? ' on' : rs ? ' half' : '') + '" data-r="r|' + r.id + '" points="' + pts(g.raw.slice(0, n)) + '"/>';
+      if (g.gap > 0.75) walls += '<line class="pgap" x1="' + n1(g.raw[n][0]) + '" y1="' + n1(g.raw[n][1]) + '" x2="' + n1(g.raw[0][0]) + '" y2="' + n1(g.raw[0][1]) + '"/>';
+      r.walls.forEach((w, i) => {
+        const A = g.raw[i], u = G.unitVec(g.dirs[i]), L = g.L[i], nO = G.outward(g, i), ws = rs && sel.w === w.id && (sel.t === 'wall' || sel.t === 'op');
+        const cls = ws && sel.t === 'wall' ? 'pw on' : w.m ? 'pw' : 'pw est', at = (t) => [A[0] + u[0] * t, A[1] + u[1] * t];
+        let cur = 0;
+        const seg = (t0, t1) => { if (t1 - t0 > 0.5) { const a = at(t0), b = at(t1); walls += '<line class="' + cls + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>'; } };
+        (w.ops || []).slice().sort((a, b) => a.off - b.off).forEach((op) => {
+          const t0 = G.clamp(op.off, 0, L), t1 = G.clamp(op.off + op.w, 0, L); seg(cur, t0); cur = Math.max(cur, t1);
+          const os = ws && sel.t === 'op' && sel.o === op.id;
+          walls += opSvg(A, u, nO, op, L, (os ? 'on' : '') + (op.exit ? ' exit' : ''));
+          const a = at(t0), b = at(t1);
+          hit += '<line class="ho" data-r="o|' + r.id + '|' + w.id + '|' + op.id + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
+        });
+        seg(cur, L);
+        const a = at(0), b = at(L);
+        hit = '<line class="hw" data-r="w|' + r.id + '|' + w.id + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>' + hit;
+        /* the wall's size goes into its widest free stretch, inside the room */
+        if (ws || L * s >= 46) {
+          const lab = G.wallLabelAt(w, L), m = at(lab.t), off = 15 / s;
+          labels += text(m[0] - nO[0] * off, m[1] - nO[1] * off, (w.m ? '' : '≈') + fl(g.lens[i]), 11.5, ws && sel.t === 'wall' ? 'pd on' : w.m ? 'pd' : 'pd est', upright(g.dirs[i]));
+        }
+      });
+      if (rs) {
+        for (let i = 0; i < n; i++) {
+          const a = G.outward(g, (i + n - 1) % n), b = G.outward(g, i); let bx = a[0] + b[0], by = a[1] + b[1]; const bl = G.hyp(bx, by) || 1; bx /= bl; by /= bl;
+          const v = g.raw[i], cs = sel.t === 'corner' && sel.c === i;
+          labels += text(v[0] + bx * 15 / s, v[1] + by * 15 / s, G.cornerName(i), 11, 'pc' + (cs ? ' on' : ''));
+          over += '<circle class="pcd' + (cs ? ' on' : '') + '" cx="' + n1(v[0]) + '" cy="' + n1(v[1]) + '" r="' + n1((cs ? 6 : 4.5) / s) + '"/>';
+          hit += '<circle class="hc" data-r="c|' + r.id + '|' + i + '" cx="' + n1(v[0]) + '" cy="' + n1(v[1]) + '" r="' + n1(13 / s) + '"/>';
+        }
+      }
+      const nm = r.name || ('Помещение ' + (ri + 1)), c = G.labelAvoid(g, Math.min(nm.length, 16) * 13 * 0.3 / s, 26 / s, boxes);
+      if (Math.min(g.bbox.w, g.bbox.h * 3) * s > 60) {
+        labels += text(c[0], c[1] - 9 / s, nm, 13.5, 'pn');
+        labels += text(c[0], c[1] + 9 / s, (g.allM ? '' : '≈') + m2(g.area) + ' м²', 11.5, 'pa' + (g.status === 'bad' ? ' bad' : ''));
+      }
+    });
+    p.items.forEach((it) => {
+      const is = sel.t === 'item' && sel.i === it.id, cls = 'pit col' + (is ? ' on' : '');
+      items += G.isRound(it) ? '<circle class="' + cls + '" data-r="i|' + it.id + '" cx="' + n1(it.x) + '" cy="' + n1(it.y) + '" r="' + n1(it.w / 2) + '"/>' : '<polygon class="' + cls + '" data-r="i|' + it.id + '" points="' + pts(G.itemCorners(it)) + '"/>';
+      if (is) G.itemClearances(it, geoms).forEach((q) => {
+        if (q.dist <= 0) return; over += '<line class="pcl" x1="' + n1(q.from[0]) + '" y1="' + n1(q.from[1]) + '" x2="' + n1(q.to[0]) + '" y2="' + n1(q.to[1]) + '"/>';
+        labels += text((q.from[0] + q.to[0]) / 2, (q.from[1] + q.to[1]) / 2, fl(q.dist), 11, 'pcl-t');
+      });
+    });
+    /* the sketch being drawn and the ruler */
+    if (st.draw && st.draw.pts.length) {
+      const d = st.draw, all = d.pts.concat(d.hover ? [d.hover] : []);
+      over += '<polyline class="pdr" points="' + pts(all) + '"/>';
+      d.pts.forEach((q, k) => { over += '<circle class="pdp' + (k === 0 ? ' first' : '') + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1((k === 0 ? 8 : 5) / s) + '"/>'; });
+      if (d.hover) { const a = d.pts[d.pts.length - 1], b = d.hover, L = G.hyp(b[0] - a[0], b[1] - a[1]); if (L > 1) labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, '≈' + fl(L), 12, 'pd on', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG)); }
+    }
+    if (st.ruler && st.ruler.b) {
+      const a = st.ruler.a, b = st.ruler.b, L = G.hyp(b[0] - a[0], b[1] - a[1]);
+      over += '<line class="pru" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>' + '<circle class="pdp" cx="' + n1(a[0]) + '" cy="' + n1(a[1]) + '" r="' + n1(4 / s) + '"/><circle class="pdp" cx="' + n1(b[0]) + '" cy="' + n1(b[1]) + '" r="' + n1(4 / s) + '"/>';
+      labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
+    }
+    const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
+    set('pgrid', gridSvg()); set('pbody', fill + items + walls); set('plab', labels); set('phit', hit); set('pover', over);
+    applyView();
+    const em = document.getElementById('pempty'); if (em) em.hidden = p.rooms.length > 0 || !!st.draw;
+    const bn = document.getElementById('pbanner'); if (bn) { const b = banner(); bn.hidden = !b; if (bn._h !== b) { bn.innerHTML = b; bn._h = b; } }
+    const wsm = document.getElementById('wsm'); if (wsm) wsm.classList.toggle('phand', st.tool === 'hand');
+  }
+  function banner() {
+    if (st.draw) return '<span>' + (st.draw.pts.length < 3 ? 'Коснитесь углов зала по порядку' : 'Ещё угол — или коснитесь первой точки, чтобы замкнуть') + ' · ' + st.draw.pts.length + ' т.</span>' +
+      (st.draw.pts.length ? '<button type="button" class="btn sm" data-pact="draw-back">Убрать точку</button>' : '') + (st.draw.pts.length >= 3 ? '<button type="button" class="btn sm pri" data-pact="draw-done">Готово</button>' : '') + '<button type="button" class="btn sm" data-pact="draw-cancel">Отмена</button>';
+    if (st.tool && st.tool.indexOf('op:') === 0) return '<span>Коснитесь стены, куда поставить: ' + esc(G.OPENINGS[st.tool.slice(3)].label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool && st.tool.indexOf('col:') === 0) return '<span>Коснитесь места для колонны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool === 'ruler') return '<span>Линейка: тяните от точки к точке' + (st.ruler && st.ruler.b ? ' · ' + fl(G.hyp(st.ruler.b[0] - st.ruler.a[0], st.ruler.b[1] - st.ruler.a[1])) + ' ' + uLab() : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
+    return '';
+  }
+
+  /* ---------- pointer ---------- */
+  function within(ev) { const sv = svg(); return UI.mode === 'plan' && UI.tab === 'con' && sv && ev.target && ev.target.closest && !!ev.target.closest('#plan'); }
+  function refOf(ev) { const n = ev.target.closest && ev.target.closest('[data-r]'); return n ? n.dataset.r.split('|') : null; }
+  /* snapping while sketching: angles to 15° steps, lengths to 50 mm; the first point to a 100 mm grid */
+  function snapDraw(p, prev, free) {
+    if (free) return p.map(Math.round);
+    if (!prev) return [Math.round(p[0] / 100) * 100, Math.round(p[1] / 100) * 100];
+    let dx = p[0] - prev[0], dy = p[1] - prev[1], L = G.hyp(dx, dy), a = Math.atan2(dy, dx) / G.DEG;
+    const r15 = Math.round(a / 15) * 15; if (Math.abs(a - r15) < 7) a = r15;
+    L = Math.max(50, Math.round(L / 50) * 50);
+    const u = G.unitVec(a); return [Math.round(prev[0] + u[0] * L), Math.round(prev[1] + u[1] * L)];
+  }
+  function nearestWall(p, maxPx) {
+    let best = null; const lim = maxPx / st.v.s;
+    P().rooms.forEach((r) => { const g = G.roomGeom(r); for (let i = 0; i < g.n; i++) { const A = g.raw[i], B = g.raw[i + 1], d = G.distSeg(p, A, B); if (d.d <= lim && (!best || d.d < best.d)) best = { r, i, t: d.t * g.L[i], d: d.d, L: g.L[i] }; } });
+    return best;
+  }
+  function down(ev) {
+    if (!within(ev)) return false;
+    ev.preventDefault();
+    st.tps[ev.pointerId] = [ev.clientX, ev.clientY];
+    const ids = Object.keys(st.tps);
+    if (ids.length === 2) {   // two fingers: pinch and pan
+      const a = st.tps[ids[0]], b = st.tps[ids[1]], r = svg().getBoundingClientRect();
+      st.drag = null; st.pinch = { d: G.hyp(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2 - r.left, cy: (a[1] + b[1]) / 2 - r.top, v: Object.assign({}, st.v) };
+      return true;
+    }
+    try { svg().setPointerCapture(ev.pointerId); } catch (e) {}
+    const p = toMM(ev), ref = refOf(ev), hand = st.tool === 'hand' || UI.spaceHand || ev.button === 1;
+    st.drag = { pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, p0: p, moved: false, mode: 'pan', v0: Object.assign({}, st.v), ref };
+    if (hand) return true;
+    if (st.draw) { st.drag.mode = 'draw'; return true; }
+    if (st.tool === 'ruler') { st.ruler = { a: snapPoint(p), b: null }; st.drag.mode = 'ruler'; return true; }
+    if (st.tool && (st.tool.indexOf('op:') === 0 || st.tool.indexOf('col:') === 0)) { st.drag.mode = 'place'; return true; }
+    if (!ref) return true;
+    const t = ref[0];
+    if (t === 'r') { st.drag.mode = 'room'; const r = room(ref[1]); st.drag.o = { x: r.x, y: r.y }; }
+    else if (t === 'i') { st.drag.mode = 'item'; const it = item(ref[1]); st.drag.o = { x: it.x, y: it.y }; }
+    else if (t === 'o') { st.drag.mode = 'op'; const r = room(ref[1]), i = wallIx(r, ref[2]), op = r.walls[i].ops.find((o) => o.id === ref[3]); const g = G.roomGeom(r), u = G.unitVec(g.dirs[i]), A = g.raw[i]; st.drag.o = { off: op.off, t0: (p[0] - A[0]) * u[0] + (p[1] - A[1]) * u[1] }; }
+    else st.drag.mode = 'tap';
+    return true;
+  }
+  function snapPoint(p) {   // the ruler sticks to corners
+    let best = null, lim = 14 / st.v.s;
+    P().rooms.forEach((r) => { G.roomGeom(r).raw.forEach((q) => { const d = G.hyp(q[0] - p[0], q[1] - p[1]); if (d < lim && (!best || d < best.d)) best = { q, d }; }); });
+    return best ? best.q.slice() : p.map(Math.round);
+  }
+  function move(ev) {
+    if (UI.mode !== 'plan') return false;
+    if (st.tps[ev.pointerId]) st.tps[ev.pointerId] = [ev.clientX, ev.clientY];
+    if (st.pinch) {
+      const ids = Object.keys(st.tps); if (ids.length < 2) return true;
+      const a = st.tps[ids[0]], b = st.tps[ids[1]], r = svg().getBoundingClientRect(), d = G.hyp(a[0] - b[0], a[1] - b[1]), cx = (a[0] + b[0]) / 2 - r.left, cy = (a[1] + b[1]) / 2 - r.top;
+      const v = st.pinch.v, mx = st.pinch.cx / v.s + v.x, my = st.pinch.cy / v.s + v.y, s = G.clamp(v.s * d / st.pinch.d, 0.004, 1.2);
+      st.v = { s, x: mx - cx / s, y: my - cy / s, user: true }; applyView(); return true;
+    }
+    const d = st.drag;
+    if (!d) { if (st.draw && within(ev)) { const p = toMM(ev); st.draw.hover = snapDraw(p, st.draw.pts[st.draw.pts.length - 1], ev.shiftKey); paint(); return true; } return false; }
+    if (ev.pointerId !== d.pid) return true;
+    const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+    if (!d.moved && G.hyp(dx, dy) < 5) return true;
+    d.moved = true;
+    const p = toMM(ev), mm = [p[0] - d.p0[0], p[1] - d.p0[1]];
+    if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' ? 'pan' : d.mode; applyView(); return true; }
+    if (d.mode === 'draw') { st.draw.hover = snapDraw(p, st.draw.pts[st.draw.pts.length - 1], ev.shiftKey); paint(); return true; }
+    if (d.mode === 'ruler') { st.ruler.b = ev.shiftKey ? p.map(Math.round) : snapPoint(p); paint(); return true; }
+    if (d.mode === 'room') { const r = room(d.ref[1]); r.x = Math.round((d.o.x + mm[0]) / 10) * 10; r.y = Math.round((d.o.y + mm[1]) / 10) * 10; st.sel = { t: 'room', r: r.id }; paint(); tip('X ' + fl(r.x) + ' · Y ' + fl(r.y)); return true; }
+    if (d.mode === 'item') { const it = item(d.ref[1]); it.x = Math.round((d.o.x + mm[0]) / 10) * 10; it.y = Math.round((d.o.y + mm[1]) / 10) * 10; st.sel = { t: 'item', i: it.id }; paint(); return true; }
+    if (d.mode === 'op') {
+      const r = room(d.ref[1]), i = wallIx(r, d.ref[2]), w = r.walls[i], op = w.ops.find((o) => o.id === d.ref[3]), g = G.roomGeom(r), u = G.unitVec(g.dirs[i]), A = g.raw[i];
+      const t = (p[0] - A[0]) * u[0] + (p[1] - A[1]) * u[1]; op.off = Math.round((d.o.off + t - d.o.t0) / 10) * 10; G.clampOpening(op, g.L[i]);
+      st.sel = { t: 'op', r: r.id, w: w.id, o: op.id }; paint(); tip('от ' + G.cornerName(i) + ': ' + fl(op.off) + ' · до ' + G.cornerName((i + 1) % g.n) + ': ' + fl(g.L[i] - op.off - op.w)); return true;
+    }
+    return true;
+  }
+  function tip(t) { const n = document.getElementById('ptip'); if (n) { n.textContent = t; n.hidden = !t; } }
+  function up(ev, cancel) {
+    if (UI.mode !== 'plan') return false;
+    const had = !!st.tps[ev.pointerId]; delete st.tps[ev.pointerId];
+    if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
+    const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
+    st.drag = null; tip('');
+    if (cancel) { if (d.moved && (d.mode === 'room' || d.mode === 'item' || d.mode === 'op')) restore(UI.hi); paint(); return true; }
+    const p = toMM(ev);
+    if (d.mode === 'pan') { if (d.moved) paint(); else { if (st.sel) { st.sel = null; render(); } } return true; }
+    if (d.mode === 'draw') {
+      if (d.moved && !st.draw.hover) return true;
+      const prev = st.draw.pts[st.draw.pts.length - 1], q = snapDraw(p, prev, ev.shiftKey), f = st.draw.pts[0];
+      if (st.draw.pts.length >= 3 && G.hyp(p[0] - f[0], p[1] - f[1]) * st.v.s < 18) { finishDraw(); return true; }
+      if (!prev || G.hyp(q[0] - prev[0], q[1] - prev[1]) >= 50) st.draw.pts.push(q);
+      st.draw.hover = null; paint(); return true;
+    }
+    if (d.mode === 'ruler') { paint(); return true; }
+    if (d.mode === 'place') { if (!d.moved) place(p); else paint(); return true; }
+    if (d.moved) {
+      if (d.mode === 'room') label('перемещение — ' + rname(room(d.ref[1])));
+      else if (d.mode === 'item') label('перемещение — колонна');
+      else if (d.mode === 'op') label('проём сдвинут');
+      return true;
+    }
+    /* a tap selects */
+    const ref = d.ref;
+    if (!ref) { st.sel = null; render(); return true; }
+    const t = ref[0];
+    if (t === 'r') st.sel = { t: 'room', r: ref[1] };
+    else if (t === 'w') st.sel = { t: 'wall', r: ref[1], w: ref[2] };
+    else if (t === 'o') st.sel = { t: 'op', r: ref[1], w: ref[2], o: ref[3] };
+    else if (t === 'c') st.sel = { t: 'corner', r: ref[1], c: +ref[2] };
+    else if (t === 'i') st.sel = { t: 'item', i: ref[1] };
+    st.split = null; render(); return true;
+  }
+  function place(p) {
+    const tool = st.tool;
+    if (tool.indexOf('op:') === 0) {
+      const nw = nearestWall(p, 26); if (!nw) { toast('Коснитесь стены — проём ставится на стену.'); return; }
+      const kind = tool.slice(3), w = nw.r.walls[nw.i];
+      if (nw.L < 400) { toast('Стена слишком короткая для проёма.'); return; }
+      const op = G.addOpening(w, kind, nw.L, nw.t); st.tool = null; st.sel = { t: 'op', r: nw.r.id, w: w.id, o: op.id };
+      label(G.OPENINGS[kind].label + ' на стене ' + G.wallName(nw.r, nw.i));
+    } else {
+      const shape = tool.slice(4), it = { id: G.uid(), kind: 'column', shape, x: Math.round(p[0] / 10) * 10, y: Math.round(p[1] / 10) * 10, w: 400, d: 400, rot: 0 };
+      P().items.push(it); st.tool = null; st.sel = { t: 'item', i: it.id }; label('колонна');
+    }
+  }
+  function finishDraw() {
+    const d = st.draw; if (!d || d.pts.length < 3) return;
+    const r = G.roomFromPoints('', d.pts, null), g = G.roomGeom(r);
+    if (g.selfX) { toast('Стены пересекаются — уберите последнюю точку и обойдите зал по порядку.'); return; }
+    if (g.S < 0) { G.mirrorRoom(r); }   // keep one winding for all rooms: corners go clockwise on screen
+    r.name = P().rooms.length ? '' : 'Банкетный зал';
+    P().rooms.push(r); st.draw = null; st.sel = { t: 'wall', r: r.id, w: r.walls[0].id };
+    label('помещение по углам'); toast('Помещение нарисовано. Теперь впишите замеры: стена ' + G.wallName(r, 0) + ' выбрана.');
+  }
+  function wheel(ev) {
+    if (!within(ev)) return;
+    ev.preventDefault();
+    const r = svg().getBoundingClientRect();
+    if (ev.ctrlKey || ev.metaKey || Math.abs(ev.deltaY) >= 40 || ev.deltaMode) zoomAt(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0022)), ev.clientX - r.left, ev.clientY - r.top);
+    else { st.v = { s: st.v.s, x: st.v.x + ev.deltaX / st.v.s, y: st.v.y + ev.deltaY / st.v.s, user: true }; applyView(); laterRepaint(); }
+  }
+
+  /* ---------- actions ---------- */
+  function rname(r) { if (!r) return ''; return r.name || 'Помещение ' + (P().rooms.indexOf(r) + 1); }
+  function newRoom(shape) {
+    const bb = G.planBBox(P()), x = bb ? Math.round((bb.x1 + 2000) / 100) * 100 : 0, y = bb ? Math.round(bb.y0 / 100) * 100 : 0;
+    const dims = { rect: [12000, 8000], L: [12000, 9000], U: [15000, 10000] }[shape];
+    const r = G.makeRoom(P().rooms.length ? '' : 'Банкетный зал', x, y, G.SHAPES[shape](dims[0], dims[1]).map((s) => [s[0], s[1], false]), null);
+    P().rooms.push(r); st.sel = { t: 'wall', r: r.id, w: r.walls[0].id }; st.v = null;
+    label('новое помещение'); toast('Размеры примерные (≈). Впишите замер каждой стены — начните с ' + G.wallName(r, 0) + '.');
+  }
+  function act(name, a) {
+    const v = a && a.dataset ? a.dataset.v : undefined;
+    const r = selRoom(), s = st.sel || {};
+    switch (name) {
+      case 'mode': setMode(v); return;
+      case 'ptool': st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
+      case 'pfly': UI.pgroup = v; UI.fly = !(UI.fly && UI.pgroup === v); render(); return;
+      case 'fly-pick': {
+        const g = a.dataset.g; UI.fly = false;
+        if (g === 'room') { if (v === 'draw') { st.draw = { pts: [], hover: null }; st.tool = null; st.sel = null; render(); return; } newRoom(v); return; }
+        if (g === 'open') {
+          if ((s.t === 'wall' || s.t === 'op') && r) { const i = wallIx(r, s.w), L = G.roomGeom(r).L[i]; if (L < 400) { toast('Стена слишком короткая для проёма.'); return; } const op = G.addOpening(r.walls[i], v, L); st.sel = { t: 'op', r: r.id, w: r.walls[i].id, o: op.id }; label(G.OPENINGS[v].label + ' на стене ' + G.wallName(r, i)); return; }
+          if (!P().rooms.length) { toast('Сначала добавьте помещение.'); render(); return; }
+          st.tool = 'op:' + v; render(); return;
+        }
+        if (g === 'col') { st.tool = 'col:' + v; render(); return; }
+        return;
+      }
+      case 'draw-done': finishDraw(); return;
+      case 'draw-back': if (st.draw) { st.draw.pts.pop(); paint(); } return;
+      case 'draw-cancel': st.draw = null; render(); return;
+      case 'zin': zoomBy(1.4); return;
+      case 'zout': zoomBy(1 / 1.4); return;
+      case 'zfit': st.v = null; fit(); paint(); return;
+      case 'unit': P().unit = v; label('единицы: ' + G.UNIT[v].ru); return;
+      case 'sel': { const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; st.split = null; render(); return; }
+      case 'clear': st.sel = null; render(); return;
+      case 'r-name': if (r) { r.name = v; label('название — ' + v); } return;
+      case 'r-rot': if (r) { G.rotateRoom(r, 90); label('поворот на 90° — ' + rname(r)); } return;
+      case 'r-mir': if (r) { G.mirrorRoom(r); label('отражение — ' + rname(r)); } return;
+      case 'r-del': if (r) { P().rooms.splice(P().rooms.indexOf(r), 1); st.sel = null; label('удалено помещение'); } return;
+      case 'w-step': if (r) { const i = wallIx(r, s.w), n = r.walls.length, j = (i + (+v) + n) % n; st.sel = { t: 'wall', r: r.id, w: r.walls[j].id }; st.split = null; render(); focusLen(); } return;
+      case 'w-split': if (r) { const i = wallIx(r, s.w), L = G.roomGeom(r).L[i], t = st.split == null ? Math.round(L / 2) : st.split; if (G.splitWall(r, i, t)) { st.sel = { t: 'wall', r: r.id, w: r.walls[i].id }; st.split = null; label('стена разделена'); } else toast('Точка деления должна быть не ближе 5 см к углам.'); } return;
+      case 'w-jog': if (r) { const i = wallIx(r, s.w), L = G.roomGeom(r).L[i], j = st.jog, off = j.off == null ? Math.round((L - j.w) / 2) : j.off;
+        const res = G.insertJog(r, i, off, j.w, j.d, v === 'in');
+        if (!res.ok) { toast('Не помещается: отступ + ширина должны быть не больше длины стены (' + fl(L) + ' ' + uLab() + ').'); return; }
+        st.sel = { t: 'room', r: r.id }; st.jog.off = null; label(v === 'in' ? 'выступ' : 'ниша'); if (res.dropped) toast('Проёмов внутри ' + (v === 'in' ? 'выступа' : 'ниши') + ' убрано: ' + res.dropped + '.'); } return;
+      case 'w-uncorner': case 'c-del': if (r) { const n = r.walls.length, ci = name === 'c-del' ? s.c : (wallIx(r, s.w) + 1) % n, nm = G.cornerName(ci), res = G.deleteCorner(r, ci);
+        if (!res.ok) { toast(n <= 3 ? 'У помещения должно остаться хотя бы три угла.' : 'Этот угол не убрать.'); return; }
+        const ni = ci === 0 ? 0 : ci - 1; st.sel = { t: 'wall', r: r.id, w: r.walls[Math.min(ni, r.walls.length - 1)].id }; label('убран угол ' + nm);
+        toast('Новая стена примерная (≈) — впишите её замер.' + (res.dropped ? ' Проёмов убрано: ' + res.dropped + '.' : '')); } return;
+      case 'op-add': if (r && (s.t === 'wall' || s.t === 'op')) { const i = wallIx(r, s.w), L = G.roomGeom(r).L[i]; if (L < 400) { toast('Стена слишком короткая для проёма.'); return; } const op = G.addOpening(r.walls[i], v, L); st.sel = { t: 'op', r: r.id, w: r.walls[i].id, o: op.id }; label(G.OPENINGS[v].label); } return;
+      case 'op-del': if (r && s.t === 'op') { const w = r.walls[wallIx(r, s.w)]; w.ops = w.ops.filter((o) => o.id !== s.o); st.sel = { t: 'wall', r: r.id, w: w.id }; label('проём удалён'); } return;
+      case 'op-set': if (r && s.t === 'op') { const op = curOp(); const k = a.dataset.k; if (k === 'leaves') op.leaves = +v; else if (k === 'out') op.out = v === '1'; else if (k === 'flip') op.flip = v === '1'; else if (k === 'exit') op.exit = v === '1'; label('проём: настройки'); } return;
+      case 'it-del': if (s.t === 'item') { P().items = P().items.filter((x) => x.id !== s.i); st.sel = null; label('колонна удалена'); } return;
+      case 'it-shape': if (s.t === 'item') { const it = item(s.i); it.shape = v; if (v === 'rect' && !it.d) it.d = it.w; label('колонна: форма'); } return;
+    }
+  }
+  /* an opening's name follows what it is now, not the preset it was added from */
+  function opName(o) {
+    const base = o.type === 'window' ? (o.sill === 0 && o.w >= 2000 ? 'Панорамное окно' : 'Окно') : o.type === 'open' ? 'Проём без двери' : o.exit ? 'Аварийный выход' : o.leaves === 2 ? 'Двустворчатая дверь' : 'Дверь';
+    return base + ' ' + G.nf(o.w / 10, 0);
+  }
+  function curOp() { const r = selRoom(), s = st.sel; if (!r || !s || s.t !== 'op') return null; const w = r.walls[wallIx(r, s.w)]; return w && w.ops.find((o) => o.id === s.o); }
+  function focusLen() { setTimeout(() => { const n = document.getElementById('pl-wlen'); if (n && window.matchMedia && matchMedia('(pointer:fine)').matches) { n.focus(); n.select(); } }, 30); }
+  /* values typed into the plan's fields */
+  function bind(path, raw, n) {
+    const r = selRoom(), s = st.sel || {};
+    const len = () => { const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Длина в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return null; } return v; };
+    switch (path) {
+      case 'p.h': { const v = len(); if (v === null) return; if (v < 1800 || v > 20000) { toast('Высота потолка — от 1,8 до 20 м.'); render(); return; } P().h = v; label('высота потолка по умолчанию'); return; }
+      case 'r.name': if (r) { r.name = String(raw).trim().slice(0, 60); label('название'); } return;
+      case 'r.h': if (r) { if (String(raw).trim() === '') { r.h = null; label('высота потолка'); return; } const v = len(); if (v === null) return; if (v < 1800 || v > 20000) { toast('Высота потолка — от 1,8 до 20 м.'); render(); return; } r.h = v; label('высота потолка — ' + rname(r)); } return;
+      case 'r.dp': case 'r.dq': if (r) { const k = path === 'r.dp' ? 'p' : 'q'; if (String(raw).trim() === '') { r.diag[k] = null; label('диагональ убрана'); return; } const v = len(); if (v === null) return; r.diag[k] = v; label('диагональ ' + (k === 'p' ? 'A–C' : 'B–D')); } return;
+      case 'w.len': if (r && s.t === 'wall') { const v = len(); if (v === null) return; const i = wallIx(r, s.w), w = r.walls[i]; if (v < 50) { toast('Стена короче 5 см — проверьте замер.'); render(); return; } w.len = v; w.m = true; (w.ops || []).forEach((o) => G.clampOpening(o, v)); label('замер ' + G.wallName(r, i) + ' = ' + fl(v)); } return;
+      case 'w.m': if (r && s.t === 'wall') { const i = wallIx(r, s.w), w = r.walls[i]; if (n.checked && !w.m) w.len = Math.round(G.roomGeom(r).L[i]); w.m = !!n.checked; label(w.m ? 'стена отмечена измеренной' : 'стена — примерно'); } return;
+      case 'w.split': { const v = len(); if (v === null) return; st.split = v; render(); return; }
+      case 'jog.off': case 'jog.w': case 'jog.d': { if (path === 'jog.off' && String(raw).trim() === '') { st.jog.off = null; render(); return; } const v = len(); if (v === null) return; st.jog[path.slice(4)] = v; render(); return; }
+      case 'c.ang': if (r && s.t === 'corner') { const a = parseFloat(String(raw).replace(',', '.')); if (!(a > 0 && a < 360)) { toast('Угол — от 0 до 360°.'); render(); return; } if (s.c === 0) { toast('Угол A получается из остальных — задайте углы B, C, …'); render(); return; } G.setInterior(r, s.c, a); label('угол ' + G.cornerName(s.c) + ' = ' + G.nf(a, 1) + '°'); } return;
+      case 'op.w': case 'op.h': case 'op.off': case 'op.end': case 'op.sill': { const op = curOp(); if (!op) return; const v = path === 'op.sill' && String(raw).trim() === '0' ? 0 : len(); if (v === null) return;
+        const i = wallIx(r, s.w), L = G.roomGeom(r).L[i];
+        if (path === 'op.w') op.w = v; else if (path === 'op.h') op.h = v; else if (path === 'op.off') op.off = v; else if (path === 'op.end') op.off = L - op.w - v; else op.sill = v;
+        G.clampOpening(op, L); label('проём: размеры'); return; }
+      case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; it[path.slice(3)] = G.clamp(v, 50, 10000); label('колонна: размер'); return; }
+      case 'it.rot': { const it = item(s.i); if (!it) return; const a = parseFloat(String(raw).replace(',', '.')); if (!isFinite(a)) { render(); return; } it.rot = G.normDeg(a); label('колонна: поворот'); return; }
+    }
+  }
+  function key(ev, typing) {
+    const k = ev.key;
+    if (typing) {
+      if (k === 'Enter' && ev.target && ev.target.id === 'pl-wlen') { ev.preventDefault(); const t = ev.target; t.blur(); setTimeout(() => act('w-step', { dataset: { v: '1' } }), 0); return true; }
+      return false;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+    if (k === 'Escape') { if (st.draw) { st.draw = null; render(); return true; } if (st.tool) { st.tool = null; st.ruler = null; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } return false; }
+    if (k === 'Enter' && st.draw && st.draw.pts.length >= 3) { finishDraw(); return true; }
+    if ((k === 'Backspace' || k === 'Delete') && st.draw) { st.draw.pts.pop(); paint(); return true; }
+    if (k === 'Delete' || k === 'Backspace') { const s = st.sel; if (!s) return false; ev.preventDefault(); act(s.t === 'op' ? 'op-del' : s.t === 'item' ? 'it-del' : s.t === 'corner' ? 'c-del' : s.t === 'room' ? 'r-del' : '', null); return true; }
+    if (k === '+' || k === '=') { zoomBy(1.4); return true; }
+    if (k === '-' || k === '_') { zoomBy(1 / 1.4); return true; }
+    if (k === '0') { act('zfit'); return true; }
+    const kk = k.toLowerCase();
+    if (kk === 'h' || kk === 'р') { act('ptool', { dataset: { v: st.tool === 'hand' ? '' : 'hand' } }); return true; }
+    if (kk === 'v' || kk === 'м') { act('ptool', { dataset: { v: '' } }); return true; }
+    if (kk === 'r' || kk === 'к') { act('ptool', { dataset: { v: 'ruler' } }); return true; }
+    const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
+    if (d && st.sel) { ev.preventDefault(); const q = ev.shiftKey ? 10 : 100, s = st.sel;
+      if (s.t === 'room') { const r = room(s.r); r.x += d[0] * q; r.y += d[1] * q; label('перемещение — ' + rname(r)); }
+      else if (s.t === 'item') { const it = item(s.i); it.x += d[0] * q; it.y += d[1] * q; label('перемещение — колонна'); }
+      return true; }
+    return false;
+  }
+  function setMode(m) {
+    m = m === 'plan' ? 'plan' : 'scene'; if (UI.mode === m) return;
+    UI.mode = m; UI.fly = false; st.tool = null; st.draw = null; st.ruler = null; st.drag = null; st.tps = {}; st.pinch = null;
+    try { wsSave(); } catch (e) {}
+    render();
+    if (m === 'plan') requestAnimationFrame(() => { if (!st.v || !st.v.user) fit(); paint(); });
+    else requestAnimationFrame(() => { fitStage(); zoomApply(); placeOv(); });
+  }
+  function placeFly() {
+    const f = document.getElementById('fly'); if (!f || !UI.fly) return;
+    const t = document.querySelector('.tools [data-ptool="' + UI.pgroup + '"]'), c = document.getElementById('canvas'); if (!t || !c) return;
+    const top = Math.max(4, Math.min(t.getBoundingClientRect().top - c.getBoundingClientRect().top - 4, c.clientHeight - f.offsetHeight - 8)); f.style.setProperty('--ft', top + 'px');
+  }
+  function syncTop() {
+    document.body.dataset.mode = UI.mode || 'scene';
+    document.querySelectorAll('#modesw [data-pact=mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === (UI.mode || 'scene'))));
+  }
+
+  /* ---------- panels ---------- */
+  const tb = (attrs, ico, title, on, fly) => '<button type="button" class="tb' + (fly ? ' hasfly' : '') + '" ' + attrs + ' aria-pressed="' + !!on + '" title="' + title + '" aria-label="' + title + '">' + ico + (fly ? '<i class="tri" aria-hidden="true"></i>' : '') + '</button>';
+  function vTools() {
+    let h = tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + '<hr>';
+    TOOLS.forEach((t) => { h += tb('data-pact="pfly" data-v="' + t[0] + '" data-ptool="' + t[0] + '" data-tool="p' + t[0] + '"', ICO[t[1]], t[2] + ': ' + t[3], UI.fly && UI.pgroup === t[0], true); });
+    h += '<hr>' + tb('data-pact="ptool" data-v="ruler"', ICO.pruler, 'Линейка (R)', st.tool === 'ruler');
+    return h;
+  }
+  function vFly() {
+    const g = UI.pgroup || 'room', t = TOOLS.find((x) => x[0] === g) || TOOLS[0];
+    return '<div class="fh"><b>' + t[2] + '</b><small>' + t[3] + '</small><button type="button" class="fx" data-pact="pfly" data-v="' + g + '" aria-label="Закрыть">' + U.ico.x + '</button></div><div class="flist">' +
+      FLY[g].map((x) => '<button type="button" class="frow pfrow" data-pact="fly-pick" data-g="' + g + '" data-v="' + x[0] + '"><span class="pfn">' + esc(x[1]) + '</span><small>' + esc(x[2]) + '</small></button>').join('') + '</div>';
+  }
+  const fld = (bind, labelTxt, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + labelTxt + '</span><input type="text" inputmode="decimal" autocomplete="off" spellcheck="false" data-pbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
+  const btn = (act, txt, o) => { o = o || {}; return '<button type="button" class="btn sm' + (o.cls ? ' ' + o.cls : '') + '" data-pact="' + act + '"' + (o.v != null ? ' data-v="' + o.v + '"' : '') + (o.k ? ' data-k="' + o.k + '"' : '') + (o.dis ? ' disabled' : '') + (o.t ? ' title="' + esc(o.t) + '"' : '') + '>' + txt + '</button>'; };
+  const grp = (title, html) => V.group(title, html);
+  const seg = (items, cur, act, k) => '<span class="seg" role="group">' + items.map((x) => '<button type="button" data-pact="' + act + '"' + (k ? ' data-k="' + k + '"' : '') + ' data-v="' + x[0] + '" aria-pressed="' + (String(cur) === String(x[0])) + '">' + x[1] + '</button>').join('') + '</span>';
+  const stLine = (g) => {
+    if (g.reason === 'self') return ['bad', 'Стены пересекаются — проверьте углы и замеры.'];
+    if (g.reason === 'diag') return ['bad', 'Диагональ не сходится с длинами стен — такого четырёхугольника не бывает. Перемерьте.'];
+    if (g.status === 'partial') return ['warn', 'Не измерено стен: ' + g.unmeasured + ' из ' + g.n + '. Размеры с ≈ подобраны, чтобы контур замкнулся.'];
+    if (g.status === 'bad' && g.reason === 'open') return ['bad', 'Контур не замыкается (' + fl(g.gap) + ' ' + uLab() + '): измените углы или отметьте стену примерной.'];
+    if (g.reason === 'diag-check') return [g.status, 'Проверка второй диагональю: расхождение ' + Math.round(Math.abs(g.diag.qDelta)) + ' мм' + (g.status === 'ok' ? ' — в норме.' : g.status === 'warn' ? ' — сомнительно, перемерьте.' : ' — ошибка замера.')];
+    if (g.status === 'ok') return ['ok', 'Все стены измерены, контур сходится: невязка ' + Math.round(g.gap) + ' мм (норма до ' + G.TOL_OK + ').'];
+    if (g.status === 'warn') return ['warn', 'Невязка ' + Math.round(g.gap) + ' мм — сомнительно (норма до ' + G.TOL_OK + '). Перемерьте или добавьте диагональ.'];
+    return ['bad', 'Невязка ' + Math.round(g.gap) + ' мм — ошибка замера (больше ' + G.TOL_WARN + '). Перемерьте стены.'];
+  };
+  const note = (cls, t) => '<p class="pst ' + cls + '">' + esc(t) + '</p>';
+  function vInsp() {
+    const s = st.sel, p = P();
+    U.inDock = true;
+    try {
+      if (!s) {
+        const sm = G.summary(p);
+        return '<div class="phead"><h3>План зала</h3></div>' +
+          grp('Помещения', p.rooms.length ? '<div class="plist full">' + p.rooms.map((r, i) => { const g = sm.geoms[i]; return '<button type="button" class="prow" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (g.status === 'ok' ? 'ok' : g.status === 'warn' || g.status === 'partial' ? 'warn' : 'bad') + '"></i><span>' + esc(rname(r)) + '</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b></button>'; }).join('') + '</div>' : '<p class="muted small full">Плана пока нет. Добавьте зал инструментом «Помещение» слева: прямоугольник, Г, П или по углам. Потом впишите замеры стен.</p>') +
+          grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы замеров</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Высота потолка по умолчанию, ' + uLab(), fs(p.h), { cls: 'full' }) +
+            '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
+      }
+      const r = selRoom();
+      if (s.t === 'item') {
+        const it = item(s.i), gs = p.rooms.map(G.roomGeom), cl = G.itemClearances(it, gs);
+        return '<div class="phead"><h3>Колонна</h3></div>' + grp('Форма и размер', '<div class="fld full"><span class="fl">Форма</span>' + seg([['round', 'круглая'], ['rect', 'квадратная / прямоугольная']], it.shape, 'it-shape') + '</div>' +
+          fld('it.w', (G.isRound(it) ? 'Диаметр' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (G.isRound(it) ? '' : fld('it.d', 'Глубина, ' + uLab(), fs(it.d || it.w)) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 1)))) +
+          grp('До стен', cl.length ? '<div class="kvs full">' + cl.map((q) => '<span>' + fl(q.dist) + ' ' + uLab() + '</span>').join('') + '</div><p class="muted small full">Расстояния от граней колонны до ближайших стен по четырём сторонам — видны на плане пунктиром.</p>' : '<p class="muted small full">Колонна вне помещения.</p>') +
+          '<div class="pacts">' + btn('it-del', 'Удалить колонну', { cls: 'dng' }) + '</div>';
+      }
+      if (!r) return '';
+      const g = G.roomGeom(r), [sc, stx] = stLine(g);
+      if (s.t === 'room') {
+        return '<div class="phead"><h3>' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+          grp('Помещение', fld('r.name', 'Название', r.name, { cls: 'full', ph: 'Помещение ' + (p.rooms.indexOf(r) + 1) }) + '<div class="chips full">' + G.NAMES.map((nm) => '<button type="button" class="chip sm' + (r.name === nm ? ' on' : '') + '" data-pact="r-name" data-v="' + esc(nm) + '">' + nm + '</button>').join('') + '</div>' +
+            fld('r.h', 'Высота потолка, ' + uLab(), r.h ? fs(r.h) : '', { cls: 'full', ph: fs(p.h) + ' — как по умолчанию' }) +
+            '<div class="kv2 full"><span>Площадь</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b><span>Периметр</span><b>' + (g.allM ? '' : '≈') + G.nf(g.P / 1000, 2) + ' м</b><span>Стен</span><b>' + g.n + (g.unmeasured ? ', не измерено ' + g.unmeasured : ', все измерены') + '</b></div>') +
+          grp('Стены — коснитесь, чтобы вписать замер', '<div class="plist full">' + r.walls.map((w, i) => '<button type="button" class="prow" data-pact="sel" data-sel="w|' + r.id + '|' + w.id + '"><span class="tag">' + G.wallName(r, i) + '</span><span class="muted small">' + ((w.ops || []).length ? (w.ops.length + ' пр.') : '') + '</span><b class="' + (w.m ? '' : 'est') + '">' + (w.m ? '' : '≈') + fl(g.lens[i]) + '</b></button>').join('') + '</div>') +
+          (g.n === 4 ? grp('Диагонали — для залов не под прямым углом', fld('r.dp', 'Диагональ A–C, ' + uLab(), r.diag.p ? fl(r.diag.p) : '', { ph: '≈' + fl(g.diag.pCalc) }) + fld('r.dq', 'Диагональ B–D, ' + uLab(), r.diag.q ? fl(r.diag.q) : '', { ph: '≈' + fl(g.diag.qCalc) }) +
+            '<p class="muted small full">Первая диагональ задаёт углы точно (когда все четыре стены измерены), вторая — проверка замеров.</p>') : '') +
+          '<div class="pacts">' + btn('r-rot', 'Повернуть на 90°') + btn('r-mir', 'Отразить') + btn('r-del', 'Удалить помещение', { cls: 'dng' }) + '</div>';
+      }
+      if (s.t === 'corner') {
+        const i = s.c, n = g.n;
+        return '<div class="phead"><h3>Угол ' + G.cornerName(i) + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+          grp('Угол', fld('c.ang', 'Внутренний угол, °', G.nf(g.interior[i], 1), { cls: i === 0 ? 'dis' : '' }) +
+            '<p class="muted small full">' + (i === 0 ? 'Угол A получается из остальных углов. Задайте углы B, C, …' : 'Меняет направление стен после угла ' + G.cornerName(i) + '. Измерьте угол угломером или задайте диагональ (для четырёх стен).') + '</p>') +
+          '<div class="pacts">' + btn('sel', '← Стена ' + G.wallName(r, (i + n - 1) % n), { v: '' }).replace('data-pact="sel"', 'data-pact="sel" data-sel="w|' + r.id + '|' + r.walls[(i + n - 1) % n].id + '"') + btn('c-del', 'Убрать угол ' + G.cornerName(i), { dis: n <= 3, t: 'Две стены станут одной прямой' }) + '</div>';
+      }
+      const i = wallIx(r, s.w), w = r.walls[i], L = g.L[i], n = g.n, nmW = G.wallName(r, i);
+      if (s.t === 'op') {
+        const op = curOp(), isDoor = op.type === 'door', end = L - op.off - op.w;
+        return '<div class="phead"><h3>' + esc(opName(op).replace(/ \d+$/, '')) + ' — стена ' + nmW + '</h3></div>' +
+          grp('Размер и место', fld('op.w', 'Ширина, ' + uLab(), fs(op.w)) + fld('op.h', 'Высота, ' + uLab(), fs(op.h)) + fld('op.off', 'От угла ' + G.cornerName(i) + ', ' + uLab(), fl(op.off)) + fld('op.end', 'До угла ' + G.cornerName((i + 1) % n) + ', ' + uLab(), fl(end)) +
+            (op.type === 'window' ? fld('op.sill', 'Подоконник от пола, ' + uLab(), fs(op.sill || 0), { cls: 'full' }) : '') + '<p class="muted small full">Проём можно тянуть вдоль стены пальцем.</p>') +
+          (isDoor ? grp('Дверь', '<div class="fld full"><span class="fl">Створок</span>' + seg([[1, 'одна'], [2, 'две']], op.leaves || 1, 'op-set', 'leaves') + '</div>' +
+            '<div class="fld full"><span class="fl">Открывается</span>' + seg([['0', 'внутрь'], ['1', 'наружу']], op.out ? '1' : '0', 'op-set', 'out') + '</div>' +
+            ((op.leaves || 1) === 1 ? '<div class="fld full"><span class="fl">Петли</span>' + seg([['0', 'у угла ' + G.cornerName(i)], ['1', 'у угла ' + G.cornerName((i + 1) % n)]], op.flip ? '1' : '0', 'op-set', 'flip') + '</div>' : '') +
+            '<div class="fld full"><span class="fl">Аварийный выход</span>' + seg([['0', 'нет'], ['1', 'да — подписать «ВЫХОД»']], op.exit ? '1' : '0', 'op-set', 'exit') + '</div>') : '') +
+          '<div class="pacts">' + btn('sel', '← Стена ' + nmW).replace('data-pact="sel"', 'data-pact="sel" data-sel="w|' + r.id + '|' + w.id + '"') + btn('op-del', 'Удалить проём', { cls: 'dng' }) + '</div>';
+      }
+      /* a wall */
+      const j = st.jog, joff = j.off == null ? Math.round((L - j.w) / 2) : j.off, sp = st.split == null ? Math.round(L / 2) : st.split;
+      return '<div class="phead"><h3>Стена ' + nmW + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+        grp('Замер', fld('w.len', 'Длина, ' + uLab(), fl(w.m ? w.len : g.lens[i]), { id: 'pl-wlen', cls: 'plen' + (w.m ? '' : ' est') }) +
+          '<label class="tog"><input type="checkbox" data-pbind="w.m"' + (w.m ? ' checked' : '') + '><span>Измерено</span></label>' +
+          '<p class="muted small full">' + (w.m ? 'Длина измерена и не меняется при подгонке контура.' : 'Сейчас длина примерная (≈): впишите замер — стена станет измеренной.') + ' Enter — следующая стена.</p>' +
+          '<div class="pacts full">' + btn('w-step', '← ' + G.wallName(r, (i + n - 1) % n), { v: -1 }) + btn('w-step', G.wallName(r, (i + 1) % n) + ' →', { v: 1, cls: 'pnext' }) + '</div>') +
+        grp('Двери и окна на стене', ((w.ops || []).length ? '<div class="plist full">' + w.ops.map((o) => '<button type="button" class="prow" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">от ' + G.cornerName(i) + ' ' + fl(o.off) + '</span></button>').join('') + '</div>' : '') +
+          '<div class="chips full">' + Object.keys(G.OPENINGS).map((k) => '<button type="button" class="chip sm" data-pact="op-add" data-v="' + k + '">+ ' + G.OPENINGS[k].label + '</button>').join('') + '</div>') +
+        grp('Форма стены', fld('w.split', 'Разделить на расстоянии от ' + G.cornerName(i) + ', ' + uLab(), fl(sp), { cls: 'full' }) + '<div class="pacts">' + btn('w-split', 'Разделить стену', { t: 'Две стены по одной прямой — чтобы потом поставить угол или выступ' }) + '</div>' +
+          fld('jog.off', 'Ниша или выступ: отступ от ' + G.cornerName(i) + ', ' + uLab(), fl(joff), { cls: 'full' }) + fld('jog.w', 'Ширина, ' + uLab(), fl(j.w)) + fld('jog.d', 'Глубина, ' + uLab(), fl(j.d)) +
+          '<div class="pacts full">' + btn('w-jog', 'Ниша (наружу)', { v: 'out' }) + btn('w-jog', 'Выступ (внутрь)', { v: 'in' }) + btn('w-uncorner', 'Убрать угол ' + G.cornerName((i + 1) % n), { dis: n <= 3, t: 'Эта стена и следующая станут одной прямой' }) + '</div>' +
+          '<p class="muted small full">Выступ подойдёт и для пилона у стены. Отдельно стоящую колонну ставьте инструментом «Колонна».</p>');
+    } finally { U.inDock = false; }
+  }
+  function vLayers() {
+    const p = P(); if (!p.rooms.length && !p.items.length) return '<p class="muted small pad">На плане пока ничего нет.</p>';
+    const s = st.sel || {}, gs = p.rooms.map(G.roomGeom);
+    let h = '<div class="plist lyrp">';
+    p.rooms.forEach((r, ri) => {
+      h += '<button type="button" class="prow' + (s.r === r.id && s.t === 'room' ? ' on' : '') + '" data-pact="sel" data-sel="r|' + r.id + '"><span>▢ ' + esc(rname(r)) + '</span><b>' + (gs[ri].allM ? '' : '≈') + m2(gs[ri].area) + ' м²</b></button>';
+      r.walls.forEach((w, i) => (w.ops || []).forEach((o) => { h += '<button type="button" class="prow sub' + (s.o === o.id ? ' on' : '') + '" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">' + G.wallName(r, i) + '</span></button>'; }));
+    });
+    p.items.forEach((it) => { h += '<button type="button" class="prow' + (s.i === it.id ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '"><span>' + (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) + '</span></button>'; });
+    return h + '</div>';
+  }
+  function vChecks() {
+    const p = P(); if (!p.rooms.length) return '<p class="muted small pad">Проверки появятся, когда на плане будет помещение.</p>';
+    return '<div class="plist">' + p.rooms.map((r) => { const g = G.roomGeom(r), [c, t] = stLine(g); return '<button type="button" class="prow chk" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (c === 'ok' ? 'ok' : c === 'warn' ? 'warn' : 'bad') + '"></i><span><b>' + esc(rname(r)) + '.</b> ' + esc(t) + '</span></button>'; }).join('') + '</div>';
+  }
+  function vSettings() { const p = P(); U.inDock = true; try { return '<div class="pad">' + '<div class="fld"><span class="fl">Единицы замеров</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Высота потолка по умолчанию, ' + uLab(), fs(p.h)) + '</div>'; } finally { U.inDock = false; } }
+  function vOptbar() {
+    const s = st.sel;
+    if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
+    if (!s) return '<span class="ohint">План: коснитесь помещения, стены, угла или проёма · один палец по пустому месту двигает план, два — масштаб</span>';
+    const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
+    if (s.t === 'item') { const it = item(s.i); return '<span class="onm">Колонна</span><span class="sep"></span><span class="ohint">' + (G.isRound(it) ? 'Ø ' + fs(it.w) : fs(it.w) + ' × ' + fs(it.d || it.w)) + ' ' + uLab() + '</span><span class="sp"></span>' + ib('it-del', 'del', 'Удалить', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)'); }
+    if (!r) return '';
+    const g = G.roomGeom(r);
+    if (s.t === 'room') return '<span class="onm">' + esc(rname(r)) + '</span><span class="sep"></span><span class="ohint">' + (g.allM ? '' : '≈') + m2(g.area) + ' м² · периметр ' + G.nf(g.P / 1000, 2) + ' м · стен ' + g.n + '</span><span class="sp"></span>' + ib('r-rot', 'flip', 'Повернуть на 90°') + ib('r-del', 'del', 'Удалить помещение', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
+    if (s.t === 'corner') return '<span class="onm">Угол ' + G.cornerName(s.c) + '</span><span class="sep"></span><span class="ohint">' + G.nf(g.interior[s.c], 1) + '°</span><span class="sp"></span>' + ib('clear', 'x', 'Снять выделение (Esc)');
+    const i = wallIx(r, s.w);
+    if (s.t === 'op') { const op = curOp(); return '<span class="onm">' + esc(opName(op)) + '</span><span class="sep"></span><span class="ohint">' + fs(op.w) + ' × ' + fs(op.h) + ' ' + uLab() + ' · от ' + G.cornerName(i) + ' ' + fl(op.off) + '</span><span class="sp"></span>' + ib('op-del', 'del', 'Удалить проём', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)'); }
+    return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span><span class="ohint">' + (r.walls[i].m ? 'измерено ' : '≈ ') + fl(g.lens[i]) + ' ' + uLab() + '</span><span class="sp"></span>' + ib('clear', 'x', 'Снять выделение (Esc)');
+  }
+  function vStatbar() {
+    const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial;
+    return '<span class="zm"><button type="button" class="ib s" data-pact="zout" title="Отдалить" aria-label="Отдалить">' + U.ico.zout + '</button><button type="button" class="zl" id="pzlbl" data-pact="zfit" title="Вписать план">' + zoomText() + '</button><button type="button" class="ib s" data-pact="zin" title="Приблизить" aria-label="Приблизить">' + U.ico.zin + '</button><button type="button" class="ib s" data-pact="zfit" title="Вписать план" aria-label="Вписать план">' + U.ico.fit + '</button></span>' +
+      '<span>помещений ' + sm.rooms + '</span>' + (sm.rooms ? '<span>площадь ' + (warn || bad ? '≈' : '') + m2(sm.area) + ' м²</span>' : '') +
+      (sm.rooms ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'замеры сходятся') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
+  }
+  const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g></g></svg>' +
+    '<div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
+    '<div id="pempty" class="pempty2" hidden><div><b>План зала пуст</b><span>Начните с формы зала, потом впишите замеры стен — как с лазерной рулетки.</span><div class="pacts">' +
+    '<button type="button" class="btn sm pri" data-pact="fly-pick" data-g="room" data-v="rect">Прямоугольный зал</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="L">Г-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="U">П-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="draw">Нарисовать по углам</button></div></div></div>';
+
+  function init() {
+    document.addEventListener('wheel', wheel, { passive: false });
+    window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
+  }
+  return { st, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+})();
+
+/* the plan's panels take the place of the scene's in «План» mode */
+(function () {
+  const wrap = (obj, key, alt) => { const o = obj[key]; obj[key] = function () { return UI.mode === 'plan' ? alt() : o.apply(this, arguments); }; };
+  V.con.skel = V.con.skel.replace('<div class="fly" id="fly"', '<div class="planhost" id="planhost" data-sec="plan"></div><div class="fly" id="fly"');
+  V.con.secs.plan = function () { return PL.SKEL; };
+  wrap(V.con.secs, 'tools', PL.vTools);
+  wrap(V.con.secs, 'pal', PL.vFly);
+  wrap(V.con.secs, 'insp', PL.vInsp);
+  wrap(V.con.secs, 'layers', PL.vLayers);
+  wrap(V.con.secs, 'checks', PL.vChecks);
+  wrap(V.con.secs, 'scene', PL.vSettings);
+  wrap(V, 'optbar', PL.vOptbar);
+  wrap(V, 'statbar', PL.vStatbar);
+  /* the dock's last tab is the plan's settings; the checks dot follows the plan's measurements */
+  const dt = V.con.secs.dtabs; V.con.secs.dtabs = function () { const h = dt(); if (UI.mode !== 'plan') return h;
+    const sm = PG.summary(S.plan || PG.newPlan()), c = sm.cnt.bad ? 'bad' : (sm.cnt.warn + sm.cnt.partial) ? 'warn' : 'ok';
+    return h.replace('>Сцена</button>', '>План</button>').replace(/<i class="cdot [a-z]+"/, '<i class="cdot ' + c + '"'); };
+  const ds = V.con.secs.dstrip; V.con.secs.dstrip = function () { const h = ds(); return UI.mode === 'plan' ? h.replace(/title="Сцена" aria-label="Сцена"/, 'title="План: настройки" aria-label="План: настройки"') : h; };
+})();

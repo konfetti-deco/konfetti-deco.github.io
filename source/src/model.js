@@ -181,6 +181,7 @@ M.normalize = function(o){
   if(o.ref){var rf=o.ref;if(typeof rf!=='object'||!rf.im||!(+rf.w>0)||!(+rf.h>0)||!isFinite(+rf.x)||!isFinite(+rf.y))delete o.ref;else{rf.im=String(rf.im);rf.x=+rf.x;rf.y=+rf.y;rf.w=+rf.w;rf.h=+rf.h;rf.on=rf.on!==false;rf.z=isFinite(+rf.z)&&rf.z!==null&&rf.z!==''?Math.max(0,Math.min(E.ZMAX,+rf.z)):M.refZ(o);rf.op=Math.max(10,Math.min(100,+rf.op||45));if(rf.info&&typeof rf.info!=='object')delete rf.info}}
   if(o.frame!=='metal')o.frame='wood';if(!E.DENS[o.balloons.density])o.balloons.density='std';
   o.palette=D.pal(o.palette).id;o.holiday=D.holiday(o.holiday).id;o.name=String(o.name).slice(0,80);
+  if(typeof PG!=='undefined')o.plan=PG.normalize(o.plan);   // the floor plan travels inside the same project
   return o;
 };
 /* the plane the photo underlay was measured in: the rear backgrounds */
