@@ -954,6 +954,7 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
 #plan .prh{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .prl{stroke:var(--accent);stroke-width:1.4}
 #plan .pnb{stroke:var(--pl-dance-l);stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none} #plan .pnb-t{fill:var(--pl-dance-l);font-weight:700;stroke:var(--pl-bg)}
 #plan .hw{cursor:pointer}
+.newver{position:fixed;left:50%;bottom:calc(46px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:200;border:0;border-radius:999px;padding:11px 18px;font:600 14px/1 var(--f-ui,system-ui,sans-serif);background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px -8px rgba(0,0,0,.6);cursor:pointer}
 
 </style>
 </head>
@@ -5687,7 +5688,22 @@ document.addEventListener('click',function(ev){var a=ev.target.closest&&ev.targe
   else if(k==='sync-off'){SITE.connect('');toast('Синхронизация выключена. Проекты остаются в базе, их видно снова после подключения к той же комнате.')}
   else if(k==='sync-copy'){var t=SITE.code();try{navigator.clipboard.writeText(t).then(function(){toast('Код скопирован: '+t)},function(){toast('Код: '+t)})}catch(e){toast('Код: '+t)}}});
 /* works offline and installs on the home screen with its own icon */
-if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
+/* a new version: the worker is checked when the app opens and whenever it comes back to the front; when a new one has
+   taken over, a button offers to reload (the scene and the plan are kept by the autosave) */
+if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',function(){
+  var had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    var chk=function(){try{reg.update()}catch(e){}};
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')chk()});
+    setInterval(chk,30*60*1000);
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(!had){had=true;return}
+    if(document.getElementById('newver'))return;
+    var b=document.createElement('button');b.id='newver';b.type='button';b.className='newver';b.textContent='Доступна новая версия — обновить';
+    b.addEventListener('click',function(){location.reload()});document.body.appendChild(b);
+  });
+});
 
 /* ===== main.js — state, history, rendering loop, pointer editing on the scene, actions. ===== */
 var S, R, UI = {mode:'scene', pgroup:'room', tab:'con', sel:null, group:'bg', mod:null, ced:null, hist:[], hi:-1, modal:null, projects:null, ph:null, phTall:0, fold:IO.loadFold(), hsv:null, imp:null, multi:null, mmode:false, zoom:{z:1,x:0,y:0}, night:false, analyses:null, anBusy:false, anErr:false, phPaste:false, phText:'', phNoImg:false, histL:[], dtab:'layers', fly:false, tool:null, isec:{}, dock:'', nextLabel:null, scrubbing:false};

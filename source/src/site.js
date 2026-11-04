@@ -41,4 +41,19 @@ document.addEventListener('click',function(ev){var a=ev.target.closest&&ev.targe
   else if(k==='sync-off'){SITE.connect('');toast('Синхронизация выключена. Проекты остаются в базе, их видно снова после подключения к той же комнате.')}
   else if(k==='sync-copy'){var t=SITE.code();try{navigator.clipboard.writeText(t).then(function(){toast('Код скопирован: '+t)},function(){toast('Код: '+t)})}catch(e){toast('Код: '+t)}}});
 /* works offline and installs on the home screen with its own icon */
-if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){})});
+/* a new version: the worker is checked when the app opens and whenever it comes back to the front; when a new one has
+   taken over, a button offers to reload (the scene and the plan are kept by the autosave) */
+if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',function(){
+  var had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(function(reg){
+    var chk=function(){try{reg.update()}catch(e){}};
+    document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible')chk()});
+    setInterval(chk,30*60*1000);
+  }).catch(function(){});
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(!had){had=true;return}
+    if(document.getElementById('newver'))return;
+    var b=document.createElement('button');b.id='newver';b.type='button';b.className='newver';b.textContent='Доступна новая версия — обновить';
+    b.addEventListener('click',function(){location.reload()});document.body.appendChild(b);
+  });
+});

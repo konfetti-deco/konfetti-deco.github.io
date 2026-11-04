@@ -935,3 +935,4 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
 #plan .prh{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .prl{stroke:var(--accent);stroke-width:1.4}
 #plan .pnb{stroke:var(--pl-dance-l);stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none} #plan .pnb-t{fill:var(--pl-dance-l);font-weight:700;stroke:var(--pl-bg)}
 #plan .hw{cursor:pointer}
+.newver{position:fixed;left:50%;bottom:calc(46px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:200;border:0;border-radius:999px;padding:11px 18px;font:600 14px/1 var(--f-ui,system-ui,sans-serif);background:var(--accent);color:var(--accent-ink);box-shadow:0 10px 30px -8px rgba(0,0,0,.6);cursor:pointer}
