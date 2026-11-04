@@ -909,3 +909,29 @@ html.glass .modesw{background:var(--chip)} html.glass .modesw button[aria-presse
 .chip.sm{min-height:30px;padding:0 10px;font-size:12px} .chip.on{border-color:var(--accent);color:var(--accent)}
 .pad{padding:10px}
 body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
+/* plan, step 2: tables, chairs, zones, handles */
+:root,:root[data-theme="dark"]{--pl-tab:#3A3226;--pl-tab-l:#D9BC74;--pl-chair:#2A3037;--pl-chair-l:#8E9AA6;--pl-stage:#2B2F45;--pl-stage-l:#9AA5E8;--pl-dance:rgba(124,212,164,.10);--pl-dance-l:#7CD4A4;--pl-furn:#2C3540;--pl-furn-l:#9DB8D2;--pl-photo:#3A2B35;--pl-photo-l:#F2A7C8}
+:root[data-theme="light"]{--pl-tab:#FBF3DF;--pl-tab-l:#9A7A2C;--pl-chair:#FFFFFF;--pl-chair-l:#7A898D;--pl-stage:#E6E9FA;--pl-stage-l:#4C57A8;--pl-dance:rgba(27,116,67,.07);--pl-dance-l:#1B7443;--pl-furn:#DCE6F0;--pl-furn-l:#37546F;--pl-photo:#FBE6EF;--pl-photo-l:#B24A7A}
+@media (prefers-color-scheme:light){:root:not([data-theme]){--pl-tab:#FBF3DF;--pl-tab-l:#9A7A2C;--pl-chair:#FFFFFF;--pl-chair-l:#7A898D;--pl-stage:#E6E9FA;--pl-stage-l:#4C57A8;--pl-dance:rgba(27,116,67,.07);--pl-dance-l:#1B7443;--pl-furn:#DCE6F0;--pl-furn-l:#37546F;--pl-photo:#FBE6EF;--pl-photo-l:#B24A7A}}
+#plan .pig{cursor:move}
+#plan .pig .pib{stroke-width:1.5}
+#plan .pig.tab .pib{fill:var(--pl-tab);stroke:var(--pl-tab-l)}
+#plan .pig .pch{fill:var(--pl-chair);stroke:var(--pl-chair-l);stroke-width:1} #plan .pig .pchb{stroke:var(--pl-chair-l);stroke-width:2;stroke-linecap:round}
+#plan .pig.stage .pib{fill:var(--pl-stage);stroke:var(--pl-stage-l)}
+#plan .pig.dance .pib{fill:var(--pl-dance);stroke:var(--pl-dance-l);stroke-dasharray:7 5}
+#plan .pig.furn .pib{fill:var(--pl-furn);stroke:var(--pl-furn-l)}
+#plan .pig.photo .pib{fill:var(--pl-photo);stroke:var(--pl-photo-l)}
+#plan .pig.col .pib{fill:var(--pl-item);stroke:var(--pl-item-l)}
+#plan .pig.on .pib{stroke:var(--accent);stroke-width:2.8} #plan .pig.on .pch{stroke:var(--accent)}
+#plan .pig.bad .pib,#plan .pig.bad .pch{stroke:var(--bad);stroke-width:2.4}
+#plan .ptn{fill:var(--ink);font-weight:800;stroke:var(--pl-tab)} #plan .pts{fill:var(--muted);font-weight:600;stroke:var(--pl-tab)}
+#plan .pzn{fill:var(--ink);font-family:var(--f-ui,system-ui,sans-serif);font-weight:650;stroke:var(--pl-furn)}
+#plan .pig.stage .pzn{stroke:var(--pl-stage)} #plan .pig.photo .pzn{stroke:var(--pl-photo)} #plan .pig.dance .pzn{stroke:var(--pl-bg)}
+#plan #phnd .hh{fill:transparent;stroke:none;pointer-events:all;cursor:grab}
+#plan #phnd :not(.hh){pointer-events:none}
+#plan .phd{fill:var(--pl-bg);stroke:var(--accent);stroke-width:2} #plan .phd.op{fill:var(--accent)}
+#plan .phw{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .phw.on{fill:var(--brass)}
+#plan .pcd{fill:var(--pl-bg);stroke:var(--accent);stroke-width:2.2} #plan .pcd.on{fill:var(--brass);stroke:var(--brass)}
+#plan .prh{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .prl{stroke:var(--accent);stroke-width:1.4}
+#plan .pnb{stroke:var(--pl-dance-l);stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none} #plan .pnb-t{fill:var(--pl-dance-l);font-weight:700;stroke:var(--pl-bg)}
+#plan .hw{cursor:pointer}
