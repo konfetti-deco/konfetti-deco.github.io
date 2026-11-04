@@ -1,6 +1,6 @@
 /* Konfetti Deco — offline cache. The page itself: network first (a new version shows as soon as there is a connection),
    the cached copy when offline. Icons, fonts and the PDF library: from the cache, fetched once. */
-const CACHE = 'konfetti-202611040049';  // LA CHEF lives on the same address: only caches named konfetti-* are ever touched
+const CACHE = 'konfetti-202611040050';  // LA CHEF lives on the same address: only caches named konfetti-* are ever touched
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-64.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL))); self.skipWaiting() });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k.startsWith('konfetti-') && k !== CACHE).map((k) => caches.delete(k))))); self.clients.claim() });
