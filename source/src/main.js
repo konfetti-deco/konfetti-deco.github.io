@@ -454,6 +454,7 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
 toast(UI.mmode?'Обведите элементы рамкой или касайтесь их по одному. На компьютере то же делает Shift.':'Выбор нескольких выключен.');break;
     case 'night':UI.night=!UI.night;applyNight();break;
     case 'theme':setTheme(themeNow()==='dark'?'light':'dark');break;
+    case 'glass':setGlass(!glassNow());break;
     case 'mv':UI.tool=null;setMv(id);paintStage();toast(UI.mv==='floor'?'По полу: тяните вбок и вглубь — вверх к стене, вниз к зрителю. Высота не меняется.':'По стене: тяните вбок и вверх-вниз. Глубина не меняется.');break;
     case 'help':helpTip(a);break;
     case 'zoom-in':zoomBy(1.5);break;
@@ -927,6 +928,8 @@ function layerMove(id,aboveId,belowId){
   if(A&&SC.zOf(S,A)===z)S.els.splice(S.els.indexOf(A),0,el);else if(B&&SC.zOf(S,B)===z)S.els.splice(S.els.indexOf(B)+1,0,el);else if(A)S.els.splice(S.els.indexOf(A),0,el);else S.els.push(el);
   commit()}
 /* light or dark: the saved choice, else what the device asks for. The scene itself stays as it will look in the room. */
+function glassNow(){return document.documentElement.classList.contains('glass')}
+function setGlass(on){document.documentElement.classList.toggle('glass',on);try{localStorage.setItem('fotozona.glass.v1',on?'on':'off')}catch(e){}menuClose();requestAnimationFrame(function(){fitStage();zoomApply();placeFly();placeOv()})}
 function themeNow(){var t=document.documentElement.getAttribute('data-theme');return t==='light'?'light':'dark'}
 /* menus: a word in the bar opens its list under it; while one is open, moving to the next word opens that one, as in Photoshop */
 function menuOpen(id,b){var m=$('#mpop');if(!m)return;if(!m.hidden&&m.dataset.id===id){menuClose();return}

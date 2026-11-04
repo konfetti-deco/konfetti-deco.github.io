@@ -795,3 +795,55 @@ span.dt{cursor:default}
 .synccode{height:32px;border:1px solid var(--wline,#383B40);border-radius:5px;background:var(--well);color:var(--ink);padding:0 9px;font:500 13px var(--f-mono);min-width:160px}
 /* installed on the home screen (iPad / iPhone): keep clear of the status bar and the home indicator */
 .ws{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+/* =================== version 29: glassmorphism — translucent frosted panels floating over a soft coloured backdrop ===================
+   Switched by the «glass» class on <html> (on by default; «Вид → Стеклянный интерфейс» turns it off, e.g. if a tablet slows down).
+   Only the outer panels and the pop-ups blur what is behind them; everything inside is a light tint, so the blur is not stacked. */
+html.glass[data-theme]{
+  --gl:rgba(34,36,44,.44); --glg:rgba(255,255,255,.065); --glfoot:rgba(30,32,38,.94); --gl2:rgba(255,255,255,.045); --glpop:rgba(30,32,39,.66); --glb:rgba(255,255,255,.11); --glhi:rgba(255,255,255,.09);
+  --glsh:0 14px 34px -16px rgba(0,0,0,.6); --glshp:0 26px 60px -20px rgba(0,0,0,.75); --glblur:blur(22px) saturate(1.6); --glcan:rgba(8,9,12,.34);
+  --hov:rgba(255,255,255,.075); --sel:rgba(93,184,150,.22); --wline:rgba(255,255,255,.09); --hair:rgba(255,255,255,.09);
+  --well:rgba(0,0,0,.24); --surface:rgba(255,255,255,.05); --surface2:rgba(255,255,255,.08); --chip:rgba(255,255,255,.07); --opt:#26282D }
+html.glass[data-theme="light"]{
+  --gl:rgba(255,255,255,.50); --glg:rgba(255,255,255,.45); --glfoot:rgba(250,249,252,.94); --gl2:rgba(255,255,255,.34); --glpop:rgba(255,255,255,.72); --glb:rgba(255,255,255,.78); --glhi:rgba(255,255,255,.95);
+  --glsh:0 14px 32px -18px rgba(40,30,70,.35); --glshp:0 26px 56px -22px rgba(40,30,70,.45); --glcan:rgba(255,255,255,.28);
+  --hov:rgba(30,20,60,.06); --sel:rgba(31,107,83,.15); --wline:rgba(30,20,60,.10); --hair:rgba(30,20,60,.10);
+  --well:rgba(255,255,255,.6); --surface:rgba(255,255,255,.62); --surface2:rgba(255,255,255,.45); --chip:rgba(30,20,60,.06); --opt:#FFFFFF }
+/* the backdrop the glass sits on */
+html.glass body{background:
+  radial-gradient(60vw 56vh at 4% -6%,rgba(93,184,150,.48),transparent 62%),
+  radial-gradient(54vw 62vh at 104% 4%,rgba(139,108,255,.46),transparent 62%),
+  radial-gradient(58vw 54vh at 86% 110%,rgba(255,95,162,.36),transparent 62%),
+  radial-gradient(50vw 48vh at 6% 106%,rgba(217,188,116,.30),transparent 62%),#101115;background-attachment:fixed}
+html.glass[data-theme="light"] body{background:
+  radial-gradient(58vw 52vh at 4% -4%,rgba(93,184,150,.38),transparent 62%),
+  radial-gradient(52vw 58vh at 102% 6%,rgba(160,130,255,.36),transparent 62%),
+  radial-gradient(56vw 50vh at 86% 108%,rgba(255,120,180,.30),transparent 62%),
+  radial-gradient(48vw 46vh at 8% 104%,rgba(240,200,110,.30),transparent 62%),#ECE9F1;background-attachment:fixed}
+/* panels float with a little air between them */
+html.glass .ws{gap:6px;padding:calc(6px + env(safe-area-inset-top,0px)) calc(6px + env(safe-area-inset-right,0px)) calc(6px + env(safe-area-inset-bottom,0px)) calc(6px + env(safe-area-inset-left,0px))}
+html.glass .wsm{gap:6px}
+html.glass :is(.top,.opt,.tools,.dock,.sbar,.canvas){border:1px solid var(--glb);border-radius:12px;box-shadow:inset 0 1px 0 var(--glhi),var(--glsh)}
+html.glass :is(.top,.opt,.tools,.dock,.sbar){background:linear-gradient(180deg,var(--glg),transparent 46%),var(--gl);-webkit-backdrop-filter:var(--glblur);backdrop-filter:var(--glblur)}
+html.glass .canvas{background:var(--glcan)}
+html.glass .stagewrap{border-radius:6px;overflow:hidden;box-shadow:0 18px 44px -14px rgba(0,0,0,.65),0 0 0 1px var(--glb)}
+html.glass .pn{border-color:var(--wline)}
+/* pop-ups: frosted over the scene */
+html.glass :is(.fly,.mpop,.modal,.cwin){background:var(--glpop);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);border:1px solid var(--glb);border-radius:14px;box-shadow:inset 0 1px 0 var(--glhi),var(--glshp)}
+html.glass .mpop{border-radius:10px;padding:5px}
+html.glass .mi{border-radius:6px}
+html.glass .calcwin{top:calc(48px + env(safe-area-inset-top,0px));bottom:calc(36px + env(safe-area-inset-bottom,0px));background:rgba(0,0,0,.22);-webkit-backdrop-filter:blur(4px);backdrop-filter:blur(4px)}
+html.glass .cbody .card{background:var(--surface);border-color:var(--wline)}
+/* inside the glass: tints, not more glass */
+html.glass :is(.dtabs,.fh,.cbar,.dsplit){background:var(--gl2)}
+html.glass .dtabs{border-radius:11px 11px 0 0}
+html.glass .dt.on{background:var(--hov)}
+html.glass .nf b{background:var(--gl2)}
+html.glass .pfoot{background:var(--glfoot)}
+html.glass .pill{background:var(--chip)}
+html.glass .pill.pri{background:linear-gradient(135deg,#5DB896,#4F9FD0);color:#0B1411;box-shadow:0 6px 18px -6px rgba(93,184,150,.75),inset 0 1px 0 rgba(255,255,255,.35)}
+html.glass[data-theme="light"] .pill.pri{background:linear-gradient(135deg,#1F6B53,#2B6FA0);color:#fff;box-shadow:0 6px 18px -8px rgba(31,107,83,.7),inset 0 1px 0 rgba(255,255,255,.3)}
+html.glass :is(.tb,.ib)[aria-pressed="true"]{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--acc) 45%,transparent),0 0 14px -4px color-mix(in srgb,var(--acc) 70%,transparent)}
+html.glass .tb,html.glass .ib{border-radius:7px}
+/* native drop-down lists cannot show glass: their rows stay solid */
+html.glass option{background:var(--opt);color:var(--ink)}
+@media (prefers-reduced-transparency:reduce){html.glass :is(.top,.opt,.tools,.dock,.sbar,.fly,.mpop,.modal,.cwin,.pfoot){-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--opt)}}
