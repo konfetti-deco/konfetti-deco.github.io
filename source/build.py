@@ -33,18 +33,18 @@ else:
     if os.path.exists('site_src/README.md'):shutil.copy('site_src/README.md',out+'README.md')
     open(out+'.nojekyll','w').write('')
     # the old address (github.io/konfetti-deco/ and its app/): a forwarding page and a worker that removes the old offline cache
-    old='site/'
-    if os.path.isdir(old):
+    for old,subs in (('site/',('','app/')),('../konfetti/',('',))):
+        if not os.path.isdir(old+'.git'):continue
         for n in os.listdir(old):
             if n!='.git':
                 pth=os.path.join(old,n);shutil.rmtree(pth) if os.path.isdir(pth) else os.remove(pth)
-    for d in (old,old+'app/'):
-        os.makedirs(d,exist_ok=True)
-        open(d+'index.html','w',encoding='utf-8').write(open('site_src/moved/index.html',encoding='utf-8').read())
-        open(d+'sw.js','w',encoding='utf-8').write(open('site_src/moved/sw.js',encoding='utf-8').read())
-        shutil.copytree('site_src/icons',d+'icons')
-    os.makedirs(old+'.github/workflows',exist_ok=True);shutil.copy('site_src/.github/workflows/deploy.yml',old+'.github/workflows/deploy.yml')
-    shutil.copy('site_src/moved/README.md',old+'README.md');open(old+'.nojekyll','w').write('')
+        for d in subs:
+            d=old+d;os.makedirs(d,exist_ok=True)
+            open(d+'index.html','w',encoding='utf-8').write(open('site_src/moved/index.html',encoding='utf-8').read())
+            open(d+'sw.js','w',encoding='utf-8').write(open('site_src/moved/sw.js',encoding='utf-8').read())
+            shutil.copytree('site_src/icons',d+'icons')
+        os.makedirs(old+'.github/workflows',exist_ok=True);shutil.copy('site_src/.github/workflows/deploy.yml',old+'.github/workflows/deploy.yml')
+        shutil.copy('site_src/moved/README.md',old+'README.md');open(old+'.nojekyll','w').write('')
     # the sources travel with the site, so the next change can be built from them
     shutil.copytree('src',out+'source/src');shutil.copy('build.py',out+'source/build.py');shutil.copytree('site_src',out+'source/site_src')
     print('site built',len(doc),'bytes, build',build)

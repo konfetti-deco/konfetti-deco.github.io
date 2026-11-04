@@ -3,11 +3,11 @@
 <title>Konfetti Deco переехал</title><link rel="icon" type="image/png" href="icons/favicon-64.png"><meta name="theme-color" content="#2A2C2F">
 <style>body{margin:0;background:#1E1F21;color:#E3E3E0;font:16px/1.5 system-ui,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:0 16px}a{color:#5DB896;font-weight:600}</style>
 <script>
-/* Konfetti Deco moved to github.io/konfetti/. Only the old Konfetti Deco pieces are removed here: workers whose scope is
-   /konfetti-deco/ and caches named loulou-*. LA CHEF and anything else on this address is left untouched. */
-(function(){var NEW='/konfetti/',go=function(){location.replace(NEW+location.search+location.hash)};
-  try{if(window.caches)caches.keys().then(function(ks){ks.forEach(function(k){if(/^loulou-/.test(k))caches.delete(k)})}).catch(function(){});
-    if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.filter(function(r){return /\/konfetti-deco\//.test(r.scope)}).map(function(r){return r.unregister()}))}).then(go,go);setTimeout(go,1500);return}}catch(e){}
+/* Konfetti Deco moved to its own address, konfetti-deco.github.io. Only the old Konfetti Deco pieces on this address are
+   removed here: workers whose scope is /konfetti-deco/ or /konfetti/ and caches named loulou-* or konfetti-*. LA CHEF and anything else on this address is left untouched. */
+(function(){var NEW='https://konfetti-deco.github.io/',go=function(){location.replace(NEW+location.search+location.hash)};
+  try{if(window.caches)caches.keys().then(function(ks){ks.forEach(function(k){if(/^(loulou|konfetti)-/.test(k))caches.delete(k)})}).catch(function(){});
+    if('serviceWorker' in navigator){navigator.serviceWorker.getRegistrations().then(function(rs){return Promise.all(rs.filter(function(r){return /\/konfetti(-deco)?\//.test(new URL(r.scope).pathname)}).map(function(r){return r.unregister()}))}).then(go,go);setTimeout(go,1500);return}}catch(e){}
   go()})();
 </script></head>
-<body><p>Konfetti Deco переехал на новый адрес.<br>Открываю… Если не открылось — <a href="/konfetti/">нажмите здесь</a>.</p></body></html>
+<body><p>Konfetti Deco переехал на новый адрес.<br>Открываю… Если не открылось — <a href="https://konfetti-deco.github.io/">нажмите здесь</a>.</p></body></html>
