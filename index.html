@@ -1010,6 +1010,40 @@ html.glass .fcard{background:var(--gl);-webkit-backdrop-filter:blur(14px);backdr
 #plan .ppin .pcam{fill:var(--pl-bg)} #plan .ppin .pcam2{fill:var(--accent)} #plan .ppin.on .pib{stroke:var(--brass);stroke-width:2.5}
 #plan .ppn{fill:var(--accent);font-weight:700;stroke:var(--pl-bg);font-family:var(--f-ui,system-ui,sans-serif)}
 .pthumb{width:100%;border-radius:8px;display:block}
+/* the number pad in the side panel */
+.kp{display:flex;flex-direction:column;gap:7px;position:relative}
+.kpr{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:var(--well);border:1px solid var(--wline);box-shadow:inset 0 -2px 0 var(--accent);cursor:text}
+.kp.bad .kpr{box-shadow:inset 0 -2px 0 var(--bad)} .kp.est .kpv{color:var(--muted)}
+.kpl{font-size:12px;color:var(--muted);white-space:nowrap;flex:none}
+.kpv{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);text-align:right;font:700 22px/1.2 var(--f-mono,ui-monospace,monospace);font-variant-numeric:tabular-nums;padding:4px 0;outline:none}
+.kpv::placeholder{color:var(--muted);font-weight:500;font-size:18px}
+.kpun{font-size:13px;color:var(--muted);flex:none;min-width:22px}
+.kph{position:absolute;right:-2px;top:-26px}
+.kpu{display:flex;background:var(--chip);border-radius:8px;padding:2px;gap:2px}
+.kpu button{flex:1;border:0;background:transparent;color:var(--muted);font:600 12.5px/1 var(--f-ui,system-ui,sans-serif);padding:7px 0;border-radius:6px;cursor:pointer}
+.kpu button[aria-pressed=true]{background:var(--surface2);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+html.glass .kpu button[aria-pressed=true]{background:var(--hov);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+.kpk{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.kk{min-height:42px;border:1px solid var(--wline);border-radius:9px;background:var(--surface);color:var(--ink);font:600 18px/1 var(--f-mono,ui-monospace,monospace);cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.kk:active{background:var(--hov);transform:translateY(1px)}
+.kk.fn{color:var(--muted);font-size:16px} .kk.ok{grid-column:span 2;background:linear-gradient(180deg,var(--accent2),var(--accent));color:var(--accent-ink);border-color:transparent;font-family:var(--f-ui,system-ui,sans-serif);font-size:20px}
+html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gradient(135deg,#5DB896,#4F9FD0);color:#0B1411}
+/* one-line statuses with the explanation behind «?» */
+.pchip{display:flex;align-items:center;gap:7px;margin:0 0 6px;padding:5px 8px 5px 10px;border-radius:8px;font-size:12.5px;background:var(--chip)}
+.pchip span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip.ok{color:var(--ok)} .pchip.warn,.pchip.partial{color:var(--warn)} .pchip.bad{color:var(--bad)}
+/* colours of the photo marks */
+.fswb{display:block;width:18px;height:18px;border-radius:5px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 0 0 1px var(--wline)}
+.fsw{display:inline-block;width:16px;height:16px;border-radius:4px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);vertical-align:middle;flex:none}
+.fsws{display:flex} .fsws button{flex:1;display:flex;align-items:center;justify-content:center;min-height:32px}
+.fcrow{flex-direction:row!important;align-items:center!important;gap:10px} .fcrow.on{background:var(--sel,var(--hov))}
+/* the photo: no long-press menu, no selection */
+#fsvg,#fsvg *,#plan,#plan *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#fimg{pointer-events:none}
+.pbanner{font-size:12.5px;padding:4px 6px 4px 10px;gap:6px;top:8px;border-radius:999px}
+.pbanner .btn.sm{min-height:28px;padding:0 10px;font-size:12px;border-radius:999px}
+.pbanner .hq{flex:none}
+.kpl{display:inline-flex;align-items:center;gap:6px} .kk svg{display:block;margin:auto}
 
 </style>
 </head>
@@ -1023,7 +1057,7 @@ html.glass .fcard{background:var(--gl);-webkit-backdrop-filter:blur(14px);backdr
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 33</span>
+  <span class="ver" id="ver">версия 34</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -4701,7 +4735,7 @@ V.statbar = function(){var z=R.zone,bad=R.checks.filter(function(c){return !c.ok
 V.hasClip = function(){if(UI.clip)return true;try{return !!localStorage.getItem('fotozona.clip.v1')}catch(e){return false}};
 V.MENUS = {file:'Файл',edit:'Правка',view:'Вид',calc:'Расчёты'};
 V.mmenu = function(id){var it=function(act,lab,o){o=o||{};return '<button type="button" class="mi'+(o.on?' on':'')+'" data-act="'+act+'"'+(o.id?' data-id="'+o.id+'"':'')+(o.dis?' disabled':'')+'><i class="mck" aria-hidden="true">'+(o.on?'✓':'')+'</i><span>'+lab+'</span>'+(o.k?'<kbd>'+o.k+'</kbd>':'')+'</button>'},hr='<hr>',el=V.sel(),ms=V.multi().length>1;
-  if(id==='file')return it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('cloud-save-new','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+it('png','Скачать сцену картинкой PNG')+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
+  if(id==='file')return it('new-proj','Новый проект…')+it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('cloud-save-new','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+it('png','Скачать сцену картинкой PNG')+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
   if(id==='edit')return it('undo','Отменить',{k:'Ctrl+Z',dis:UI.hi<=0})+it('redo','Вернуть',{k:'Ctrl+Y',dis:UI.hi>=UI.hist.length-1})+it('dopen','История шагов',{id:'hist'})+hr+it(ms?'gdup':'dup','Дублировать',{k:'Ctrl+D',dis:!el&&!ms})+it(ms?'gdel':'del','Удалить',{k:'Del',dis:!el&&!ms})+it('lib-open','В мои шаблоны',{dis:!el&&!ms})+hr+it('copy','Копировать',{k:'Ctrl+C',dis:!el&&!ms})+it('cut','Вырезать',{k:'Ctrl+X',dis:!el&&!ms})+it('paste','Вставить',{k:'Ctrl+V',dis:!V.hasClip()})+hr+it('selall','Выделить всё',{k:'Ctrl+A',dis:!S.els.length})+it('multi','Выбирать несколько',{on:UI.mmode})+it('gclear','Снять выделение',{k:'Esc',dis:!el&&!ms});
   if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()});
   if(id==='calc')return V.TABS.slice(1).map(function(t,i){return it('tab',t[1],{id:t[0],k:String(i+1),on:UI.tab===t[0]})}).join('');
@@ -4711,6 +4745,32 @@ V.mmenu = function(id){var it=function(act,lab,o){o=o||{};return '<button type="
    The plan lives in S.plan (so it is saved, synced and undone together with the scenes); the geometry is PG (plancore.js).
    Drawing is in millimetres inside one SVG group; panning and pinching move that group without rebuilding it,
    a full repaint follows when the gesture ends. ===== */
+/* ===== the number pad in the side panel: a size is typed without the system keyboard. The readout is an input with
+   inputmode="none" (no on-screen keyboard; a real keyboard still types into it); ✓ sends the same «change» as Enter. ===== */
+var KP = (function () {
+  'use strict';
+  const KEYS = [['7'], ['8'], ['9'], ['bs', '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>', 'fn'], ['4'], ['5'], ['6'], ['+', '+', 'fn'], ['1'], ['2'], ['3'], ['C', 'C', 'fn'], [',', ','], ['0'], ['ok', '✓', 'ok']];
+  function html(o) {   // o: {id, bind:'data-pbind="w.len"', act:'data-pact'|'data-fact', label, val, unit, ph, after, help, cls}
+    const units = [['m', 'м'], ['cm', 'см'], ['mm', 'мм']];
+    return '<div class="kp full' + (o.cls ? ' ' + o.cls : '') + '"><div class="kpr"><span class="kpl">' + o.label + (o.help ? U.help(o.help) : '') + '</span><input id="' + o.id + '" class="kpv" type="text" inputmode="none" autocomplete="off" spellcheck="false" ' + o.bind + ' data-fresh="1" value="' + String(o.val == null ? '' : o.val).replace(/"/g, '&quot;') + '" placeholder="' + (o.ph || '—') + '"><span class="kpun">' + o.unitLab + '</span></div>' +
+      '<div class="kpu" role="group" aria-label="Единицы">' + units.map((u) => '<button type="button" ' + o.act + '="unit" data-v="' + u[0] + '" aria-pressed="' + (o.unit === u[0]) + '">' + u[1] + '</button>').join('') + '</div>' +
+      '<div class="kpk">' + KEYS.map((k) => '<button type="button" class="kk' + (k[2] ? ' ' + k[2] : '') + '" data-kp="' + k[0] + '" data-for="' + o.id + '"' + (o.after ? ' data-after="' + o.after + '"' : '') + ' aria-label="' + (k[0] === 'bs' ? 'Стереть' : k[0] === 'ok' ? 'Готово' : k[0] === 'C' ? 'Очистить' : k[0]) + '">' + (k[1] || k[0]) + '</button>').join('') + '</div></div>';
+  }
+  function key(btn) {
+    const inp = document.getElementById(btn.dataset.for); if (!inp) return;
+    const k = btn.dataset.kp, fresh = inp.dataset.fresh === '1';
+    let b = fresh ? '' : inp.value;
+    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); }, 0); return; }
+    if (k === 'C') b = '';
+    else if (k === 'bs') b = fresh ? '' : b.slice(0, -1);
+    else if (k === ',') { const last = b.split('+').pop(); if (last.indexOf(',') >= 0) return; b += last === '' ? '0,' : ','; }
+    else if (k === '+') { if (!b || /[+,]$/.test(b)) return; b += '+'; }
+    else { if (b.length >= 16) return; b += k; }
+    inp.value = b; inp.dataset.fresh = '0';
+  }
+  return { html, key };
+})();
+
 var PL = (function () {
   'use strict';
   const G = PG;
@@ -5414,6 +5474,10 @@ var PL = (function () {
     return ['bad', 'Невязка ' + Math.round(g.gap) + ' мм — ошибка замера (больше ' + G.TOL_WARN + '). Перемерьте стены.'];
   };
   const note = (cls, t) => '<p class="pst ' + cls + '">' + esc(t) + '</p>';
+  /* a status in one short line; the full explanation behind «?» */
+  const chip = (cls, short, long) => '<div class="pchip ' + cls + '"><i class="cdot ' + (cls === 'partial' ? 'warn' : cls) + '"></i><span>' + esc(short) + '</span>' + (long ? U.help(esc(long)) : '') + '</div>';
+  const stShort = (g) => g.reason === 'self' ? 'стены пересекаются' : g.reason === 'diag' ? 'диагональ не сходится' : g.status === 'partial' ? 'не измерено стен: ' + g.unmeasured + ' из ' + g.n : g.status === 'bad' && g.reason === 'open' ? 'контур не замыкается' :
+    g.reason === 'diag-check' ? 'проверка диагональю: ' + Math.round(Math.abs(g.diag.qDelta)) + ' мм' : g.status === 'ok' ? 'контур сходится · ' + Math.round(g.gap) + ' мм' : g.status === 'warn' ? 'невязка ' + Math.round(g.gap) + ' мм — сомнительно' : 'невязка ' + Math.round(g.gap) + ' мм — ошибка замера';
   function vInsp() {
     const s = st.sel, p = P();
     U.inDock = true;
@@ -5471,7 +5535,7 @@ var PL = (function () {
       if (!r) return '';
       const g = G.roomGeom(r), [sc, stx] = stLine(g);
       if (s.t === 'room') {
-        return '<div class="phead"><h3>' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+        return '<div class="phead"><h3>' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
           grp('Помещение', fld('r.name', 'Название', r.name, { cls: 'full', ph: 'Помещение ' + (p.rooms.indexOf(r) + 1) }) + '<div class="chips full">' + G.NAMES.map((nm) => '<button type="button" class="chip sm' + (r.name === nm ? ' on' : '') + '" data-pact="r-name" data-v="' + esc(nm) + '">' + nm + '</button>').join('') + '</div>' +
             fld('r.h', 'Высота потолка, ' + uLab(), r.h ? fs(r.h) : '', { cls: 'full', ph: fs(p.h) + ' — как по умолчанию' }) +
             '<div class="kv2 full"><span>Площадь</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b><span>Периметр</span><b>' + (g.allM ? '' : '≈') + G.nf(g.P / 1000, 2) + ' м</b><span>Стен</span><b>' + g.n + (g.unmeasured ? ', не измерено ' + g.unmeasured : ', все измерены') + '</b></div>') +
@@ -5482,7 +5546,7 @@ var PL = (function () {
       }
       if (s.t === 'corner') {
         const i = s.c, n = g.n;
-        return '<div class="phead"><h3>Угол ' + G.cornerName(i) + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+        return '<div class="phead"><h3>Угол ' + G.cornerName(i) + ' — ' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
           grp('Угол', fld('c.ang', 'Внутренний угол, °', G.nf(g.interior[i], 1), { cls: i === 0 ? 'dis' : '' }) +
             '<p class="muted small full">' + (i === 0 ? 'Угол A получается из остальных углов. Задайте углы B, C, …' : 'Меняет направление стен после угла ' + G.cornerName(i) + '. Измерьте угол угломером или задайте диагональ (для четырёх стен).') + '</p>') +
           '<div class="pacts">' + btn('sel', '← Стена ' + G.wallName(r, (i + n - 1) % n), { v: '' }).replace('data-pact="sel"', 'data-pact="sel" data-sel="w|' + r.id + '|' + r.walls[(i + n - 1) % n].id + '"') + btn('c-del', 'Убрать угол ' + G.cornerName(i), { dis: n <= 3, t: 'Две стены станут одной прямой' }) + '</div>';
@@ -5501,8 +5565,8 @@ var PL = (function () {
       }
       /* a wall */
       const j = st.jog, joff = j.off == null ? Math.round((L - j.w) / 2) : j.off, sp = st.split == null ? Math.round(L / 2) : st.split;
-      return '<div class="phead"><h3>Стена ' + nmW + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
-        grp('Замер', fld('w.len', 'Длина, ' + uLab(), fl(w.m ? w.len : g.lens[i]), { id: 'pl-wlen', cls: 'plen' + (w.m ? '' : ' est') }) +
+      return '<div class="phead"><h3>Стена ' + nmW + ' — ' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
+        grp('Замер', KP.html({ id: 'pl-wlen', bind: 'data-pbind="w.len"', act: 'data-pact', label: 'Длина ' + nmW, val: fl(w.m ? w.len : g.lens[i]), unit: unit(), unitLab: uLab(), after: 'wnext', cls: w.m ? '' : 'est' }) +
           '<label class="tog"><input type="checkbox" data-pbind="w.m"' + (w.m ? ' checked' : '') + '><span>Измерено</span></label>' +
           '<p class="muted small full">' + (w.m ? 'Длина измерена и не меняется при подгонке контура.' : 'Сейчас длина примерная (≈): впишите замер — стена станет измеренной.') + ' Enter — следующая стена.</p>' +
           '<div class="pacts full">' + btn('w-step', '← ' + G.wallName(r, (i + n - 1) % n), { v: -1 }) + btn('w-step', G.wallName(r, (i + 1) % n) + ' →', { v: 1, cls: 'pnext' }) + '</div>') +
@@ -5562,7 +5626,7 @@ var PL = (function () {
     if (s.t === 'corner') return '<span class="onm">Угол ' + G.cornerName(s.c) + '</span><span class="sep"></span>' + (s.c ? of('c.ang', '∠', G.nf(g.interior[s.c], 1), 'Внутренний угол, °') : '<span class="ohint">' + G.nf(g.interior[s.c], 1) + '°</span>') + '<span class="ohint">тяните точку, чтобы изменить форму</span><span class="sp"></span>' + ib('c-del', 'del', 'Убрать угол', 'dng') + x;
     const i = wallIx(r, s.w);
     if (s.t === 'op') { const op = curOp(); return '<span class="onm">' + esc(opName(op)) + '</span><span class="sep"></span>' + of('op.w', 'Ш', fs(op.w), 'Ширина, ' + uLab()) + of('op.off', 'от ' + G.cornerName(i), fl(op.off), 'От угла ' + G.cornerName(i) + ', ' + uLab()) + '<span class="ohint">края проёма тоже тянутся</span><span class="sp"></span>' + ib('op-del', 'del', 'Удалить проём', 'dng') + x; }
-    return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span>' + of('w.len', 'Длина', fl(r.walls[i].m ? r.walls[i].len : g.lens[i]), 'Длина, ' + uLab()) + '<span class="ohint">' + (r.walls[i].m ? 'точно' : '≈ примерно') + ' · тяните точку на стене · двойное касание — новый угол</span><span class="sp"></span>' + x;
+    return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span>' + '<span class="ohint"><b>' + (r.walls[i].m ? '' : '≈') + fl(r.walls[i].m ? r.walls[i].len : g.lens[i]) + ' ' + uLab() + '</b></span>' + '<span class="ohint">' + (r.walls[i].m ? 'точно' : '≈ примерно') + ' · тяните точку на стене · двойное касание — новый угол</span><span class="sp"></span>' + x;
   }
   function vStatbar() {
     const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial, tt = G.totals(P()), cf = conflicts().list.length + topChecks().list.length;
@@ -5664,7 +5728,8 @@ var PF = (function () {
     const a = m.a, b = m.b, dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = 9 / s;
     h += '<line class="fhalo" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
     if (m.t === 'dim') {
-      for (const q of [a, b]) h += '<line class="fhalo" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/>';
+      const k = 15 / s, w = 3.6 / s;   // thin sharp arrows pointing at the two ends
+      for (const [q, dir] of [[a, -1], [b, 1]]) { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; h += '<polygon class="fah" fill="' + c + '" points="' + n1(q[0]) + ',' + n1(q[1]) + ' ' + n1(bx + nx * w) + ',' + n1(by + ny * w) + ' ' + n1(bx - nx * w) + ',' + n1(by - ny * w) + '"/>'; }
       const lab = m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab();
       h += txt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, lab, 14, m.v > 0 ? dark : '#fff', m.v > 0 ? c : '#C92A2A', on);
     } else {
@@ -5705,7 +5770,7 @@ var PF = (function () {
   function banner() {
     const b = document.getElementById('fbanner'); if (!b) return;
     let t = '';
-    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Коснитесь второй точки' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': проведите пальцем от точки к точке (или два касания)') + '</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
   }
@@ -5769,7 +5834,7 @@ var PF = (function () {
       st.pend = null;
       if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
       const m = { id: G.uid(), t: st.tool, a: d.a, b, col: st.col }; if (m.t === 'dim') m.v = null; else m.text = '';
-      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); focusVal(); return true;
+      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); return true;
     }
     if (d.mode === 'newtext') { if (d.moved) { paint(); return true; } const m = { id: G.uid(), t: 'text', a: p, col: st.col, text: '' }; ph.marks.push(m); st.sel = m.id; st.tool = ''; label('заметка'); focusVal(); return true; }
     if (d.mode === 'end' || d.mode === 'move') { if (d.moved) label(d.mode === 'end' ? 'точка размера' : 'перемещение'); else { st.sel = d.ref[1]; render(); } return true; }
@@ -5794,7 +5859,7 @@ var PF = (function () {
       const f = files.shift(); if (!f) { if (last) { openPhoto(last); label(done === 1 ? 'добавлено фото' : 'добавлено фото: ' + done); if (IO._imgFull) toast('Память браузера заполнена: фото может не сохраниться на этом устройстве. Сохраните проект в облако или файлом.'); } else render(); return; }
       if (!/^image\//.test(f.type)) { next(); return; }
       const fr = new FileReader();
-      fr.onload = () => { const im = new Image(); im.onload = () => { const r = encodeImage(im, 'image/jpeg'); if (r) { const id = newImgId(); IMG[id] = r; IO.saveImg(id); const ph = { id: G.uid(), im: id, w: r.w, h: r.h, name: (f.name || '').replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'Фото ' + (n0 + done + 1), marks: [] }; if (/^(img|image|photo|dsc|pxl)[_\- ]?\d/i.test(ph.name)) ph.name = 'Фото ' + (n0 + done + 1); L().push(ph); last = ph.id; done++; } next(); }; im.onerror = next; im.src = fr.result; };
+      fr.onload = () => { const im = new Image(); im.onload = () => { const r = encodeImage(im, 'image/jpeg'); if (r) { const id = newImgId(); IMG[id] = r; IO.saveImg(id); const ph = { id: G.uid(), im: id, w: r.w, h: r.h, name: (f.name || '').replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'Фото ' + (n0 + done + 1), marks: [] }; if (/^(img|image|photo|dsc|pxl|screenshot)[_\- ]?\d/i.test(ph.name) || /^[\d_\- .]{6,}$/.test(ph.name) || (ph.name.replace(/\D/g, '').length >= 8)) ph.name = 'Фото ' + (n0 + done + 1); L().push(ph); last = ph.id; done++; } next(); }; im.onerror = next; im.src = fr.result; };
       fr.onerror = next; fr.readAsDataURL(f);
     };
     next();
@@ -5812,7 +5877,8 @@ var PF = (function () {
         if (m.t === 'text') { pill(a[0], a[1], m.text || 'заметка', px, dark, m.col); return; }
         const b = [m.b[0] * K, m.b[1] * K], dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = px * 0.6, wd = Math.max(2, px / 7);
         line(a, b, m.col, wd);
-        if (m.t === 'dim') { for (const q of [a, b]) line([q[0] - nx * t, q[1] - ny * t], [q[0] + nx * t, q[1] + ny * t], m.col, wd); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
+        const head = (q, dir, k, w) => { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; c.fillStyle = m.col; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = K; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(bx + nx * w, by + ny * w); c.lineTo(bx - nx * w, by - ny * w); c.closePath(); c.stroke(); c.fill(); };
+        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
       IO.canvasBlob(cv).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + ' — размеры.png', bl, 'img'));
@@ -5825,7 +5891,8 @@ var PF = (function () {
       case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
       case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
       case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } render(); return;
-      case 'col': st.col = v; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
+      case 'colfly': UI.fly = !UI.fly; render(); return;
+      case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
       case 'sel': st.sel = v; render(); return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
@@ -5870,12 +5937,14 @@ var PF = (function () {
     const has = !!cur();
     return tb('data-fact="gallery"', ICO.fgal, 'Все фото', !has) + '<hr>' + tb('data-fact="tool" data-v=""', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>', 'Выбор (V)', has && !st.tool) + tb('data-fact="tool" data-v="hand"', U.ico.hand, 'Рука (H)', st.tool === 'hand') + '<hr>' +
       tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' +
-      '<div class="fcols">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (st.col === c) + '" title="Цвет: ' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+      '<button type="button" class="tb hasfly" data-fact="colfly" data-tool="fcol" aria-pressed="' + !!UI.fly + '" title="Цвет разметки: ' + COLNAME[st.col] + '" aria-label="Цвет разметки"><i class="fswb" style="--c:' + st.col + '"></i><i class="tri" aria-hidden="true"></i></button>';
   }
   const fld = (bind, lab, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + lab + '</span><input type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' autocomplete="off" data-fbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
   const btn = (act, t, o) => { o = o || {}; return '<button type="button" class="btn sm' + (o.cls ? ' ' + o.cls : '') + '" data-fact="' + act + '"' + (o.v != null ? ' data-v="' + o.v + '"' : '') + '>' + t + '</button>'; };
   const grp = (t, h) => V.group(t, h);
-  const cols = (curc) => '<div class="fcols wide full">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (curc === c) + '" title="' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+  const cols = (curc) => '<span class="seg fsws" role="group" aria-label="Цвет">' + G.MARK_COLS.map((c) => '<button type="button" data-fact="col" data-v="' + c + '" aria-pressed="' + (curc === c) + '" title="' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"><i class="fsw" style="--c:' + c + '"></i></button>').join('') + '</span>';
+  function vFly() { return '<div class="fh"><b>Цвет разметки</b><small>для новых отметок и выбранной</small><button type="button" class="fx" data-fact="colfly" aria-label="Закрыть">' + U.ico.x + '</button></div><div class="flist">' + G.MARK_COLS.map((c) => '<button type="button" class="frow pfrow fcrow' + (st.col === c ? ' on' : '') + '" data-fact="col" data-v="' + c + '"><i class="fsw" style="--c:' + c + '"></i><span class="pfn">' + COLNAME[c] + '</span></button>').join('') + '</div>'; }
+  function placeFly() { const f = document.getElementById('fly'); if (!f || !UI.fly) return; const t = document.querySelector('.tools [data-fact=colfly]'), c = document.getElementById('canvas'); if (!t || !c) return; f.style.setProperty('--ft', Math.max(4, Math.min(t.getBoundingClientRect().top - c.getBoundingClientRect().top - 4, c.clientHeight - f.offsetHeight - 8)) + 'px'); }
   function vInsp() {
     U.inDock = true;
     try {
@@ -5883,20 +5952,20 @@ var PF = (function () {
       if (!ph) {
         const list = L(), bad = G.photoChecks(list).filter((q) => q.t === 'nonum').length;
         return '<div class="phead"><h3>Фото</h3></div>' + grp('Фото проекта', (list.length ? '<div class="plist full">' + list.map((p) => '<button type="button" class="prow" data-fact="open" data-v="' + p.id + '"><span>' + esc(p.name) + '</span><span class="muted small">' + p.marks.length + ' отм.' + (pinOf(p.id) ? ' · на плане' : '') + '</span></button>').join('') + '</div>' : '<p class="muted small full">Фото пока нет. Добавьте их карточкой «Добавить фото» или снимите камерой.</p>') +
-          (bad ? '<p class="pst warn full">Размеров без числа: ' + bad + ' — откройте фото и впишите.</p>' : '') +
+          (bad ? '<div class="pchip warn full"><i class="cdot warn"></i><span>без числа: ' + bad + '</span></div>' : '') +
           '<p class="muted small full">Фото хранятся в проекте: сохраняются, переносятся файлом и синхронизируются вместе с ним. Перед сохранением фото уменьшается до 1280 точек по длинной стороне — для разметки этого хватает.</p>');
       }
       const m = mark(st.sel);
       if (m) {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
-        return '<div class="phead"><h3>' + nm + ' — ' + esc(ph.name) + '</h3></div>' + (m.t === 'dim' && !(m.v > 0) ? '<p class="pst warn">Впишите размер, который вы намерили. Без числа линия остаётся «?» и попадает в проверки.</p>' : '') +
-          grp(nm, (m.t === 'dim' ? fld('m.v', 'Размер, ' + uLab(), m.v > 0 ? fl(m.v) : '', { id: 'pf-val', num: true, cls: 'plen', ph: 'впишите замер' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+        return '<div class="phead"><h3>' + nm + '</h3></div>' +
+          grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'mdone', cls: m.v > 0 ? '' : 'bad', help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
             '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
           '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';
       }
       const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
-      return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<p class="pst warn">Размеров без числа: ' + bad + '.</p>' : '') +
+      return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<div class="pchip warn"><i class="cdot warn"></i><span>без числа: ' + bad + '</span>' + U.help('У этих размеров не вписан замер — на фото они стоят как «?». Коснитесь линии и впишите число.') + '</div>' : '') +
         grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
         grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
         grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +
@@ -5918,7 +5987,7 @@ var PF = (function () {
   function vOptbar() {
     const ph = cur(), m = mark(st.sel), ib = (a, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-fact="' + a + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
     if (!ph) return '<span class="ohint">Фото: добавьте снимки зала и подпишите на них размеры</span>';
-    if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<label class="nf" title="Размер, ' + uLab() + '"><b>' + uLab() + '</b><input type="text" inputmode="decimal" autocomplete="off" data-fbind="m.v" value="' + (m.v > 0 ? fl(m.v) : '') + '" placeholder="?"></label>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
+    if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<span class="ohint"><b>' + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? — впишите справа') + '</b></span>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
     return '<span class="onm">' + esc(ph.name) + '</span><span class="sep"></span><span class="ohint">' + ph.marks.length + ' отметок · «Размер» слева: проведите от точки к точке</span><span class="sp"></span>' + ib('gallery', 'x', 'К списку фото (Esc)');
   }
   function vStatbar() {
@@ -5931,9 +6000,10 @@ var PF = (function () {
     '<div id="floupe" class="floupe" hidden></div><div id="fbanner" class="pbanner" hidden></div>';
   function init() {
     document.addEventListener('wheel', wheel, { passive: false });
+    document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
+  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */
@@ -5942,7 +6012,7 @@ var PF = (function () {
   V.con.skel = V.con.skel.replace('<div class="fly" id="fly"', '<div class="photohost" id="photohost" data-sec="photo"></div><div class="fly" id="fly"');
   V.con.secs.photo = function () { return PF.SKEL; };
   wrap(V.con.secs, 'tools', PF.vTools);
-  wrap(V.con.secs, 'pal', function () { return ''; });
+  wrap(V.con.secs, 'pal', PF.vFly);
   wrap(V.con.secs, 'insp', PF.vInsp);
   wrap(V.con.secs, 'layers', PF.vLayers);
   wrap(V.con.secs, 'checks', PF.vChecks);
@@ -6378,7 +6448,7 @@ function renderNow(){
 /* the scene keeps the room's proportions and fits the canvas: as large as the space between the panels allows */
 function fitStage(){var c=$('#canvas'),w=$('#stagewrap');if(!c||!w)return;var cw=c.clientWidth-24,ch=c.clientHeight-24;if(cw<50||ch<50)return;
   var ar=S.room.w/(S.room.h+SC.FLOOR),ww=Math.floor(Math.min(cw,ch*ar));if(w._fw!==ww){w._fw=ww;w.style.width=ww+'px';zoomApply();placeOv()}}
-function placeFly(){if(UI.mode==='plan'){PL.placeFly();return}var f=$('#fly');if(!f||!UI.fly)return;var t=$('.tools [data-tool="'+V.toolOf(UI.group)[0]+'"]'),c=$('#canvas');if(!t||!c)return;
+function placeFly(){if(UI.mode==='plan'){PL.placeFly();return}if(UI.mode==='photo'){PF.placeFly();return}var f=$('#fly');if(!f||!UI.fly)return;var t=$('.tools [data-tool="'+V.toolOf(UI.group)[0]+'"]'),c=$('#canvas');if(!t||!c)return;
   var top=Math.max(4,t.getBoundingClientRect().top-c.getBoundingClientRect().top-4),fh=f.querySelector('.fh'),fl=f.querySelector('.flist'),need=(fh?fh.offsetHeight:0)+(fl?fl.scrollHeight:0)+4;
   top=Math.max(4,Math.min(top,c.clientHeight-need-8));f.style.setProperty('--ft',top+'px')}   // a list opened from a low tool moves up so that all of it shows
 var SVGNS='http://www.w3.org/2000/svg';
@@ -6610,6 +6680,11 @@ function renderModal(){
         '<p class="muted small full">Остался кусок фона, например между рукой и телом? Коснитесь его на картинке, и он исчезнет. Белые кружки по углам двигают рамку обрезки.</p>'+
         '<div class="fld full"><div class="row"><button type="button" class="btn sm" data-act="imp-undo"'+((ip.taps||[]).length?'':' disabled')+'>Отменить касание</button><button type="button" class="btn sm" data-act="imp-reset">Сбросить всё</button></div></div></div>'+
         '<div class="row" style="margin-top:6px"><button type="button" class="btn pri" data-act="imp-ok">'+(ip.mode==='edit'?'Готово':'Добавить на сцену')+'</button><button type="button" class="btn" data-act="close">Отмена</button></div>'}
+    else if(m.type==='newproj'){var has=S.els.length||(S.plan&&(S.plan.rooms.length||S.plan.items.length))||(S.photos&&S.photos.length);
+      body='<p class="muted">Чистый проект: пустая сцена, пустой план, без фото. Можно заполнить только то, что нужно, — например, одни фото с размерами. Цены и данные для клиента останутся.</p>'+
+        (has?'<p class="pherr">Текущий проект «'+U.esc(S.name)+'» закроется. Если вы его ещё не сохранили (Файл → Сохранить или «Скачать проект файлом»), вернуть его можно только кнопкой «Отменить» до перезагрузки.</p>':'')+
+        '<div class="eyebrow" style="margin-top:12px">С чего начать</div><div class="row">'+[['scene','Сцена'],['plan','План зала'],['photo','Фото с размерами']].map(function(q,i){return '<button type="button" class="btn'+(i===2?'':'')+'" data-act="new-go" data-id="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div>'+
+        '<div class="row" style="margin-top:10px"><button type="button" class="btn" data-act="close">Отмена</button></div>'}
     else if(m.type==='libsave'){
       body='<p class="muted">'+(m.kind==='scene'?'Вся сцена сохранится как шаблон: её можно открыть из меню «Проект» в любом проекте.':'Выбранное сохранится в группу «Мои» в списке элементов и будет доступно в любом проекте.')+(IO.db?' Шаблоны хранятся в облаке этой страницы.':' Шаблоны хранятся в этом браузере.')+'</p>'+
         '<div class="fld" style="margin:12px 0"><label class="fl" for="lib-name">Название</label><input type="text" id="lib-name" maxlength="60" value="'+U.esc(m.name||'')+'" autocomplete="off"></div>'+
@@ -6706,6 +6781,9 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
     case 'tab':UI.tab=V[id]?id:'con';render();var cv=$('#calcview');if(cv)cv.scrollTop=0;var tb=$('.ctabs .tab[data-id="'+id+'"]');if(tb&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'center'});break;
     case 'mopen':menuOpen(id,a);return;
     case 'save':if(IO.db)act('cloud-save',a);else act('menu',a);break;
+    case 'new-proj':openModal({type:'newproj',title:'Новый проект'});break;
+    case 'new-go':{var nm=a&&a.dataset&&a.dataset.id||'scene',o=M.defaults();o.name=nm==='photo'?'Фото с размерами':nm==='plan'?'План зала':'Новая фотозона';o.pid=null;
+      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';PL.st.sel=null;PF.st.open=null;PF.st.sel=null;if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
     case 'dtab':UI.dtab=id;wsSave();render();break;
     case 'dopen':if(id!=='props')UI.dtab=id;UI.dock='';wsSave();render();break;
     case 'dock':UI.dock=UI.dock==='mini'?'':'mini';wsSave();render();setTimeout(function(){fitStage()},0);break;
@@ -7283,6 +7361,7 @@ function init(){
   calc();UI.hist=[JSON.stringify(S)];UI.histL=['Исходное состояние'];UI.hi=0;render();
 
   document.addEventListener('click',function(ev){
+    var kb=ev.target.closest&&ev.target.closest('[data-kp]');if(kb){KP.key(kb);return}
     var pa=ev.target.closest&&ev.target.closest('[data-pact]');if(pa){if(!pa.disabled)PL.act(pa.dataset.pact,pa,ev);return}
     var fa=ev.target.closest&&ev.target.closest('[data-fact]');if(fa){if(!fa.disabled)PF.act(fa.dataset.fact,fa,ev);return}
     var a=ev.target.closest('[data-step],[data-set],[data-act]');if(!a||a.disabled)return;

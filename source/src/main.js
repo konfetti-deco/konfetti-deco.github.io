@@ -105,7 +105,7 @@ function renderNow(){
 /* the scene keeps the room's proportions and fits the canvas: as large as the space between the panels allows */
 function fitStage(){var c=$('#canvas'),w=$('#stagewrap');if(!c||!w)return;var cw=c.clientWidth-24,ch=c.clientHeight-24;if(cw<50||ch<50)return;
   var ar=S.room.w/(S.room.h+SC.FLOOR),ww=Math.floor(Math.min(cw,ch*ar));if(w._fw!==ww){w._fw=ww;w.style.width=ww+'px';zoomApply();placeOv()}}
-function placeFly(){if(UI.mode==='plan'){PL.placeFly();return}var f=$('#fly');if(!f||!UI.fly)return;var t=$('.tools [data-tool="'+V.toolOf(UI.group)[0]+'"]'),c=$('#canvas');if(!t||!c)return;
+function placeFly(){if(UI.mode==='plan'){PL.placeFly();return}if(UI.mode==='photo'){PF.placeFly();return}var f=$('#fly');if(!f||!UI.fly)return;var t=$('.tools [data-tool="'+V.toolOf(UI.group)[0]+'"]'),c=$('#canvas');if(!t||!c)return;
   var top=Math.max(4,t.getBoundingClientRect().top-c.getBoundingClientRect().top-4),fh=f.querySelector('.fh'),fl=f.querySelector('.flist'),need=(fh?fh.offsetHeight:0)+(fl?fl.scrollHeight:0)+4;
   top=Math.max(4,Math.min(top,c.clientHeight-need-8));f.style.setProperty('--ft',top+'px')}   // a list opened from a low tool moves up so that all of it shows
 var SVGNS='http://www.w3.org/2000/svg';
@@ -337,6 +337,11 @@ function renderModal(){
         '<p class="muted small full">Остался кусок фона, например между рукой и телом? Коснитесь его на картинке, и он исчезнет. Белые кружки по углам двигают рамку обрезки.</p>'+
         '<div class="fld full"><div class="row"><button type="button" class="btn sm" data-act="imp-undo"'+((ip.taps||[]).length?'':' disabled')+'>Отменить касание</button><button type="button" class="btn sm" data-act="imp-reset">Сбросить всё</button></div></div></div>'+
         '<div class="row" style="margin-top:6px"><button type="button" class="btn pri" data-act="imp-ok">'+(ip.mode==='edit'?'Готово':'Добавить на сцену')+'</button><button type="button" class="btn" data-act="close">Отмена</button></div>'}
+    else if(m.type==='newproj'){var has=S.els.length||(S.plan&&(S.plan.rooms.length||S.plan.items.length))||(S.photos&&S.photos.length);
+      body='<p class="muted">Чистый проект: пустая сцена, пустой план, без фото. Можно заполнить только то, что нужно, — например, одни фото с размерами. Цены и данные для клиента останутся.</p>'+
+        (has?'<p class="pherr">Текущий проект «'+U.esc(S.name)+'» закроется. Если вы его ещё не сохранили (Файл → Сохранить или «Скачать проект файлом»), вернуть его можно только кнопкой «Отменить» до перезагрузки.</p>':'')+
+        '<div class="eyebrow" style="margin-top:12px">С чего начать</div><div class="row">'+[['scene','Сцена'],['plan','План зала'],['photo','Фото с размерами']].map(function(q,i){return '<button type="button" class="btn'+(i===2?'':'')+'" data-act="new-go" data-id="'+q[0]+'">'+q[1]+'</button>'}).join('')+'</div>'+
+        '<div class="row" style="margin-top:10px"><button type="button" class="btn" data-act="close">Отмена</button></div>'}
     else if(m.type==='libsave'){
       body='<p class="muted">'+(m.kind==='scene'?'Вся сцена сохранится как шаблон: её можно открыть из меню «Проект» в любом проекте.':'Выбранное сохранится в группу «Мои» в списке элементов и будет доступно в любом проекте.')+(IO.db?' Шаблоны хранятся в облаке этой страницы.':' Шаблоны хранятся в этом браузере.')+'</p>'+
         '<div class="fld" style="margin:12px 0"><label class="fl" for="lib-name">Название</label><input type="text" id="lib-name" maxlength="60" value="'+U.esc(m.name||'')+'" autocomplete="off"></div>'+
@@ -433,6 +438,9 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
     case 'tab':UI.tab=V[id]?id:'con';render();var cv=$('#calcview');if(cv)cv.scrollTop=0;var tb=$('.ctabs .tab[data-id="'+id+'"]');if(tb&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'center'});break;
     case 'mopen':menuOpen(id,a);return;
     case 'save':if(IO.db)act('cloud-save',a);else act('menu',a);break;
+    case 'new-proj':openModal({type:'newproj',title:'Новый проект'});break;
+    case 'new-go':{var nm=a&&a.dataset&&a.dataset.id||'scene',o=M.defaults();o.name=nm==='photo'?'Фото с размерами':nm==='plan'?'План зала':'Новая фотозона';o.pid=null;
+      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';PL.st.sel=null;PF.st.open=null;PF.st.sel=null;if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
     case 'dtab':UI.dtab=id;wsSave();render();break;
     case 'dopen':if(id!=='props')UI.dtab=id;UI.dock='';wsSave();render();break;
     case 'dock':UI.dock=UI.dock==='mini'?'':'mini';wsSave();render();setTimeout(function(){fitStage()},0);break;
@@ -1010,6 +1018,7 @@ function init(){
   calc();UI.hist=[JSON.stringify(S)];UI.histL=['Исходное состояние'];UI.hi=0;render();
 
   document.addEventListener('click',function(ev){
+    var kb=ev.target.closest&&ev.target.closest('[data-kp]');if(kb){KP.key(kb);return}
     var pa=ev.target.closest&&ev.target.closest('[data-pact]');if(pa){if(!pa.disabled)PL.act(pa.dataset.pact,pa,ev);return}
     var fa=ev.target.closest&&ev.target.closest('[data-fact]');if(fa){if(!fa.disabled)PF.act(fa.dataset.fact,fa,ev);return}
     var a=ev.target.closest('[data-step],[data-set],[data-act]');if(!a||a.disabled)return;

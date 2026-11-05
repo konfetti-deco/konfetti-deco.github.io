@@ -991,3 +991,37 @@ html.glass .fcard{background:var(--gl);-webkit-backdrop-filter:blur(14px);backdr
 #plan .ppin .pcam{fill:var(--pl-bg)} #plan .ppin .pcam2{fill:var(--accent)} #plan .ppin.on .pib{stroke:var(--brass);stroke-width:2.5}
 #plan .ppn{fill:var(--accent);font-weight:700;stroke:var(--pl-bg);font-family:var(--f-ui,system-ui,sans-serif)}
 .pthumb{width:100%;border-radius:8px;display:block}
+/* the number pad in the side panel */
+.kp{display:flex;flex-direction:column;gap:7px;position:relative}
+.kpr{display:flex;align-items:center;gap:8px;padding:6px 10px;border-radius:10px;background:var(--well);border:1px solid var(--wline);box-shadow:inset 0 -2px 0 var(--accent);cursor:text}
+.kp.bad .kpr{box-shadow:inset 0 -2px 0 var(--bad)} .kp.est .kpv{color:var(--muted)}
+.kpl{font-size:12px;color:var(--muted);white-space:nowrap;flex:none}
+.kpv{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);text-align:right;font:700 22px/1.2 var(--f-mono,ui-monospace,monospace);font-variant-numeric:tabular-nums;padding:4px 0;outline:none}
+.kpv::placeholder{color:var(--muted);font-weight:500;font-size:18px}
+.kpun{font-size:13px;color:var(--muted);flex:none;min-width:22px}
+.kph{position:absolute;right:-2px;top:-26px}
+.kpu{display:flex;background:var(--chip);border-radius:8px;padding:2px;gap:2px}
+.kpu button{flex:1;border:0;background:transparent;color:var(--muted);font:600 12.5px/1 var(--f-ui,system-ui,sans-serif);padding:7px 0;border-radius:6px;cursor:pointer}
+.kpu button[aria-pressed=true]{background:var(--surface2);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.25)}
+html.glass .kpu button[aria-pressed=true]{background:var(--hov);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 40%,transparent)}
+.kpk{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.kk{min-height:42px;border:1px solid var(--wline);border-radius:9px;background:var(--surface);color:var(--ink);font:600 18px/1 var(--f-mono,ui-monospace,monospace);cursor:pointer;touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.kk:active{background:var(--hov);transform:translateY(1px)}
+.kk.fn{color:var(--muted);font-size:16px} .kk.ok{grid-column:span 2;background:linear-gradient(180deg,var(--accent2),var(--accent));color:var(--accent-ink);border-color:transparent;font-family:var(--f-ui,system-ui,sans-serif);font-size:20px}
+html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gradient(135deg,#5DB896,#4F9FD0);color:#0B1411}
+/* one-line statuses with the explanation behind «?» */
+.pchip{display:flex;align-items:center;gap:7px;margin:0 0 6px;padding:5px 8px 5px 10px;border-radius:8px;font-size:12.5px;background:var(--chip)}
+.pchip span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pchip.ok{color:var(--ok)} .pchip.warn,.pchip.partial{color:var(--warn)} .pchip.bad{color:var(--bad)}
+/* colours of the photo marks */
+.fswb{display:block;width:18px;height:18px;border-radius:5px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25),0 0 0 1px var(--wline)}
+.fsw{display:inline-block;width:16px;height:16px;border-radius:4px;background:var(--c);box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);vertical-align:middle;flex:none}
+.fsws{display:flex} .fsws button{flex:1;display:flex;align-items:center;justify-content:center;min-height:32px}
+.fcrow{flex-direction:row!important;align-items:center!important;gap:10px} .fcrow.on{background:var(--sel,var(--hov))}
+/* the photo: no long-press menu, no selection */
+#fsvg,#fsvg *,#plan,#plan *{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+#fimg{pointer-events:none}
+.pbanner{font-size:12.5px;padding:4px 6px 4px 10px;gap:6px;top:8px;border-radius:999px}
+.pbanner .btn.sm{min-height:28px;padding:0 10px;font-size:12px;border-radius:999px}
+.pbanner .hq{flex:none}
+.kpl{display:inline-flex;align-items:center;gap:6px} .kk svg{display:block;margin:auto}

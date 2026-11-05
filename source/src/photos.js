@@ -60,7 +60,8 @@ var PF = (function () {
     const a = m.a, b = m.b, dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = 9 / s;
     h += '<line class="fhalo" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
     if (m.t === 'dim') {
-      for (const q of [a, b]) h += '<line class="fhalo" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/>';
+      const k = 15 / s, w = 3.6 / s;   // thin sharp arrows pointing at the two ends
+      for (const [q, dir] of [[a, -1], [b, 1]]) { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; h += '<polygon class="fah" fill="' + c + '" points="' + n1(q[0]) + ',' + n1(q[1]) + ' ' + n1(bx + nx * w) + ',' + n1(by + ny * w) + ' ' + n1(bx - nx * w) + ',' + n1(by - ny * w) + '"/>'; }
       const lab = m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab();
       h += txt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, lab, 14, m.v > 0 ? dark : '#fff', m.v > 0 ? c : '#C92A2A', on);
     } else {
@@ -101,7 +102,7 @@ var PF = (function () {
   function banner() {
     const b = document.getElementById('fbanner'); if (!b) return;
     let t = '';
-    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Коснитесь второй точки' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': проведите пальцем от точки к точке (или два касания)') + '</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
   }
@@ -165,7 +166,7 @@ var PF = (function () {
       st.pend = null;
       if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
       const m = { id: G.uid(), t: st.tool, a: d.a, b, col: st.col }; if (m.t === 'dim') m.v = null; else m.text = '';
-      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); focusVal(); return true;
+      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); return true;
     }
     if (d.mode === 'newtext') { if (d.moved) { paint(); return true; } const m = { id: G.uid(), t: 'text', a: p, col: st.col, text: '' }; ph.marks.push(m); st.sel = m.id; st.tool = ''; label('заметка'); focusVal(); return true; }
     if (d.mode === 'end' || d.mode === 'move') { if (d.moved) label(d.mode === 'end' ? 'точка размера' : 'перемещение'); else { st.sel = d.ref[1]; render(); } return true; }
@@ -190,7 +191,7 @@ var PF = (function () {
       const f = files.shift(); if (!f) { if (last) { openPhoto(last); label(done === 1 ? 'добавлено фото' : 'добавлено фото: ' + done); if (IO._imgFull) toast('Память браузера заполнена: фото может не сохраниться на этом устройстве. Сохраните проект в облако или файлом.'); } else render(); return; }
       if (!/^image\//.test(f.type)) { next(); return; }
       const fr = new FileReader();
-      fr.onload = () => { const im = new Image(); im.onload = () => { const r = encodeImage(im, 'image/jpeg'); if (r) { const id = newImgId(); IMG[id] = r; IO.saveImg(id); const ph = { id: G.uid(), im: id, w: r.w, h: r.h, name: (f.name || '').replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'Фото ' + (n0 + done + 1), marks: [] }; if (/^(img|image|photo|dsc|pxl)[_\- ]?\d/i.test(ph.name)) ph.name = 'Фото ' + (n0 + done + 1); L().push(ph); last = ph.id; done++; } next(); }; im.onerror = next; im.src = fr.result; };
+      fr.onload = () => { const im = new Image(); im.onload = () => { const r = encodeImage(im, 'image/jpeg'); if (r) { const id = newImgId(); IMG[id] = r; IO.saveImg(id); const ph = { id: G.uid(), im: id, w: r.w, h: r.h, name: (f.name || '').replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'Фото ' + (n0 + done + 1), marks: [] }; if (/^(img|image|photo|dsc|pxl|screenshot)[_\- ]?\d/i.test(ph.name) || /^[\d_\- .]{6,}$/.test(ph.name) || (ph.name.replace(/\D/g, '').length >= 8)) ph.name = 'Фото ' + (n0 + done + 1); L().push(ph); last = ph.id; done++; } next(); }; im.onerror = next; im.src = fr.result; };
       fr.onerror = next; fr.readAsDataURL(f);
     };
     next();
@@ -208,7 +209,8 @@ var PF = (function () {
         if (m.t === 'text') { pill(a[0], a[1], m.text || 'заметка', px, dark, m.col); return; }
         const b = [m.b[0] * K, m.b[1] * K], dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = px * 0.6, wd = Math.max(2, px / 7);
         line(a, b, m.col, wd);
-        if (m.t === 'dim') { for (const q of [a, b]) line([q[0] - nx * t, q[1] - ny * t], [q[0] + nx * t, q[1] + ny * t], m.col, wd); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
+        const head = (q, dir, k, w) => { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; c.fillStyle = m.col; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = K; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(bx + nx * w, by + ny * w); c.lineTo(bx - nx * w, by - ny * w); c.closePath(); c.stroke(); c.fill(); };
+        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
       IO.canvasBlob(cv).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + ' — размеры.png', bl, 'img'));
@@ -221,7 +223,8 @@ var PF = (function () {
       case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
       case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
       case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } render(); return;
-      case 'col': st.col = v; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
+      case 'colfly': UI.fly = !UI.fly; render(); return;
+      case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
       case 'sel': st.sel = v; render(); return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
@@ -266,12 +269,14 @@ var PF = (function () {
     const has = !!cur();
     return tb('data-fact="gallery"', ICO.fgal, 'Все фото', !has) + '<hr>' + tb('data-fact="tool" data-v=""', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>', 'Выбор (V)', has && !st.tool) + tb('data-fact="tool" data-v="hand"', U.ico.hand, 'Рука (H)', st.tool === 'hand') + '<hr>' +
       tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' +
-      '<div class="fcols">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (st.col === c) + '" title="Цвет: ' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+      '<button type="button" class="tb hasfly" data-fact="colfly" data-tool="fcol" aria-pressed="' + !!UI.fly + '" title="Цвет разметки: ' + COLNAME[st.col] + '" aria-label="Цвет разметки"><i class="fswb" style="--c:' + st.col + '"></i><i class="tri" aria-hidden="true"></i></button>';
   }
   const fld = (bind, lab, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + lab + '</span><input type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' autocomplete="off" data-fbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
   const btn = (act, t, o) => { o = o || {}; return '<button type="button" class="btn sm' + (o.cls ? ' ' + o.cls : '') + '" data-fact="' + act + '"' + (o.v != null ? ' data-v="' + o.v + '"' : '') + '>' + t + '</button>'; };
   const grp = (t, h) => V.group(t, h);
-  const cols = (curc) => '<div class="fcols wide full">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (curc === c) + '" title="' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+  const cols = (curc) => '<span class="seg fsws" role="group" aria-label="Цвет">' + G.MARK_COLS.map((c) => '<button type="button" data-fact="col" data-v="' + c + '" aria-pressed="' + (curc === c) + '" title="' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"><i class="fsw" style="--c:' + c + '"></i></button>').join('') + '</span>';
+  function vFly() { return '<div class="fh"><b>Цвет разметки</b><small>для новых отметок и выбранной</small><button type="button" class="fx" data-fact="colfly" aria-label="Закрыть">' + U.ico.x + '</button></div><div class="flist">' + G.MARK_COLS.map((c) => '<button type="button" class="frow pfrow fcrow' + (st.col === c ? ' on' : '') + '" data-fact="col" data-v="' + c + '"><i class="fsw" style="--c:' + c + '"></i><span class="pfn">' + COLNAME[c] + '</span></button>').join('') + '</div>'; }
+  function placeFly() { const f = document.getElementById('fly'); if (!f || !UI.fly) return; const t = document.querySelector('.tools [data-fact=colfly]'), c = document.getElementById('canvas'); if (!t || !c) return; f.style.setProperty('--ft', Math.max(4, Math.min(t.getBoundingClientRect().top - c.getBoundingClientRect().top - 4, c.clientHeight - f.offsetHeight - 8)) + 'px'); }
   function vInsp() {
     U.inDock = true;
     try {
@@ -279,20 +284,20 @@ var PF = (function () {
       if (!ph) {
         const list = L(), bad = G.photoChecks(list).filter((q) => q.t === 'nonum').length;
         return '<div class="phead"><h3>Фото</h3></div>' + grp('Фото проекта', (list.length ? '<div class="plist full">' + list.map((p) => '<button type="button" class="prow" data-fact="open" data-v="' + p.id + '"><span>' + esc(p.name) + '</span><span class="muted small">' + p.marks.length + ' отм.' + (pinOf(p.id) ? ' · на плане' : '') + '</span></button>').join('') + '</div>' : '<p class="muted small full">Фото пока нет. Добавьте их карточкой «Добавить фото» или снимите камерой.</p>') +
-          (bad ? '<p class="pst warn full">Размеров без числа: ' + bad + ' — откройте фото и впишите.</p>' : '') +
+          (bad ? '<div class="pchip warn full"><i class="cdot warn"></i><span>без числа: ' + bad + '</span></div>' : '') +
           '<p class="muted small full">Фото хранятся в проекте: сохраняются, переносятся файлом и синхронизируются вместе с ним. Перед сохранением фото уменьшается до 1280 точек по длинной стороне — для разметки этого хватает.</p>');
       }
       const m = mark(st.sel);
       if (m) {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
-        return '<div class="phead"><h3>' + nm + ' — ' + esc(ph.name) + '</h3></div>' + (m.t === 'dim' && !(m.v > 0) ? '<p class="pst warn">Впишите размер, который вы намерили. Без числа линия остаётся «?» и попадает в проверки.</p>' : '') +
-          grp(nm, (m.t === 'dim' ? fld('m.v', 'Размер, ' + uLab(), m.v > 0 ? fl(m.v) : '', { id: 'pf-val', num: true, cls: 'plen', ph: 'впишите замер' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+        return '<div class="phead"><h3>' + nm + '</h3></div>' +
+          grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'mdone', cls: m.v > 0 ? '' : 'bad', help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
             '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
           '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';
       }
       const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
-      return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<p class="pst warn">Размеров без числа: ' + bad + '.</p>' : '') +
+      return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<div class="pchip warn"><i class="cdot warn"></i><span>без числа: ' + bad + '</span>' + U.help('У этих размеров не вписан замер — на фото они стоят как «?». Коснитесь линии и впишите число.') + '</div>' : '') +
         grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
         grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
         grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +
@@ -314,7 +319,7 @@ var PF = (function () {
   function vOptbar() {
     const ph = cur(), m = mark(st.sel), ib = (a, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-fact="' + a + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
     if (!ph) return '<span class="ohint">Фото: добавьте снимки зала и подпишите на них размеры</span>';
-    if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<label class="nf" title="Размер, ' + uLab() + '"><b>' + uLab() + '</b><input type="text" inputmode="decimal" autocomplete="off" data-fbind="m.v" value="' + (m.v > 0 ? fl(m.v) : '') + '" placeholder="?"></label>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
+    if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<span class="ohint"><b>' + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? — впишите справа') + '</b></span>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
     return '<span class="onm">' + esc(ph.name) + '</span><span class="sep"></span><span class="ohint">' + ph.marks.length + ' отметок · «Размер» слева: проведите от точки к точке</span><span class="sp"></span>' + ib('gallery', 'x', 'К списку фото (Esc)');
   }
   function vStatbar() {
@@ -327,9 +332,10 @@ var PF = (function () {
     '<div id="floupe" class="floupe" hidden></div><div id="fbanner" class="pbanner" hidden></div>';
   function init() {
     document.addEventListener('wheel', wheel, { passive: false });
+    document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
+  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */
@@ -338,7 +344,7 @@ var PF = (function () {
   V.con.skel = V.con.skel.replace('<div class="fly" id="fly"', '<div class="photohost" id="photohost" data-sec="photo"></div><div class="fly" id="fly"');
   V.con.secs.photo = function () { return PF.SKEL; };
   wrap(V.con.secs, 'tools', PF.vTools);
-  wrap(V.con.secs, 'pal', function () { return ''; });
+  wrap(V.con.secs, 'pal', PF.vFly);
   wrap(V.con.secs, 'insp', PF.vInsp);
   wrap(V.con.secs, 'layers', PF.vLayers);
   wrap(V.con.secs, 'checks', PF.vChecks);

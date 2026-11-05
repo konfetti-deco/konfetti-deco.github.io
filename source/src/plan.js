@@ -2,6 +2,32 @@
    The plan lives in S.plan (so it is saved, synced and undone together with the scenes); the geometry is PG (plancore.js).
    Drawing is in millimetres inside one SVG group; panning and pinching move that group without rebuilding it,
    a full repaint follows when the gesture ends. ===== */
+/* ===== the number pad in the side panel: a size is typed without the system keyboard. The readout is an input with
+   inputmode="none" (no on-screen keyboard; a real keyboard still types into it); ✓ sends the same «change» as Enter. ===== */
+var KP = (function () {
+  'use strict';
+  const KEYS = [['7'], ['8'], ['9'], ['bs', '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>', 'fn'], ['4'], ['5'], ['6'], ['+', '+', 'fn'], ['1'], ['2'], ['3'], ['C', 'C', 'fn'], [',', ','], ['0'], ['ok', '✓', 'ok']];
+  function html(o) {   // o: {id, bind:'data-pbind="w.len"', act:'data-pact'|'data-fact', label, val, unit, ph, after, help, cls}
+    const units = [['m', 'м'], ['cm', 'см'], ['mm', 'мм']];
+    return '<div class="kp full' + (o.cls ? ' ' + o.cls : '') + '"><div class="kpr"><span class="kpl">' + o.label + (o.help ? U.help(o.help) : '') + '</span><input id="' + o.id + '" class="kpv" type="text" inputmode="none" autocomplete="off" spellcheck="false" ' + o.bind + ' data-fresh="1" value="' + String(o.val == null ? '' : o.val).replace(/"/g, '&quot;') + '" placeholder="' + (o.ph || '—') + '"><span class="kpun">' + o.unitLab + '</span></div>' +
+      '<div class="kpu" role="group" aria-label="Единицы">' + units.map((u) => '<button type="button" ' + o.act + '="unit" data-v="' + u[0] + '" aria-pressed="' + (o.unit === u[0]) + '">' + u[1] + '</button>').join('') + '</div>' +
+      '<div class="kpk">' + KEYS.map((k) => '<button type="button" class="kk' + (k[2] ? ' ' + k[2] : '') + '" data-kp="' + k[0] + '" data-for="' + o.id + '"' + (o.after ? ' data-after="' + o.after + '"' : '') + ' aria-label="' + (k[0] === 'bs' ? 'Стереть' : k[0] === 'ok' ? 'Готово' : k[0] === 'C' ? 'Очистить' : k[0]) + '">' + (k[1] || k[0]) + '</button>').join('') + '</div></div>';
+  }
+  function key(btn) {
+    const inp = document.getElementById(btn.dataset.for); if (!inp) return;
+    const k = btn.dataset.kp, fresh = inp.dataset.fresh === '1';
+    let b = fresh ? '' : inp.value;
+    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); }, 0); return; }
+    if (k === 'C') b = '';
+    else if (k === 'bs') b = fresh ? '' : b.slice(0, -1);
+    else if (k === ',') { const last = b.split('+').pop(); if (last.indexOf(',') >= 0) return; b += last === '' ? '0,' : ','; }
+    else if (k === '+') { if (!b || /[+,]$/.test(b)) return; b += '+'; }
+    else { if (b.length >= 16) return; b += k; }
+    inp.value = b; inp.dataset.fresh = '0';
+  }
+  return { html, key };
+})();
+
 var PL = (function () {
   'use strict';
   const G = PG;
@@ -705,6 +731,10 @@ var PL = (function () {
     return ['bad', 'Невязка ' + Math.round(g.gap) + ' мм — ошибка замера (больше ' + G.TOL_WARN + '). Перемерьте стены.'];
   };
   const note = (cls, t) => '<p class="pst ' + cls + '">' + esc(t) + '</p>';
+  /* a status in one short line; the full explanation behind «?» */
+  const chip = (cls, short, long) => '<div class="pchip ' + cls + '"><i class="cdot ' + (cls === 'partial' ? 'warn' : cls) + '"></i><span>' + esc(short) + '</span>' + (long ? U.help(esc(long)) : '') + '</div>';
+  const stShort = (g) => g.reason === 'self' ? 'стены пересекаются' : g.reason === 'diag' ? 'диагональ не сходится' : g.status === 'partial' ? 'не измерено стен: ' + g.unmeasured + ' из ' + g.n : g.status === 'bad' && g.reason === 'open' ? 'контур не замыкается' :
+    g.reason === 'diag-check' ? 'проверка диагональю: ' + Math.round(Math.abs(g.diag.qDelta)) + ' мм' : g.status === 'ok' ? 'контур сходится · ' + Math.round(g.gap) + ' мм' : g.status === 'warn' ? 'невязка ' + Math.round(g.gap) + ' мм — сомнительно' : 'невязка ' + Math.round(g.gap) + ' мм — ошибка замера';
   function vInsp() {
     const s = st.sel, p = P();
     U.inDock = true;
@@ -762,7 +792,7 @@ var PL = (function () {
       if (!r) return '';
       const g = G.roomGeom(r), [sc, stx] = stLine(g);
       if (s.t === 'room') {
-        return '<div class="phead"><h3>' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+        return '<div class="phead"><h3>' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
           grp('Помещение', fld('r.name', 'Название', r.name, { cls: 'full', ph: 'Помещение ' + (p.rooms.indexOf(r) + 1) }) + '<div class="chips full">' + G.NAMES.map((nm) => '<button type="button" class="chip sm' + (r.name === nm ? ' on' : '') + '" data-pact="r-name" data-v="' + esc(nm) + '">' + nm + '</button>').join('') + '</div>' +
             fld('r.h', 'Высота потолка, ' + uLab(), r.h ? fs(r.h) : '', { cls: 'full', ph: fs(p.h) + ' — как по умолчанию' }) +
             '<div class="kv2 full"><span>Площадь</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b><span>Периметр</span><b>' + (g.allM ? '' : '≈') + G.nf(g.P / 1000, 2) + ' м</b><span>Стен</span><b>' + g.n + (g.unmeasured ? ', не измерено ' + g.unmeasured : ', все измерены') + '</b></div>') +
@@ -773,7 +803,7 @@ var PL = (function () {
       }
       if (s.t === 'corner') {
         const i = s.c, n = g.n;
-        return '<div class="phead"><h3>Угол ' + G.cornerName(i) + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
+        return '<div class="phead"><h3>Угол ' + G.cornerName(i) + ' — ' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
           grp('Угол', fld('c.ang', 'Внутренний угол, °', G.nf(g.interior[i], 1), { cls: i === 0 ? 'dis' : '' }) +
             '<p class="muted small full">' + (i === 0 ? 'Угол A получается из остальных углов. Задайте углы B, C, …' : 'Меняет направление стен после угла ' + G.cornerName(i) + '. Измерьте угол угломером или задайте диагональ (для четырёх стен).') + '</p>') +
           '<div class="pacts">' + btn('sel', '← Стена ' + G.wallName(r, (i + n - 1) % n), { v: '' }).replace('data-pact="sel"', 'data-pact="sel" data-sel="w|' + r.id + '|' + r.walls[(i + n - 1) % n].id + '"') + btn('c-del', 'Убрать угол ' + G.cornerName(i), { dis: n <= 3, t: 'Две стены станут одной прямой' }) + '</div>';
@@ -792,8 +822,8 @@ var PL = (function () {
       }
       /* a wall */
       const j = st.jog, joff = j.off == null ? Math.round((L - j.w) / 2) : j.off, sp = st.split == null ? Math.round(L / 2) : st.split;
-      return '<div class="phead"><h3>Стена ' + nmW + ' — ' + esc(rname(r)) + '</h3></div>' + note(sc, stx) +
-        grp('Замер', fld('w.len', 'Длина, ' + uLab(), fl(w.m ? w.len : g.lens[i]), { id: 'pl-wlen', cls: 'plen' + (w.m ? '' : ' est') }) +
+      return '<div class="phead"><h3>Стена ' + nmW + ' — ' + esc(rname(r)) + '</h3></div>' + chip(sc, stShort(g), stx) +
+        grp('Замер', KP.html({ id: 'pl-wlen', bind: 'data-pbind="w.len"', act: 'data-pact', label: 'Длина ' + nmW, val: fl(w.m ? w.len : g.lens[i]), unit: unit(), unitLab: uLab(), after: 'wnext', cls: w.m ? '' : 'est' }) +
           '<label class="tog"><input type="checkbox" data-pbind="w.m"' + (w.m ? ' checked' : '') + '><span>Измерено</span></label>' +
           '<p class="muted small full">' + (w.m ? 'Длина измерена и не меняется при подгонке контура.' : 'Сейчас длина примерная (≈): впишите замер — стена станет измеренной.') + ' Enter — следующая стена.</p>' +
           '<div class="pacts full">' + btn('w-step', '← ' + G.wallName(r, (i + n - 1) % n), { v: -1 }) + btn('w-step', G.wallName(r, (i + 1) % n) + ' →', { v: 1, cls: 'pnext' }) + '</div>') +
@@ -853,7 +883,7 @@ var PL = (function () {
     if (s.t === 'corner') return '<span class="onm">Угол ' + G.cornerName(s.c) + '</span><span class="sep"></span>' + (s.c ? of('c.ang', '∠', G.nf(g.interior[s.c], 1), 'Внутренний угол, °') : '<span class="ohint">' + G.nf(g.interior[s.c], 1) + '°</span>') + '<span class="ohint">тяните точку, чтобы изменить форму</span><span class="sp"></span>' + ib('c-del', 'del', 'Убрать угол', 'dng') + x;
     const i = wallIx(r, s.w);
     if (s.t === 'op') { const op = curOp(); return '<span class="onm">' + esc(opName(op)) + '</span><span class="sep"></span>' + of('op.w', 'Ш', fs(op.w), 'Ширина, ' + uLab()) + of('op.off', 'от ' + G.cornerName(i), fl(op.off), 'От угла ' + G.cornerName(i) + ', ' + uLab()) + '<span class="ohint">края проёма тоже тянутся</span><span class="sp"></span>' + ib('op-del', 'del', 'Удалить проём', 'dng') + x; }
-    return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span>' + of('w.len', 'Длина', fl(r.walls[i].m ? r.walls[i].len : g.lens[i]), 'Длина, ' + uLab()) + '<span class="ohint">' + (r.walls[i].m ? 'точно' : '≈ примерно') + ' · тяните точку на стене · двойное касание — новый угол</span><span class="sp"></span>' + x;
+    return '<span class="onm">Стена ' + G.wallName(r, i) + '</span><span class="sep"></span>' + '<span class="ohint"><b>' + (r.walls[i].m ? '' : '≈') + fl(r.walls[i].m ? r.walls[i].len : g.lens[i]) + ' ' + uLab() + '</b></span>' + '<span class="ohint">' + (r.walls[i].m ? 'точно' : '≈ примерно') + ' · тяните точку на стене · двойное касание — новый угол</span><span class="sp"></span>' + x;
   }
   function vStatbar() {
     const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial, tt = G.totals(P()), cf = conflicts().list.length + topChecks().list.length;
