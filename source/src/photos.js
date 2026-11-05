@@ -9,10 +9,11 @@ var PF = (function () {
     ftext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10h8M8 14h5"/></svg>',
     farrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><path d="M10 5h9v9"/></svg>',
     fgal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+    ffit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7l14-3 2 15-16 1z"/><path d="M9 16v-5l3-3 3 3v5"/></svg>',
     fpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   };
   const COLNAME = { '#FF4D4F': 'красный', '#FFD43B': 'жёлтый', '#FFFFFF': 'белый', '#40C057': 'зелёный', '#4DABF7': 'синий' };
-  const st = { pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
+  const st = { cutFor: '', lay: null, pim: null, pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
   function L() { if (!Array.isArray(S.photos)) S.photos = []; return S.photos; }
   function cur() { return L().find((p) => p.id === st.open) || null; }
   function mark(id) { const ph = cur(); return ph ? ph.marks.find((m) => m.id === id) || null : null; }
@@ -44,7 +45,79 @@ var PF = (function () {
       '<div class="pacts full"><button type="button" class="btn sm pnext" data-fact="send"' + (m.v > 0 ? '' : ' disabled') + '>' + (linked && linked.wid === cur0.wid ? 'Обновить стену' : 'Передать замер в стену') + '</button>' + (linked ? '<button type="button" class="btn sm" data-fact="showwall">Показать на плане</button>' : '') + '</div>' +
       '<p class="muted small full">Стена станет «точной» с длиной этого размера; остальные стены подстроятся, если они примерные. ' + (pin ? 'По камере на плане предложена стена, в которую она смотрит.' : 'Отметьте фото на плане — тогда стена подставится сама.') + '</p>');
   }
-  function figTol(ph) { return Math.max(4, 0.012 * Math.max(ph.w, ph.h)); }
+  /* ---------- the scene tried on the photo: the scene picture warped onto four corners ---------- */
+  let cut = null;   // {cv, wmm, hmm, id} — the current scene, cut out
+  function fitOn(ph) { return !!(ph && ph.fit && ph.fit.on); }
+  function refreshCut(force) {
+    const k = UI.hi + '|' + S.els.length; if (!force && st.cutFor === k) return Promise.resolve(cut); st.cutFor = k;
+    return IO.sceneCut().then((r) => { const was = cut; cut = r; if (r !== was) paint(); return r; }).catch(() => { cut = null; return null; });
+  }
+  /* each cell of a grid over the scene is two triangles; each triangle is an affine piece of the projective map, clipped a hair wider so no seams show */
+  function warp(c, im, q, K, N) {
+    const H = G.sq2quad(q), sw = im.width, sh = im.height, P0 = [];
+    N = N || 16;
+    for (let j = 0; j <= N; j++) for (let i = 0; i <= N; i++) { const p = H(i / N, j / N); P0.push([p[0] * K, p[1] * K]); }
+    const at = (i, j) => P0[j * (N + 1) + i], sp = (i, j) => [i / N * sw, j / N * sh];
+    const tri = (s, d) => {
+      const A = G.triAffine(s, d); if (!A) return;
+      const cx = (d[0][0] + d[1][0] + d[2][0]) / 3, cy = (d[0][1] + d[1][1] + d[2][1]) / 3, g = d.map((p) => { const dx = p[0] - cx, dy = p[1] - cy, l = Math.hypot(dx, dy) || 1; return [p[0] + dx / l * 0.8, p[1] + dy / l * 0.8]; });
+      c.save(); c.setTransform(1, 0, 0, 1, 0, 0); c.beginPath(); c.moveTo(g[0][0], g[0][1]); c.lineTo(g[1][0], g[1][1]); c.lineTo(g[2][0], g[2][1]); c.closePath(); c.clip();
+      c.setTransform(A[0], A[1], A[2], A[3], A[4], A[5]); c.drawImage(im, 0, 0); c.restore();
+    };
+    for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) { tri([sp(i, j), sp(i + 1, j), sp(i + 1, j + 1)], [at(i, j), at(i + 1, j), at(i + 1, j + 1)]); tri([sp(i, j), sp(i + 1, j + 1), sp(i, j + 1)], [at(i, j), at(i + 1, j + 1), at(i, j + 1)]); }
+  }
+  /* the warped scene at photo resolution (up to ×2), redone only when the corners or the scene change */
+  function layer(ph) {
+    if (!cut || !fitOn(ph)) return null;
+    const N = st.drag && /^q/.test(st.drag.mode) ? 10 : 16, key = cut.id + '|' + ph.id + '|' + ph.w + '|' + N + '|' + ph.fit.q.join(';');
+    if (st.lay && st.lay.key === key) return st.lay;
+    const LS = Math.min(2, 2400 / Math.max(ph.w, ph.h)), cv = (st.lay && st.lay.cv) || document.createElement('canvas');
+    cv.width = Math.round(ph.w * LS); cv.height = Math.round(ph.h * LS);
+    warp(cv.getContext('2d'), cut.cv, ph.fit.q, LS, N);
+    st.lay = { key, cv }; return st.lay;
+  }
+  function photoImg(ph) {
+    const sr = src(ph); if (!sr) return null;
+    if (!st.pim || st.pim.src !== sr) { const im = new Image(); st.pim = { src: sr, im, ok: false }; im.onload = () => { if (st.pim && st.pim.im === im) { st.pim.ok = true; drawFit(); } }; im.src = sr; }
+    return st.pim.ok ? st.pim.im : null;
+  }
+  /* with a try-on the photo and the scene are drawn on a canvas under the marks; without it the plain photo image stays */
+  function drawFit() {
+    const cvs = document.getElementById('fcv'), img = document.getElementById('fimg'), ph = cur(), h = host(); if (!cvs || !h) return;
+    const L0 = st.v && layer(ph), pim = L0 && photoImg(ph), on = !!(L0 && pim);
+    if (img) img.style.visibility = on ? 'hidden' : '';
+    if (!on) { if (!cvs.hidden) { cvs.hidden = true; cvs.width = 1; cvs.height = 1; } return; }
+    cvs.hidden = false;
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(h.clientWidth * dpr), H = Math.round(h.clientHeight * dpr);
+    if (cvs.width !== W || cvs.height !== H) { cvs.width = W; cvs.height = H; }
+    const c = cvs.getContext('2d'), s = st.v.s * dpr; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
+    c.setTransform(s, 0, 0, s, -st.v.x * s, -st.v.y * s); c.imageSmoothingQuality = 'high';
+    c.drawImage(pim, 0, 0, ph.w, ph.h); c.globalAlpha = ph.fit.op; c.drawImage(L0.cv, 0, 0, ph.w, ph.h); c.globalAlpha = 1;
+  }
+  function fitStart(ph) {
+    return refreshCut(true).then((r) => {
+      if (!r) { st.tool = ''; render(); toast('Сцена пуста — соберите фотозону в режиме «Сцена», и её можно будет примерить на фото.'); return; }
+      if (!ph.fit) { const f = G.fitQuad(ph, r.wmm, r.hmm); ph.fit = { q: f.q, op: 1, on: true }; label('примерка сцены'); toast(f.scaled ? 'Размер сцены — по вашему замеру на фото. Тяните углы к месту, где она будет стоять.' : 'Тяните углы к месту, где будет стоять фотозона: нижние — на пол.'); }
+      else if (!ph.fit.on) { ph.fit.on = true; label('примерка показана'); }
+      else render();
+    });
+  }
+  /* back to a straight rectangle on the same bottom edge, with the scene's own proportions */
+  function fitRect(ph) {
+    const q = ph.fit.q, w = Math.hypot(q[2][0] - q[3][0], q[2][1] - q[3][1]), r = cut && cut.wmm > 0 ? cut.hmm / cut.wmm : 0.75, cx = (q[2][0] + q[3][0]) / 2, by = (q[2][1] + q[3][1]) / 2, h = w * r, R = (v) => Math.round(v * 10) / 10;
+    return [[R(cx - w / 2), R(by - h)], [R(cx + w / 2), R(by - h)], [R(cx + w / 2), R(by)], [R(cx - w / 2), R(by)]];
+  }
+  function fitHtml(ph) {
+    const f = ph.fit, ops = [1, 0.8, 0.6, 0.4];
+    if (!f) return '';
+    const sz = cut ? fs(cut.wmm) + ' × ' + fs(cut.hmm) + ' ' + uLab() : '';
+    return grp('Примерка сцены', (cut ? '' : '<div class="pchip warn full"><i class="cdot warn"></i><span>Сцена пуста — примерять нечего</span></div>') +
+      '<div class="fld full"><span class="fl">Видимость, %</span><span class="seg" role="group" aria-label="Насколько видна сцена, процентов">' + ops.map((o) => '<button type="button" data-fact="fit-op" data-v="' + o + '" aria-pressed="' + (Math.abs(f.op - o) < 0.01) + '">' + Math.round(o * 100) + '</button>').join('') + '</span></div>' +
+      (sz ? '<div class="kv2 full"><span>Сцена</span><b>' + sz + '</b></div>' : '') +
+      '<div class="pacts full">' + (st.tool === 'fit' ? btn('tool', 'Готово', { v: '', cls: 'pnext' }) : btn('tool', 'Двигать углы', { v: 'fit', cls: 'pnext' })) + btn('fit-on', f.on ? 'Скрыть' : 'Показать') + btn('fit-rect', 'Выпрямить') + btn('fit-reset', 'Заново') + btn('fit-del', 'Убрать', { cls: 'dng' }) + '</div>' +
+      '<p class="muted small full">Тяните четыре угла: нижние — на пол там, где будет стоять фотозона, верхние — на нужную высоту. Сцена искажается в перспективе, как на фото. Внутри рамки — сдвиг целиком. Картинка берётся из режима «Сцена»: поменяете там — примерка обновится. «Выпрямить» — снова прямоугольник на том же месте, «Заново» — исходный размер' + (ph.marks.some((m) => m.t === 'dim' && m.v > 0) ? ' по вашему самому длинному замеру' : '') + '.</p>');
+  }
+  function figTol(ph) { return G.figTol(ph); }
   function figures(ph) { return ph ? G.photoFigures(ph.marks, figTol(ph)) : []; }
   function fArea(a) {
     if (!(a > 0)) return '—';
@@ -85,7 +158,7 @@ var PF = (function () {
     st.v = { s, x: -(W / s - ph.w) / 2, y: -(H / s - ph.h) / 2 }; st.lastW = W; st.lastH = H;
   }
   function ensureView() { const h = host(); if (!h) return; if (!st.v || (!st.v.user && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2))) fit(); }
-  function applyView() { const g = document.getElementById('fvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('fzlbl'); if (z && st.v) z.textContent = Math.round(st.v.s * 100) + ' %'; }
+  function applyView() { const g = document.getElementById('fvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('fzlbl'); if (z && st.v) z.textContent = Math.round(st.v.s * 100) + ' %'; drawFit(); }
   function toImg(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
   function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.05, 12); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); clearTimeout(st.repaint); st.repaint = setTimeout(paint, 120); }
   function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
@@ -127,7 +200,7 @@ var PF = (function () {
     const h = host(); if (!h || UI.mode !== 'photo') return;
     validate();
     const gal = document.getElementById('fgal'), ed = document.getElementById('fed'), ph = cur();
-    if (!ph) { if (gal) { gal.hidden = false; const g = gallery(); if (gal._h !== g) { gal.innerHTML = g; gal._h = g; } } if (ed) ed.hidden = true; banner(); return; }
+    if (!ph) { drawFit(); if (gal) { gal.hidden = false; const g = gallery(); if (gal._h !== g) { gal.innerHTML = g; gal._h = g; } } if (ed) ed.hidden = true; banner(); return; }
     if (gal) gal.hidden = true; if (ed) ed.hidden = false;
     ensureView(); if (!st.v) return;
     const img = document.getElementById('fimg'), sr = src(ph);
@@ -139,6 +212,8 @@ var PF = (function () {
     if (m) for (const k of m.t === 'text' ? [] : ['a', 'b']) { const q = m[k]; hnd += '<circle class="fhd" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(7 / s) + '"/><circle class="fhh" data-r="h|' + m.id + '|' + k + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(20 / s) + '"/>'; }
     if (st.pend) hnd += '<circle class="fpd" cx="' + n1(st.pend[0]) + '" cy="' + n1(st.pend[1]) + '" r="' + n1(6 / s) + '"/>';
     if (st.drag && st.drag.mode === 'new' && st.drag.b) { const d = st.drag; mk += markSvg({ id: '_', t: st.tool, a: d.a, b: d.b, v: null, col: st.col }, true); }
+    if (fitOn(ph)) { refreshCut(); if (st.tool === 'fit') { const q = ph.fit.q, pts = q.map((p) => n1(p[0]) + ',' + n1(p[1])).join(' ');
+      hnd += '<polygon class="ffq" data-r="qm" points="' + pts + '"/>' + q.map((p, i) => '<circle class="fhd fqd" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(8 / s) + '"/><circle class="fhh" data-r="q|' + i + '" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(22 / s) + '"/>').join(''); } }
     const set = (id, x) => { const n = document.getElementById(id); if (n && n._h !== x) { n.innerHTML = x; n._h = x; } };
     set('fmarks', mk); set('fhnd', hnd); applyView(); banner();
     const wsm = document.getElementById('wsm'); if (wsm) wsm.classList.toggle('fhand', st.tool === 'hand');
@@ -147,6 +222,7 @@ var PF = (function () {
     const b = document.getElementById('fbanner'); if (!b) return;
     let t = '';
     if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'fit') t = '<span>Примерка: тяните углы</span>' + U.help('Нижние углы — на пол, где будет стоять фотозона, верхние — на её высоту. Внутри рамки — сдвиг целиком.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
   }
@@ -177,6 +253,7 @@ var PF = (function () {
     if (hand) return true;
     if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = st.pend || (st.tool === 'dim' ? snapEnd(clampPt(p), null) : clampPt(p)); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
     if (st.tool === 'text') { d.mode = 'newtext'; return true; }
+    if (st.tool === 'fit' && ref && (ref[0] === 'q' || ref[0] === 'qm') && cur().fit) { d.mode = ref[0] === 'q' ? 'qc' : 'qm'; d.k = +ref[1]; d.fsnap = JSON.stringify(cur().fit); if (d.mode === 'qc') loupe(ev, cur().fit.q[d.k]); return true; }
     if (ref && ref[0] === 'h') { d.mode = 'end'; d.k = ref[2]; d.snap = JSON.stringify(mark(ref[1])); loupe(ev, mark(ref[1])[d.k]); return true; }
     if (ref && ref[0] === 'm') { d.mode = 'move'; d.snap = JSON.stringify(mark(ref[1])); return true; }
     return true;
@@ -193,6 +270,11 @@ var PF = (function () {
     if (d.mode === 'pan') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; applyView(); return true; }
     if (d.mode === 'new') { d.b = st.tool === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), null) : clampPt(p); loupe(ev, d.b); paint(); return true; }
     if (d.mode === 'end') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); m[d.k] = m.t === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), m.id) : clampPt(p); loupe(ev, m[d.k]); paint(); return true; }
+    if (d.mode === 'qc' || d.mode === 'qm') {
+      const ph = cur(), o = JSON.parse(d.fsnap), lim = (v, a) => G.clamp(Math.round(v * 10) / 10, -a * 0.5, a * 1.5);
+      const q = d.mode === 'qc' ? o.q.map((x, i) => i === d.k ? [lim(p[0], ph.w), lim(p[1], ph.h)] : x) : o.q.map((x) => [lim(x[0] + p[0] - d.p0[0], ph.w), lim(x[1] + p[1] - d.p0[1], ph.h)]);
+      if (G.quadOk(q, 10 / st.v.s)) ph.fit.q = q; if (d.mode === 'qc') loupe(ev, ph.fit.q[d.k]); paint(); return true;
+    }
     if (d.mode === 'move') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); const o = [p[0] - d.p0[0], p[1] - d.p0[1]]; m.a = clampPt([m.a[0] + o[0], m.a[1] + o[1]]); if (m.b) m.b = clampPt([m.b[0] + o[0], m.b[1] + o[1]]); paint(); return true; }
     return true;
   }
@@ -202,6 +284,8 @@ var PF = (function () {
     if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
     st.drag = null; loupe(null);
+    if (cancel && d.fsnap) { cur().fit = JSON.parse(d.fsnap); paint(); return true; }
+    if (d.mode === 'qc' || d.mode === 'qm') { if (d.moved) label(d.mode === 'qc' ? 'примерка: угол' : 'примерка: сдвиг'); else paint(); return true; }
     if (cancel) { if (d.snap) { const o = JSON.parse(d.snap), m = mark(o.id); if (m) Object.assign(m, o); } paint(); return true; }
     const p = clampPt(toImg(ev)), ph = cur();
     if (d.mode === 'new') {
@@ -226,7 +310,7 @@ var PF = (function () {
   }
 
   /* ---------- actions ---------- */
-  function openPhoto(id) { st.open = id; st.sel = null; st.pend = null; st.v = null; st.tool = ''; }
+  function openPhoto(id) { st.lay = null; st.open = id; st.sel = null; st.pend = null; st.v = null; st.tool = ''; }
   function upload(input) {
     const files = Array.prototype.slice.call(input.files || []); input.value = ''; if (!files.length) return;
     toast('Загружаю фото…');
@@ -241,10 +325,21 @@ var PF = (function () {
     next();
   }
   function exportPng() {
-    const ph = cur(); if (!ph || !IMG[ph.im]) return;
-    const K = 2, cv = document.createElement('canvas'); cv.width = ph.w * K; cv.height = ph.h * K; const c = cv.getContext('2d'), im = new Image();
+    const ph0 = cur(); if (!ph0 || !IMG[ph0.im]) return;
+    if (fitOn(ph0)) { refreshCut(true).then(() => exportPng2(ph0)); return; }
+    exportPng2(ph0);
+  }
+  function exportPng2(ph) {
+    photoCanvas(ph, 2).then((cv) => IO.canvasBlob(cv)).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + (fitOn(ph) && cut ? ' — с фотозоной.png' : ' — размеры.png'), bl, 'img')).catch(() => toast('Не получилось собрать картинку.'));
+  }
+  /* the photo with its marks (and the tried-on scene) drawn at K × the stored size */
+  function photoCanvas(ph, K) { return new Promise((res, rej) => {
+    if (!IMG[ph.im]) { rej(new Error('img')); return; }
+    const cv = document.createElement('canvas'); cv.width = ph.w * K; cv.height = ph.h * K; const c = cv.getContext('2d'), im = new Image();
     im.onload = () => {
-      c.drawImage(im, 0, 0, cv.width, cv.height); c.lineCap = 'round'; c.lineJoin = 'round';
+      c.drawImage(im, 0, 0, cv.width, cv.height);
+      if (fitOn(ph) && cut) { const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height; warp(t.getContext('2d'), cut.cv, ph.fit.q, K, 24); c.globalAlpha = ph.fit.op; c.drawImage(t, 0, 0); c.globalAlpha = 1; }
+      c.lineCap = 'round'; c.lineJoin = 'round';
       const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
       const line = (a, b, col, wd) => { c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = wd + 3 * K; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); c.strokeStyle = col; c.lineWidth = wd; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
       const px = Math.max(14, Math.round(Math.max(ph.w, ph.h) / 55)) * K;
@@ -258,16 +353,21 @@ var PF = (function () {
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
       figures(ph).forEach((f) => { if (f.area > 0) pill(f.c[0] * K, f.c[1] * K, 'S ' + (f.exact ? '' : '≈') + fArea(f.area).replace(/ \(.*\)$/, '') + ' · P ' + fl(f.P) + ' ' + uLab(), px * 0.9, '#111', 'rgba(255,255,255,.93)'); });
-      IO.canvasBlob(cv).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + ' — размеры.png', bl, 'img'));
+      res(cv);
     };
-    im.src = IMG[ph.im].src;
-  }
+    im.onerror = rej; im.src = IMG[ph.im].src;
+  }); }
   function act(name, a) {
     const v = a && a.dataset ? a.dataset.v : undefined, ph = cur(), m = mark(st.sel);
     switch (name) {
       case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
       case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
-      case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } render(); return;
+      case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } if (st.tool === 'fit' && ph) { st.sel = null; fitStart(ph); return; } render(); return;
+      case 'fit-op': if (ph && ph.fit) { ph.fit.op = G.clamp(+v || 1, 0.2, 1); label('примерка: видно ' + Math.round(ph.fit.op * 100) + ' %'); } return;
+      case 'fit-on': if (ph && ph.fit) { ph.fit.on = !ph.fit.on; if (!ph.fit.on && st.tool === 'fit') st.tool = ''; label(ph.fit.on ? 'примерка показана' : 'примерка скрыта'); } return;
+      case 'fit-rect': if (ph && ph.fit) { const q = fitRect(ph); if (G.quadOk(q)) { ph.fit.q = q; label('примерка выпрямлена'); } } return;
+      case 'fit-reset': if (ph && ph.fit && cut) { ph.fit.q = G.fitQuad(ph, cut.wmm, cut.hmm).q; label('примерка заново'); } return;
+      case 'fit-del': if (ph && ph.fit) { delete ph.fit; if (st.tool === 'fit') st.tool = ''; label('примерка убрана'); } return;
       case 'colfly': UI.fly = !UI.fly; render(); return;
       case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
@@ -316,7 +416,7 @@ var PF = (function () {
   function vTools() {
     const has = !!cur();
     return tb('data-fact="gallery"', ICO.fgal, 'Все фото', !has) + '<hr>' + tb('data-fact="tool" data-v=""', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>', 'Выбор (V)', has && !st.tool) + tb('data-fact="tool" data-v="hand"', U.ico.hand, 'Рука (H)', st.tool === 'hand') + '<hr>' +
-      tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' +
+      tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' + tb('data-fact="tool" data-v="fit"', ICO.ffit, 'Примерить сцену на фото', st.tool === 'fit') + '<hr>' +
       '<button type="button" class="tb hasfly" data-fact="colfly" data-tool="fcol" aria-pressed="' + !!UI.fly + '" title="Цвет разметки: ' + COLNAME[st.col] + '" aria-label="Цвет разметки"><i class="fswb" style="--c:' + st.col + '"></i><i class="tri" aria-hidden="true"></i></button>';
   }
   const fld = (bind, lab, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + lab + '</span><input type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' autocomplete="off" data-fbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
@@ -333,7 +433,7 @@ var PF = (function () {
         const list = L(), bad = G.photoChecks(list).filter((q) => q.t === 'nonum').length;
         return '<div class="phead"><h3>Фото</h3></div>' + grp('Фото проекта', (list.length ? '<div class="plist full">' + list.map((p) => '<button type="button" class="prow" data-fact="open" data-v="' + p.id + '"><span>' + esc(p.name) + '</span><span class="muted small">' + p.marks.length + ' отм.' + (pinOf(p.id) ? ' · на плане' : '') + '</span></button>').join('') + '</div>' : '<p class="muted small full">Фото пока нет. Добавьте их карточкой «Добавить фото» или снимите камерой.</p>') +
           (bad ? '<div class="pchip warn full"><i class="cdot warn"></i><span>без числа: ' + bad + '</span></div>' : '') +
-          '<p class="muted small full">Фото хранятся в проекте: сохраняются, переносятся файлом и синхронизируются вместе с ним. Перед сохранением фото уменьшается до 1280 точек по длинной стороне — для разметки этого хватает.</p>');
+          '<div class="pacts full"><button type="button" class="btn sm" data-act="report-pdf">Отчёт обмера PDF</button></div><p class="muted small full">Отчёт: план с длинами стен, все фото с размерами, площади — одним PDF. Фото хранятся в проекте: сохраняются, переносятся файлом и синхронизируются вместе с ним. Перед сохранением фото уменьшается до 1280 точек по длинной стороне — для разметки этого хватает.</p>');
       }
       const m = mark(st.sel);
       if (m) {
@@ -347,10 +447,11 @@ var PF = (function () {
       const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
       return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<div class="pchip warn"><i class="cdot warn"></i><span>без числа: ' + bad + '</span>' + U.help('У этих размеров не вписан замер — на фото они стоят как «?». Коснитесь линии и впишите число.') + '</div>' : '') +
         grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
+        fitHtml(ph) + (!ph.fit ? grp('Примерка сцены', '<p class="muted small full">Покажите клиенту фотозону прямо на фото зала: сцена из режима «Сцена» ставится на снимок и подгоняется по четырём углам в перспективе.</p><div class="pacts full">' + btn('tool', 'Примерить сцену', { v: 'fit', cls: 'pnext' }) + '</div>') : '') +
         (figures(ph).length ? grp('Площадь и периметр', figures(ph).map(figHtml).join('')) : '') +
         grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
         grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +
-        '<div class="pacts">' + btn('png', 'Скачать фото с размерами') + btn('p-del', 'Удалить фото', { cls: 'dng' }) + '</div>';
+        '<div class="pacts">' + btn('png', fitOn(ph) ? 'Скачать фото с фотозоной' : 'Скачать фото с размерами') + '<button type="button" class="btn sm" data-act="report-pdf">Отчёт обмера PDF</button>' + btn('p-del', 'Удалить фото', { cls: 'dng' }) + '</div>';
     } finally { U.inDock = false; }
   }
   function vLayers() {
@@ -368,6 +469,7 @@ var PF = (function () {
   function vOptbar() {
     const ph = cur(), m = mark(st.sel), ib = (a, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-fact="' + a + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
     if (!ph) return '<span class="ohint">Фото: добавьте снимки зала и подпишите на них размеры</span>';
+    if (st.tool === 'fit' && ph.fit) return '<span class="onm">Примерка сцены</span><span class="sep"></span><span class="ohint">тяните углы; внутри рамки — сдвиг</span><span class="sp"></span>' + ib('tool', 'x', 'Готово (Esc)');
     if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<span class="ohint"><b>' + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? — впишите справа') + '</b></span>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
     return '<span class="onm">' + esc(ph.name) + '</span><span class="sep"></span><span class="ohint">' + ph.marks.length + ' отметок · «Размер» слева: проведите от точки к точке</span><span class="sp"></span>' + ib('gallery', 'x', 'К списку фото (Esc)');
   }
@@ -377,14 +479,14 @@ var PF = (function () {
       '<span>фото ' + L().length + '</span>' + (ph ? '<span>' + esc(ph.name) + ': отметок ' + ph.marks.length + '</span>' : '') + (function () { const f = figures(ph).filter((q) => q.known); return f.length ? '<span><b>P ' + fl(f[0].P) + ' ' + uLab() + (f[0].area > 0 ? ' · S ' + (f[0].exact ? '' : '≈') + fArea(f[0].area).replace(/ \(.*\)$/, '') : '') + '</b>' + (f.length > 1 ? ' · фигур ' + f.length : '') + '</span>' : ''; })() +
       (L().length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (pc.length ? 'warn' : 'ok') + '"></i>' + (pc.length ? 'без числа: ' + pc.length : 'все размеры с числами') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
   }
-  const SKEL = '<div id="fgal" class="fgal"></div><div id="fed" class="fed" hidden><svg id="fsvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Фото с разметкой"><g id="fvp"><image id="fimg" preserveAspectRatio="none" x="0" y="0"/><g id="fmarks"></g><g id="fhnd"></g></g></svg></div>' +
+  const SKEL = '<div id="fgal" class="fgal"></div><div id="fed" class="fed" hidden><canvas id="fcv" class="fcv" hidden></canvas><svg id="fsvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Фото с разметкой"><g id="fvp"><image id="fimg" preserveAspectRatio="none" x="0" y="0"/><g id="fmarks"></g><g id="fhnd"></g></g></svg></div>' +
     '<div id="floupe" class="floupe" hidden></div><div id="fbanner" class="pbanner" hidden></div>';
   function init() {
     document.addEventListener('wheel', wheel, { passive: false });
     document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
+  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */

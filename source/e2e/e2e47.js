@@ -1,0 +1,20 @@
+// the built site: served over http, it installs its worker, opens offline, keeps LA CHEF-style foreign caches untouched
+const {chromium}=require('playwright');const http=require('http');const fs=require('fs');const path=require('path');
+let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL: '+m)}};
+const root=path.resolve('tmp/upd'),types={'.html':'text/html; charset=utf-8','.js':'application/javascript','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
+const srv=http.createServer((q,r)=>{let f=path.join(root,decodeURIComponent(q.url.split('?')[0]));if(f.endsWith('/'))f+='index.html';fs.readFile(f,(e,d)=>{if(e){r.writeHead(404);r.end();return}r.writeHead(200,{'Content-Type':types[path.extname(f)]||'application/octet-stream'});r.end(d)})}).listen(8765);
+(async()=>{const b=await chromium.launch();const ctx=await b.newContext({viewport:{width:1280,height:854}});const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
+ await ctx.route(/fonts\.(googleapis|gstatic)\.com|cdnjs|jsdelivr/,r=>r.abort());
+ await p.goto('http://localhost:8765/');await p.waitForSelector('#canvas');
+ ok(/версия 37/.test(await p.textContent('#ver')),'site shows version 37');
+ await p.evaluate(()=>caches.open('chef-cache-v1').then(c=>c.put('/x',new Response('chef'))));
+ const reg=await p.evaluate(()=>navigator.serviceWorker.ready.then(r=>!!r.active));ok(reg,'service worker active');
+ await p.waitForTimeout(800);await p.reload();await p.waitForSelector('#canvas');
+ ok(await p.evaluate(()=>!!navigator.serviceWorker.controller),'page controlled by the worker');
+ const keys=await p.evaluate(()=>caches.keys());ok(keys.includes('chef-cache-v1'),'foreign cache untouched: '+keys.join(','));ok(keys.some(k=>/^konfetti-/.test(k)),'own cache konfetti-*');
+ await ctx.setOffline(true);await p.reload();await p.waitForSelector('#canvas',{timeout:15000});ok(/версия 37/.test(await p.textContent('#ver')),'opens offline');
+ ok(await p.evaluate(()=>typeof RP==='object'&&typeof PF.photoCanvas==='function'),'report and try-on code on the site');
+ await ctx.setOffline(false);
+ const man=JSON.parse(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'));ok(man.start_url&&man.icons&&man.icons.length,'manifest with icons');
+ ok(!errs.length,'no page errors: '+errs.join(' | '));
+ console.log(pass+' checks passed, '+fails+' failed');await b.close();srv.close();process.exit(fails?1:0)})();

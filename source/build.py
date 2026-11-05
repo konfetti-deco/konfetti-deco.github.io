@@ -1,7 +1,7 @@
 import sys,os,shutil,datetime
 src='src/'
 site='--site' in sys.argv
-files=['data.js','engine.js','model.js','plancore.js','photo.js','scene.js','ui.js','views.js','plan.js','photos.js','io.js']+(['site.js'] if site else [])+['main.js']
+files=['data.js','engine.js','model.js','plancore.js','photo.js','scene.js','ui.js','views.js','plan.js','photos.js','report.js','io.js']+(['site.js'] if site else [])+['main.js']
 js='\n'.join(open(src+f,encoding='utf-8').read() for f in files)
 css=open(src+'style.css',encoding='utf-8').read()
 assert '</script' not in js.lower() and '</style' not in css.lower()
@@ -47,4 +47,9 @@ else:
         shutil.copy('site_src/moved/README.md',old+'README.md');open(old+'.nojekyll','w').write('')
     # the sources travel with the site, so the next change can be built from them
     shutil.copytree('src',out+'source/src');shutil.copy('build.py',out+'source/build.py');shutil.copytree('site_src',out+'source/site_src')
+    # tests travel too: a lost workspace can be rebuilt from the repository (browser tests go back into tmp/)
+    if os.path.isdir('test'):shutil.copytree('test',out+'source/test',dirs_exist_ok=True)
+    import glob;os.makedirs(out+'source/e2e',exist_ok=True)
+    for f in glob.glob('tmp/e2e*.js')+['tmp/hall_test.jpg','tmp/runbg.sh']:
+        if os.path.exists(f):shutil.copy(f,out+'source/e2e/'+os.path.basename(f))
     print('site built',len(doc),'bytes, build',build)

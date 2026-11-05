@@ -786,6 +786,31 @@ var PG = (function () {
     if (q.some((p) => !p) || !quadOk(q)) return null;
     return { q, op: clamp(+f.op || 1, 0.2, 1), on: f.on !== false };
   }
+  /* ---------- the measurement report: one set of numbers, the same functions as on screen ---------- */
+  function figTol(ph) { return Math.max(4, 0.012 * Math.max(ph.w, ph.h)); }
+  function reportData(plan, photos) {
+    const p = plan || newPlan(), list = photos || [], byWall = {};
+    list.forEach((ph) => ph.marks.forEach((m) => { if (m.t === 'dim' && m.wid && m.v > 0) (byWall[m.wid] = byWall[m.wid] || []).push({ photo: ph.name, v: m.v }); }));
+    const rooms = p.rooms.map((r, ri) => {
+      const g = roomGeom(r);
+      return { id: r.id, name: r.name || 'Помещение ' + (ri + 1), area: g.area, P: g.P, status: g.status, exact: g.allM && g.status === 'ok', h: r.h || p.h,
+        walls: r.walls.map((w, i) => ({ id: w.id, name: wallName(r, i), len: g.lens[i], m: !!w.m, ops: (w.ops || []).map((o) => o.type), from: byWall[w.id] || [] })) };
+    });
+    const wallOf = {}; rooms.forEach((r) => r.walls.forEach((w) => { wallOf[w.id] = r.name + ', ' + w.name; }));
+    const tot = totals(p);
+    const phs = list.map((ph) => {
+      const dims = ph.marks.filter((m) => m.t === 'dim');
+      return { id: ph.id, name: ph.name, w: ph.w, h: ph.h,
+        dims: dims.map((m, i) => ({ n: i + 1, v: m.v > 0 ? m.v : null, wall: m.wid && wallOf[m.wid] ? wallOf[m.wid] : '' })),
+        notes: ph.marks.filter((m) => m.t !== 'dim' && String(m.text || '').trim()).map((m) => String(m.text).trim()),
+        figs: photoFigures(ph.marks, figTol(ph)).filter((f) => f.known).map((f) => ({ n: f.n, P: f.P, area: f.area, exact: f.exact, how: f.how, warn: f.warn || '' })),
+        fit: !!(ph.fit && ph.fit.on) };
+    });
+    const area = rooms.reduce((a, r) => a + (r.area > 0 ? r.area : 0), 0);
+    return { unit: p.unit, rooms, area, areaExact: rooms.length > 0 && rooms.every((r) => r.exact), tables: tot.tables, seats: tot.seats,
+      photos: phs, dims: phs.reduce((a, x) => a + x.dims.length, 0), nonum: phs.reduce((a, x) => a + x.dims.filter((d) => d.v === null).length, 0),
+      approxWalls: rooms.reduce((a, r) => a + r.walls.filter((w) => !w.m).length, 0) };
+  }
   /* ---------- the plan as a whole ---------- */
   function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [] }; }
   function normalize(p) {
@@ -823,7 +848,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

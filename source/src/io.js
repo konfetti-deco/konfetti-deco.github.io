@@ -81,7 +81,7 @@ IO.drawText = function(c,el,k){
 IO.sceneCanvas = function(px,opt){
   opt=opt||{};
   var used=SC.usedImgs(S),idefs=SC.imgDefs(used);
-  var key=px+'|'+JSON.stringify([S.els,S.palette,S.room,S.floor,S.balloons,opt.dims?S.show:0,used.map(function(id){return IMG[id]?1:0})]);
+  var key=px+'|'+(opt.noRoom?'nr|':'')+JSON.stringify([S.els,S.palette,S.room,S.floor,S.balloons,opt.dims?S.show:0,used.map(function(id){return IMG[id]?1:0})]);
   if(IO._sc&&IO._sc.key===key)return Promise.resolve(IO._sc.cv);
   // the picture ends a little below the nearest thing on the floor: no empty floor at the bottom
   var zm=E.zMap(S),zn=0;S.els.forEach(function(e){if(!e.hide)zn=Math.max(zn,zm[e.id]||0)});
@@ -95,9 +95,20 @@ IO.sceneCanvas = function(px,opt){
   var uidn=0,chain=IO.fonts();
   runs.forEach(function(r){chain=chain.then(function(){
     if(r.text){IO.drawText(c,r.text,k);return}
-    var svg='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+cv.width+'" height="'+cv.height+'" viewBox="0 0 '+W+' '+H+'">'+(idefs?'<defs>'+idefs+'</defs>':'')+SC.render(S,R,{uid:'x'+(uidn++),from:r.svg[0],to:r.svg[1],noRoom:!r.svg[2],dims:!!r.dims,grid:!!opt.dims&&S.show.grid,base:!!r.base})+'</svg>';
+    var svg='<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="'+cv.width+'" height="'+cv.height+'" viewBox="0 0 '+W+' '+H+'">'+(idefs?'<defs>'+idefs+'</defs>':'')+SC.render(S,R,{uid:'x'+(uidn++),from:r.svg[0],to:r.svg[1],noRoom:!!opt.noRoom||!r.svg[2],dims:!!r.dims,grid:!!opt.dims&&S.show.grid,base:!!r.base})+'</svg>';
     return IO.svgImage(svg).then(function(im){c.drawImage(im,0,0,cv.width,cv.height)})})});
   return chain.then(function(){IO._sc={key:key,cv:cv};return cv});
+};
+/* the scene alone, without room and floor, cut to what is drawn: tried on hall photos. Same picture object while the scene is unchanged */
+IO.sceneCut = function(){
+  if(!S.els.some(function(e){return !e.hide}))return Promise.resolve(null);
+  return IO.sceneCanvas(1600,{noRoom:true}).then(function(cv){
+    if(IO._cut&&IO._cut.src===cv)return IO._cut.res;
+    var W=cv.width,H=cv.height,d=cv.getContext('2d').getImageData(0,0,W,H).data,x0=W,y0=H,x1=-1,y1=-1,x,y,row;
+    for(y=0;y<H;y++){row=y*W*4;for(x=0;x<W;x++)if(d[row+x*4+3]>8){if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y}}
+    var res=null;
+    if(x1>=x0){var out=document.createElement('canvas'),k=W/S.room.w;out.width=x1-x0+1;out.height=y1-y0+1;out.getContext('2d').drawImage(cv,x0,y0,out.width,out.height,0,0,out.width,out.height);res={cv:out,wmm:out.width/k,hmm:out.height/k,id:(IO._cutN=(IO._cutN||0)+1)}}
+    IO._cut={src:cv,res:res};return res})
 };
 IO.canvasBlob = function(cv,type,q){return new Promise(function(res,rej){try{cv.toBlob(function(b){b?res(b):rej(new Error('blob'))},type||'image/png',q)}catch(e){rej(e)}})};
 IO.exportScene = function(){

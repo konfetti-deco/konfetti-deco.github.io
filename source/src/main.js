@@ -538,6 +538,7 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'export-all':IO.exportAll();break;
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
+    case 'report-pdf':RP.pdf();break;
     case 'copy-offer':copyFrom($('#offer-text'));break;
     case 'copy-modal':copyFrom($('#modal-text'));break;
     case 'reset-prices':S.prices={};commit();break;
