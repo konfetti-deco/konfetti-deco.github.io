@@ -5,7 +5,9 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await ctx.route(/fonts\.(googleapis|gstatic)\.com|cdnjs|jsdelivr/,r=>r.abort());
  await p.goto('file://'+path.resolve('dist/konstruktor-fotozon.html'));await p.waitForSelector('#canvas');await p.waitForTimeout(400);
  const ev=(f,a)=>p.evaluate(f,a);
- ok(/версия 37/.test(await p.textContent('#ver')),'version label 37');
+ ok(/версия 38/.test(await p.textContent('#ver')),'version label 38');
+ const ta=await p.evaluate(()=>[...document.querySelectorAll('#dock input:not([type=range]):not([type=checkbox]):not([type=color]):not([type=file]), #dock textarea, #dock select')].map(i=>getComputedStyle(i).touchAction));ok(ta.length>0&&ta.every(t=>t==='none'),'panel text fields: touch-action none (no stylus handwriting) '+ta.length);
+ const rng=await p.evaluate(()=>{const r=document.querySelector('input[type=range]');return r?getComputedStyle(r).touchAction:'pan-y'});ok(rng!=='none','sliders keep their own touch-action: '+rng);
  ok(await ev(()=>document.querySelectorAll('#scn .el').length>0),'scene elements drawn');
  ok(await ev(()=>R&&R.cost&&R.cost.all>0),'estimate computed: '+await ev(()=>R.cost.all));
  // scene edit + undo
@@ -13,6 +15,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.keyboard.press('Control+z');await p.waitForTimeout(150);ok(await ev(()=>S.els.length)===n0,'scene: undo');
  // plan
  await p.click('#modesw [data-v=plan]');await p.waitForTimeout(200);ok(await ev(()=>UI.mode)==='plan','plan mode');
+ const nmI=await p.$('[data-pbind]');
  await ev(()=>{PL.act('fly-pick',{dataset:{g:'room',v:'rect'}});commit();const it=PG.makeItem('t_r150',3000,3000);it.num=1;S.plan.items.push(it);commit()});await p.waitForTimeout(200);
  ok(await ev(()=>S.plan.rooms.length===1&&document.querySelectorAll('#pitems > *').length>=1),'room and table drawn');
  ok((await p.textContent('#statbar')).length>5,'plan status bar');

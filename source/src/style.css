@@ -1036,3 +1036,7 @@ html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gr
 .fcv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;display:block}
 #fsvg .ffq{fill:rgba(255,255,255,.04);stroke:#fff;stroke-width:1.5;stroke-dasharray:6 5;vector-effect:non-scaling-stroke;pointer-events:all;cursor:move}
 #fsvg .fqd{fill:var(--accent,#5fd3a6)}
+
+/* v38: a stylus tap on a text field brings up the keyboard. Android/Chrome start stylus handwriting on fields whose
+   touch-action allows panning, and then no keyboard appears; without panning the tap is an ordinary tap */
+input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),textarea,select,[contenteditable]:not([contenteditable=false]){touch-action:none}
