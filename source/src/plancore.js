@@ -585,7 +585,7 @@ var PG = (function () {
   /* what is in the way: an object crossing a wall, standing outside the rooms, in a door's swing, or on another object */
   function conflicts(p, geoms) {
     geoms = geoms || p.rooms.map(roomGeom);
-    const out = [], fps = p.items.filter((it) => !it.top).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
+    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
     const swings = []; p.rooms.forEach((r, ri) => doorSwings(r, geoms[ri]).forEach((s) => { s.bb = bboxOf(s.poly); swings.push(s); }));
     const overlapBB = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     fps.forEach((F) => {
@@ -614,7 +614,7 @@ var PG = (function () {
   }
   function nearestItems(p, it, k) {
     const F = footprint(it)[0], out = [];
-    p.items.forEach((o) => { if (o.id === it.id) return; const G2 = footprint(o)[0]; out.push({ id: o.id, d: polyDist(F, G2) }); });
+    p.items.forEach((o) => { if (o.id === it.id || o.kind === 'photo') return; const G2 = footprint(o)[0]; out.push({ id: o.id, d: polyDist(F, G2) }); });
     return out.sort((a, b) => a.d - b.d).slice(0, k || 2);
   }
   /* ---------- the upper layer: heights ---------- */
@@ -645,6 +645,27 @@ var PG = (function () {
       over.forEach((q) => { const cl = h - q.base; if (cl < min && (!worst || cl < worst.cl)) worst = { cl, b: q.it.id }; });
       if (worst) out.push({ t: 'low', a: it.id, b: worst.b, h, clear: worst.cl, min });
     });
+    return out;
+  }
+  /* ---------- photos with marks: sizes, notes, arrows; a photo can be pinned to a place on the plan ---------- */
+  const MARK_COLS = ['#FF4D4F', '#FFD43B', '#FFFFFF', '#40C057', '#4DABF7'];
+  function normPhotos(arr) {
+    const fin = (q) => Array.isArray(q) && q.length === 2 && isFinite(+q[0]) && isFinite(+q[1]) ? [+q[0], +q[1]] : null;
+    return (Array.isArray(arr) ? arr : []).filter((ph) => ph && typeof ph.im === 'string' && +ph.w > 0 && +ph.h > 0).map((ph) => ({
+      id: ph.id || uid(), im: ph.im, w: Math.round(+ph.w), h: Math.round(+ph.h), name: String(ph.name || 'Фото').slice(0, 80),
+      marks: (Array.isArray(ph.marks) ? ph.marks : []).filter((m) => m && /^(dim|text|arrow)$/.test(m.t) && fin(m.a) && (m.t === 'text' || fin(m.b))).map((m) => {
+        const o = { id: m.id || uid(), t: m.t, a: fin(m.a), col: MARK_COLS.indexOf(m.col) >= 0 ? m.col : MARK_COLS[0] };
+        if (m.t !== 'text') o.b = fin(m.b);
+        if (m.t === 'dim') o.v = +m.v > 0 ? Math.round(+m.v) : null;
+        if (m.t !== 'dim' || m.text) o.text = String(m.text || '').slice(0, 200);
+        return o;
+      }),
+    }));
+  }
+  /* a size line without its number is not a size: listed until a number is typed or the line is removed */
+  function photoChecks(photos) {
+    const out = [];
+    (photos || []).forEach((ph) => ph.marks.forEach((m) => { if (m.t === 'dim' && !(m.v > 0)) out.push({ t: 'nonum', photo: ph.id, mark: m.id }); if (m.t === 'text' && !String(m.text || '').trim()) out.push({ t: 'notext', photo: ph.id, mark: m.id }); }));
     return out;
   }
   function totals(p) {
@@ -692,7 +713,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

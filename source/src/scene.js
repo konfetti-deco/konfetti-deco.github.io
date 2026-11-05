@@ -316,7 +316,7 @@ SC.prop = function(kind,w,h,pal,ctx,el){
 /* ---------- pictures loaded from files: kept once in a hidden <svg>, referenced by <use> ---------- */
 SC.img = function(id){return (typeof IMG!=='undefined'&&id&&IMG[id])||null};
 SC.imgDefs = function(ids){var s='';ids.forEach(function(id){var im=SC.img(id);if(im)s+='<image id="im-'+id+'" href="'+im.src+'" xlink:href="'+im.src+'" width="'+im.w+'" height="'+im.h+'" preserveAspectRatio="none"/>'});return s};
-SC.usedImgs = function(S){var u={};S.els.forEach(function(e){if(e.im&&(e.type==='pic'||e.surf==='image'))u[e.im]=1;if(e.type==='pic'&&e.im0)u[e.im0]=1});if(S.ref&&S.ref.im)u[S.ref.im]=1;return Object.keys(u)};
+SC.usedImgs = function(S){var u={};S.els.forEach(function(e){if(e.im&&(e.type==='pic'||e.surf==='image'))u[e.im]=1;if(e.type==='pic'&&e.im0)u[e.im0]=1});if(S.ref&&S.ref.im)u[S.ref.im]=1;(S.photos||[]).forEach(function(ph){if(ph&&ph.im)u[ph.im]=1});return Object.keys(u)};
 SC.use = function(id,tx,ty,sx,sy){return '<use href="#im-'+id+'" xlink:href="#im-'+id+'" transform="translate('+n1(tx)+' '+n1(ty)+') scale('+(Math.round(sx*1e5)/1e5)+' '+(Math.round(sy*1e5)/1e5)+')"/>'};
 SC.METAL = /^#(C9A857|CFA549|D4B05A|C9A24B|CDB48A|D9A98C|B9BEC7|D4AF37|C4C8CF|B76E79|E6C36A)$/i;
 SC.seqColor = function(el){var q=D.SEQ[el.seq];return el.seq==='custom'||!q?(el.color||D.SEQ.gold.c):q.c};

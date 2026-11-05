@@ -955,3 +955,39 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
 .plyr{display:flex;flex-direction:column;gap:2px;margin:0 0 4px}
 .plyr button{border:0;border-radius:6px;background:transparent;color:var(--muted);font:700 10.5px/1 var(--f-ui,system-ui,sans-serif);padding:6px 0;min-height:24px;cursor:pointer}
 .plyr button[aria-pressed=true]{background:var(--accent-soft,rgba(93,184,150,.2));color:var(--accent)}
+/* =================== the «Фото» mode =================== */
+.photohost{display:none;position:absolute;inset:0;background:var(--pl-bg);overflow:hidden;touch-action:none}
+body[data-mode=photo] .photohost{display:block}
+body[data-mode=photo] .stagehost{visibility:hidden}
+html.glass .photohost{background:color-mix(in srgb,var(--pl-bg) 82%,transparent)}
+.fgal{position:absolute;inset:0;overflow:auto;padding:16px;touch-action:pan-y}
+.fgal-in{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.fgal-h{display:flex;flex-direction:column;gap:2px} .fgal-h b{font-size:16px} .fgal-h span{color:var(--muted);font-size:13px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fcard{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:0 0 9px;border:1px solid var(--wline);border-radius:10px;background:var(--panel);color:inherit;text-align:left;cursor:pointer;overflow:hidden;position:relative;font:inherit}
+html.glass .fcard{background:var(--gl);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-color:var(--glb)}
+.fcard img,.fcard .fnoimg{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--well)} .fcard .fnoimg{display:grid;place-items:center;color:var(--muted);font-size:12px}
+.fcard b{padding:0 10px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .fcard small{padding:0 10px;color:var(--muted);font-size:12px}
+.fcard:hover{border-color:var(--accent)}
+.fadd{justify-content:center;align-items:center;text-align:center;min-height:180px;border-style:dashed;padding:12px}
+.fadd input{position:absolute;inset:0;opacity:0;cursor:pointer} .fadd .fplus{font-size:34px;line-height:1;color:var(--accent)} .fadd b,.fadd small{padding:0}
+.fed{position:absolute;inset:0}
+#fsvg{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.wsm.fhand #fsvg{cursor:grab}
+#fsvg .fl,#fsvg .fhalo{vector-effect:non-scaling-stroke;stroke-linecap:round;fill:none} #fsvg .fl{stroke-width:3} #fsvg .fhalo{stroke:rgba(0,0,0,.55);stroke-width:6}
+#fsvg .fm.on .fl{stroke-width:4} #fsvg .fah{stroke:rgba(0,0,0,.45);stroke-width:1;vector-effect:non-scaling-stroke}
+#fsvg .fpill{stroke:rgba(0,0,0,.35);stroke-width:1;vector-effect:non-scaling-stroke} #fsvg .fpill.on{stroke:#fff;stroke-width:2}
+#fsvg text{font-family:var(--f-ui,system-ui,sans-serif);font-weight:700;pointer-events:none}
+#fsvg .fhit{stroke:transparent;stroke-width:26;fill:transparent;vector-effect:non-scaling-stroke;pointer-events:all;cursor:pointer}
+#fsvg .fhd{fill:#fff;stroke:#111;stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none} #fsvg .fhh{fill:transparent;pointer-events:all;cursor:grab}
+#fsvg .fpd{fill:#fff;stroke:var(--accent);stroke-width:3;vector-effect:non-scaling-stroke}
+.floupe{position:absolute;z-index:7;width:128px;height:128px;border-radius:50%;border:3px solid #fff;box-shadow:0 8px 24px rgba(0,0,0,.55);background-repeat:no-repeat;background-color:#000;pointer-events:none}
+.floupe::before,.floupe::after{content:'';position:absolute;background:rgba(255,77,79,.9)} .floupe::before{left:63px;top:44px;width:2px;height:40px} .floupe::after{top:63px;left:44px;height:2px;width:40px}
+.fcols{display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 0} .fcols.wide{flex-direction:row;justify-content:flex-start;gap:8px}
+.fcol{width:22px;height:22px;border-radius:50%;border:2px solid var(--wline);background:var(--c);cursor:pointer;padding:0} .fcols.wide .fcol{width:30px;height:30px}
+.fcol[aria-pressed=true]{outline:2px solid var(--accent);outline-offset:2px}
+.nf.wide input{width:180px}
+#plan .ppin .pib{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .ppin .pcone{fill:color-mix(in srgb,var(--accent) 22%,transparent);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
+#plan .ppin .pcam{fill:var(--pl-bg)} #plan .ppin .pcam2{fill:var(--accent)} #plan .ppin.on .pib{stroke:var(--brass);stroke-width:2.5}
+#plan .ppn{fill:var(--accent);font-weight:700;stroke:var(--pl-bg);font-family:var(--f-ui,system-ui,sans-serif)}
+.pthumb{width:100%;border-radius:8px;display:block}

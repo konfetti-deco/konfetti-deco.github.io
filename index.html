@@ -974,6 +974,42 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
 .plyr{display:flex;flex-direction:column;gap:2px;margin:0 0 4px}
 .plyr button{border:0;border-radius:6px;background:transparent;color:var(--muted);font:700 10.5px/1 var(--f-ui,system-ui,sans-serif);padding:6px 0;min-height:24px;cursor:pointer}
 .plyr button[aria-pressed=true]{background:var(--accent-soft,rgba(93,184,150,.2));color:var(--accent)}
+/* =================== the «Фото» mode =================== */
+.photohost{display:none;position:absolute;inset:0;background:var(--pl-bg);overflow:hidden;touch-action:none}
+body[data-mode=photo] .photohost{display:block}
+body[data-mode=photo] .stagehost{visibility:hidden}
+html.glass .photohost{background:color-mix(in srgb,var(--pl-bg) 82%,transparent)}
+.fgal{position:absolute;inset:0;overflow:auto;padding:16px;touch-action:pan-y}
+.fgal-in{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.fgal-h{display:flex;flex-direction:column;gap:2px} .fgal-h b{font-size:16px} .fgal-h span{color:var(--muted);font-size:13px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+.fcard{display:flex;flex-direction:column;align-items:stretch;gap:4px;padding:0 0 9px;border:1px solid var(--wline);border-radius:10px;background:var(--panel);color:inherit;text-align:left;cursor:pointer;overflow:hidden;position:relative;font:inherit}
+html.glass .fcard{background:var(--gl);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-color:var(--glb)}
+.fcard img,.fcard .fnoimg{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;background:var(--well)} .fcard .fnoimg{display:grid;place-items:center;color:var(--muted);font-size:12px}
+.fcard b{padding:0 10px;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .fcard small{padding:0 10px;color:var(--muted);font-size:12px}
+.fcard:hover{border-color:var(--accent)}
+.fadd{justify-content:center;align-items:center;text-align:center;min-height:180px;border-style:dashed;padding:12px}
+.fadd input{position:absolute;inset:0;opacity:0;cursor:pointer} .fadd .fplus{font-size:34px;line-height:1;color:var(--accent)} .fadd b,.fadd small{padding:0}
+.fed{position:absolute;inset:0}
+#fsvg{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;user-select:none;-webkit-user-select:none}
+.wsm.fhand #fsvg{cursor:grab}
+#fsvg .fl,#fsvg .fhalo{vector-effect:non-scaling-stroke;stroke-linecap:round;fill:none} #fsvg .fl{stroke-width:3} #fsvg .fhalo{stroke:rgba(0,0,0,.55);stroke-width:6}
+#fsvg .fm.on .fl{stroke-width:4} #fsvg .fah{stroke:rgba(0,0,0,.45);stroke-width:1;vector-effect:non-scaling-stroke}
+#fsvg .fpill{stroke:rgba(0,0,0,.35);stroke-width:1;vector-effect:non-scaling-stroke} #fsvg .fpill.on{stroke:#fff;stroke-width:2}
+#fsvg text{font-family:var(--f-ui,system-ui,sans-serif);font-weight:700;pointer-events:none}
+#fsvg .fhit{stroke:transparent;stroke-width:26;fill:transparent;vector-effect:non-scaling-stroke;pointer-events:all;cursor:pointer}
+#fsvg .fhd{fill:#fff;stroke:#111;stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none} #fsvg .fhh{fill:transparent;pointer-events:all;cursor:grab}
+#fsvg .fpd{fill:#fff;stroke:var(--accent);stroke-width:3;vector-effect:non-scaling-stroke}
+.floupe{position:absolute;z-index:7;width:128px;height:128px;border-radius:50%;border:3px solid #fff;box-shadow:0 8px 24px rgba(0,0,0,.55);background-repeat:no-repeat;background-color:#000;pointer-events:none}
+.floupe::before,.floupe::after{content:'';position:absolute;background:rgba(255,77,79,.9)} .floupe::before{left:63px;top:44px;width:2px;height:40px} .floupe::after{top:63px;left:44px;height:2px;width:40px}
+.fcols{display:flex;flex-direction:column;align-items:center;gap:5px;padding:4px 0} .fcols.wide{flex-direction:row;justify-content:flex-start;gap:8px}
+.fcol{width:22px;height:22px;border-radius:50%;border:2px solid var(--wline);background:var(--c);cursor:pointer;padding:0} .fcols.wide .fcol{width:30px;height:30px}
+.fcol[aria-pressed=true]{outline:2px solid var(--accent);outline-offset:2px}
+.nf.wide input{width:180px}
+#plan .ppin .pib{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5} #plan .ppin .pcone{fill:color-mix(in srgb,var(--accent) 22%,transparent);stroke:var(--accent);stroke-width:1;stroke-dasharray:4 3}
+#plan .ppin .pcam{fill:var(--pl-bg)} #plan .ppin .pcam2{fill:var(--accent)} #plan .ppin.on .pib{stroke:var(--brass);stroke-width:2.5}
+#plan .ppn{fill:var(--accent);font-weight:700;stroke:var(--pl-bg);font-family:var(--f-ui,system-ui,sans-serif)}
+.pthumb{width:100%;border-radius:8px;display:block}
 
 </style>
 </head>
@@ -983,11 +1019,11 @@ body[data-mode=plan] #ov,body[data-mode=plan] #dragtip{display:none!important}
   <button type="button" class="ib logo" data-act="menu" title="Konfetti Deco · проекты и шаблоны" aria-label="Konfetti Deco: проекты и шаблоны" id="burger"></button><span class="appn" aria-hidden="true">Konfetti Deco</span>
   <nav class="mbar" id="mbar" aria-label="Меню"><button type="button" class="mb" data-act="mopen" data-id="file">Файл</button><button type="button" class="mb" data-act="mopen" data-id="edit">Правка</button><button type="button" class="mb" data-act="mopen" data-id="view">Вид</button><button type="button" class="mb" data-act="mopen" data-id="calc">Расчёты</button></nav>
   <label class="pn"><input id="pname" class="pname" data-bind="s.name" aria-label="Название проекта" autocomplete="off" spellcheck="false"><span class="pned" aria-hidden="true">✎</span></label>
-  <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button></div>
+  <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 32</span>
+  <span class="ver" id="ver">версия 33</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -2234,7 +2270,8 @@ M.normalize = function(o){
   if(o.ref){var rf=o.ref;if(typeof rf!=='object'||!rf.im||!(+rf.w>0)||!(+rf.h>0)||!isFinite(+rf.x)||!isFinite(+rf.y))delete o.ref;else{rf.im=String(rf.im);rf.x=+rf.x;rf.y=+rf.y;rf.w=+rf.w;rf.h=+rf.h;rf.on=rf.on!==false;rf.z=isFinite(+rf.z)&&rf.z!==null&&rf.z!==''?Math.max(0,Math.min(E.ZMAX,+rf.z)):M.refZ(o);rf.op=Math.max(10,Math.min(100,+rf.op||45));if(rf.info&&typeof rf.info!=='object')delete rf.info}}
   if(o.frame!=='metal')o.frame='wood';if(!E.DENS[o.balloons.density])o.balloons.density='std';
   o.palette=D.pal(o.palette).id;o.holiday=D.holiday(o.holiday).id;o.name=String(o.name).slice(0,80);
-  if(typeof PG!=='undefined')o.plan=PG.normalize(o.plan);   // the floor plan travels inside the same project
+  if(typeof PG!=='undefined')o.plan=PG.normalize(o.plan);
+  if(typeof PG!=='undefined'){o.photos=PG.normPhotos(o.photos);var phIds={};o.photos.forEach(function(ph){phIds[ph.id]=1});o.plan.items=o.plan.items.filter(function(it){return it.kind!=='photo'||phIds[it.photo]})}   // photos with their marks; a pin whose photo is gone goes too   // the floor plan travels inside the same project
   return o;
 };
 /* the plane the photo underlay was measured in: the rear backgrounds */
@@ -2887,7 +2924,7 @@ var PG = (function () {
   /* what is in the way: an object crossing a wall, standing outside the rooms, in a door's swing, or on another object */
   function conflicts(p, geoms) {
     geoms = geoms || p.rooms.map(roomGeom);
-    const out = [], fps = p.items.filter((it) => !it.top).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
+    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
     const swings = []; p.rooms.forEach((r, ri) => doorSwings(r, geoms[ri]).forEach((s) => { s.bb = bboxOf(s.poly); swings.push(s); }));
     const overlapBB = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     fps.forEach((F) => {
@@ -2916,7 +2953,7 @@ var PG = (function () {
   }
   function nearestItems(p, it, k) {
     const F = footprint(it)[0], out = [];
-    p.items.forEach((o) => { if (o.id === it.id) return; const G2 = footprint(o)[0]; out.push({ id: o.id, d: polyDist(F, G2) }); });
+    p.items.forEach((o) => { if (o.id === it.id || o.kind === 'photo') return; const G2 = footprint(o)[0]; out.push({ id: o.id, d: polyDist(F, G2) }); });
     return out.sort((a, b) => a.d - b.d).slice(0, k || 2);
   }
   /* ---------- the upper layer: heights ---------- */
@@ -2947,6 +2984,27 @@ var PG = (function () {
       over.forEach((q) => { const cl = h - q.base; if (cl < min && (!worst || cl < worst.cl)) worst = { cl, b: q.it.id }; });
       if (worst) out.push({ t: 'low', a: it.id, b: worst.b, h, clear: worst.cl, min });
     });
+    return out;
+  }
+  /* ---------- photos with marks: sizes, notes, arrows; a photo can be pinned to a place on the plan ---------- */
+  const MARK_COLS = ['#FF4D4F', '#FFD43B', '#FFFFFF', '#40C057', '#4DABF7'];
+  function normPhotos(arr) {
+    const fin = (q) => Array.isArray(q) && q.length === 2 && isFinite(+q[0]) && isFinite(+q[1]) ? [+q[0], +q[1]] : null;
+    return (Array.isArray(arr) ? arr : []).filter((ph) => ph && typeof ph.im === 'string' && +ph.w > 0 && +ph.h > 0).map((ph) => ({
+      id: ph.id || uid(), im: ph.im, w: Math.round(+ph.w), h: Math.round(+ph.h), name: String(ph.name || 'Фото').slice(0, 80),
+      marks: (Array.isArray(ph.marks) ? ph.marks : []).filter((m) => m && /^(dim|text|arrow)$/.test(m.t) && fin(m.a) && (m.t === 'text' || fin(m.b))).map((m) => {
+        const o = { id: m.id || uid(), t: m.t, a: fin(m.a), col: MARK_COLS.indexOf(m.col) >= 0 ? m.col : MARK_COLS[0] };
+        if (m.t !== 'text') o.b = fin(m.b);
+        if (m.t === 'dim') o.v = +m.v > 0 ? Math.round(+m.v) : null;
+        if (m.t !== 'dim' || m.text) o.text = String(m.text || '').slice(0, 200);
+        return o;
+      }),
+    }));
+  }
+  /* a size line without its number is not a size: listed until a number is typed or the line is removed */
+  function photoChecks(photos) {
+    const out = [];
+    (photos || []).forEach((ph) => ph.marks.forEach((m) => { if (m.t === 'dim' && !(m.v > 0)) out.push({ t: 'nonum', photo: ph.id, mark: m.id }); if (m.t === 'text' && !String(m.text || '').trim()) out.push({ t: 'notext', photo: ph.id, mark: m.id }); }));
     return out;
   }
   function totals(p) {
@@ -2994,7 +3052,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;
@@ -3503,7 +3561,7 @@ SC.prop = function(kind,w,h,pal,ctx,el){
 /* ---------- pictures loaded from files: kept once in a hidden <svg>, referenced by <use> ---------- */
 SC.img = function(id){return (typeof IMG!=='undefined'&&id&&IMG[id])||null};
 SC.imgDefs = function(ids){var s='';ids.forEach(function(id){var im=SC.img(id);if(im)s+='<image id="im-'+id+'" href="'+im.src+'" xlink:href="'+im.src+'" width="'+im.w+'" height="'+im.h+'" preserveAspectRatio="none"/>'});return s};
-SC.usedImgs = function(S){var u={};S.els.forEach(function(e){if(e.im&&(e.type==='pic'||e.surf==='image'))u[e.im]=1;if(e.type==='pic'&&e.im0)u[e.im0]=1});if(S.ref&&S.ref.im)u[S.ref.im]=1;return Object.keys(u)};
+SC.usedImgs = function(S){var u={};S.els.forEach(function(e){if(e.im&&(e.type==='pic'||e.surf==='image'))u[e.im]=1;if(e.type==='pic'&&e.im0)u[e.im0]=1});if(S.ref&&S.ref.im)u[S.ref.im]=1;(S.photos||[]).forEach(function(ph){if(ph&&ph.im)u[ph.im]=1});return Object.keys(u)};
 SC.use = function(id,tx,ty,sx,sy){return '<use href="#im-'+id+'" xlink:href="#im-'+id+'" transform="translate('+n1(tx)+' '+n1(ty)+') scale('+(Math.round(sx*1e5)/1e5)+' '+(Math.round(sy*1e5)/1e5)+')"/>'};
 SC.METAL = /^#(C9A857|CFA549|D4B05A|C9A24B|CDB48A|D9A98C|B9BEC7|D4AF37|C4C8CF|B76E79|E6C36A)$/i;
 SC.seqColor = function(el){var q=D.SEQ[el.seq];return el.seq==='custom'||!q?(el.color||D.SEQ.gold.c):q.c};
@@ -4790,7 +4848,15 @@ var PL = (function () {
     }
     return h + '</g>';
   }
+  function pinHtml(it, on, s) {
+    const ph = (S.photos || []).find((x) => x.id === it.photo), r = 10 / s, L0 = 70 / s, t = Math.tan(28 * G.DEG) * L0;
+    return '<g class="pig ppin' + (on ? ' on' : '') + '" data-r="i|' + it.id + '" data-k="' + it.id + '" transform="translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')">' +
+      '<polygon class="pcone" points="0,0 ' + n1(-t) + ',' + n1(-L0) + ' ' + n1(t) + ',' + n1(-L0) + '"/><circle class="pib" r="' + n1(r) + '"/>' +
+      '<rect class="pcam" x="' + n1(-r * 0.55) + '" y="' + n1(-r * 0.38) + '" width="' + n1(r * 1.1) + '" height="' + n1(r * 0.76) + '" rx="' + n1(r * 0.15) + '"/><circle class="pcam2" r="' + n1(r * 0.24) + '"/>' +
+      (ph ? text(0, r + 11 / s, ph.name.length > 18 ? ph.name.slice(0, 17) + '…' : ph.name, 10, 'ppn', -(it.rot || 0)) : '') + '</g>';
+  }
   function itemHtml(it, on, bad, s) {
+    if (it.kind === 'photo') return pinHtml(it, on, s);
     if (it.top) return topHtml(it, on, bad, s);
     const c = G.CAT[it.ref] || {}, sub = it.kind === 'column' ? 'col' : it.kind === 'table' ? 'tab' : (c.sub || 'furn');
     let h = '<g class="pig ' + sub + (on ? ' on' : '') + (bad ? ' bad' : '') + '" data-r="i|' + it.id + '" data-k="' + it.id + '" transform="translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')">';
@@ -4912,7 +4978,8 @@ var PL = (function () {
       }
       /* handles: size at the corners, a ring to turn */
       const hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2, W = (x, y) => G.toWorld(it, x, y), r = 5.5 / s;
-      if (it.kind === 'hook') {}   // a hanging point has no size
+      if (it.kind === 'photo') { const t1 = W(0, -(10 / s) - 34 / s); hnd += handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }   // a photo pin: only its direction turns
+      else if (it.kind === 'hook') {}   // a hanging point has no size
       else if (it.shape === 'round') { const q = W(hw, 0); hnd += sq('phd', 'z|' + it.id + '|r', q[0], q[1], r); }
       else { [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((k, j) => { const q = W(k[0] * hw, k[1] * hd); hnd += sq('phd', 'z|' + it.id + '|' + j, q[0], q[1], r); });
         const t0 = W(0, -hd), t1 = W(0, -hd - 34 / s); hnd += '<line class="prl" x1="' + n1(t0[0]) + '" y1="' + n1(t0[1]) + '" x2="' + n1(t1[0]) + '" y2="' + n1(t1[1]) + '"/>' + handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }
@@ -4953,6 +5020,7 @@ var PL = (function () {
     if (st.tool && st.tool.indexOf('col:') === 0) return '<span>Коснитесь места для колонны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('it:') === 0) { const c = G.CAT[st.tool.slice(3)]; return '<span>Коснитесь, чтобы поставить: ' + esc(c.label) + (st.placed ? ' · поставлено ' + st.placed : '') + '</span><button type="button" class="btn sm pri" data-pact="ptool" data-v="">Готово</button>'; }
     if (st.tool && st.tool.indexOf('combo:') === 0) return '<span>Коснитесь места для ' + (st.tool.slice(6) === 'P' ? 'П' : 'Т') + '-образного стола</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool && st.tool.indexOf('pin:') === 0) { const ph = (S.photos || []).find((x) => x.id === st.tool.slice(4)); return '<span>Коснитесь места, откуда снято фото' + (ph ? ' «' + esc(ph.name) + '»' : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
     if (st.tool === 'ruler') return '<span>Линейка: тяните от точки к точке' + (st.ruler && st.ruler.b ? ' · ' + fl(G.hyp(st.ruler.b[0] - st.ruler.a[0], st.ruler.b[1] - st.ruler.a[1])) + ' ' + uLab() : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
     return '';
   }
@@ -4990,7 +5058,7 @@ var PL = (function () {
     if (hand) return true;
     if (st.draw) { d.mode = 'draw'; return true; }
     if (st.tool === 'ruler') { st.ruler = { a: snapPoint(p), b: null }; d.mode = 'ruler'; return true; }
-    if (st.tool && /^(op|col|it|combo):/.test(st.tool)) { d.mode = 'place'; return true; }
+    if (st.tool && /^(op|col|it|combo|pin):/.test(st.tool)) { d.mode = 'place'; return true; }
     if (!ref) return true;
     const t = ref[0], sel = st.sel || {};
     const geomStart = (r) => { G.bake(r); d.snap = JSON.stringify({ x: r.x, y: r.y, walls: r.walls, diag: r.diag }); d.room = r.id; };
@@ -5136,6 +5204,11 @@ var PL = (function () {
       const it = addTable(G.makeItem(tool.slice(3), r10(p[0]), r10(p[1]))); st.placed = (st.placed || 0) + 1; st.sel = { t: 'item', i: it.id };
       if (it.kind === 'ceil') it.h = G.ceilingAt(P(), [it.x, it.y]);
       label(G.CAT[it.ref].label + (it.num != null ? ' №' + it.num : ''));   // the tool stays on: tap again for one more
+    } else if (tool.indexOf('pin:') === 0) {
+      const id = tool.slice(4), x = r10(p[0]), y = r10(p[1]); let rot = 0;
+      const nw = nearestWall([x, y], 1e9); if (nw) { const g = G.roomGeom(nw.r), A = g.raw[nw.i], u = G.unitVec(g.dirs[nw.i]), q = [A[0] + u[0] * nw.t, A[1] + u[1] * nw.t]; rot = G.normDeg(Math.atan2(q[1] - y, q[0] - x) / G.DEG + 90); }   // looks at the nearest wall
+      const it = { id: G.uid(), kind: 'photo', photo: id, x, y, w: 400, d: 400, rot: Math.round(rot) };
+      P().items.push(it); st.tool = null; st.sel = { t: 'item', i: it.id }; label('фото отмечено на плане'); toast('Отметка поставлена. Кружок над камерой поворачивает направление съёмки.');
     } else if (tool.indexOf('combo:') === 0) {
       const out = combo(tool.slice(6), p); st.tool = null; st.sel = { t: 'item', i: out[0].id }; label((tool.slice(6) === 'P' ? 'П' : 'Т') + '-образный стол');
     }
@@ -5221,6 +5294,7 @@ var PL = (function () {
       case 'it-grid': if (s.t === 'item') { const it = item(s.i), g2 = st.grid, bb = G.bboxOf(hullish(G.footprint(it))), sx = g2.sx || Math.ceil((bb.w + 1200) / 100) * 100, sy = g2.sy || Math.ceil((bb.h + 1200) / 100) * 100, a0 = (it.rot || 0) * G.DEG;
         let n = 0; for (let rr = 0; rr < g2.rows; rr++) for (let cc = 0; cc < g2.cols; cc++) { if (!rr && !cc) continue; const c = JSON.parse(JSON.stringify(it)); c.id = G.uid(); c.x = Math.round(it.x + cc * sx); c.y = Math.round(it.y + rr * sy); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); n++; }
         void a0; label('сетка ' + g2.rows + ' × ' + g2.cols); toast('Добавлено ' + n + ' шт. Всего мест: ' + G.totals(P()).seats + '.'); } return;
+      case 'open-photo': PF.openPhoto(v); setMode('photo'); requestAnimationFrame(() => PF.act('zfit')); return;
       case 'warn': P().warn = v === '1'; label(v === '1' ? 'предупреждения включены' : 'предупреждения выключены'); return;
       case 'it-shape': if (s.t === 'item') { const it = item(s.i); it.shape = v; if (v === 'rect' && !it.d) it.d = it.w; label('колонна: форма'); } return;
     }
@@ -5293,11 +5367,12 @@ var PL = (function () {
     return false;
   }
   function setMode(m) {
-    m = m === 'plan' ? 'plan' : 'scene'; if (UI.mode === m) return;
+    m = m === 'plan' || m === 'photo' ? m : 'scene'; if (UI.mode === m) return;
     UI.mode = m; UI.fly = false; st.tool = null; st.draw = null; st.ruler = null; st.drag = null; st.tps = {}; st.pinch = null;
     try { wsSave(); } catch (e) {}
     render();
     if (m === 'plan') requestAnimationFrame(() => { if (!st.v || !st.v.user) fit(); paint(); });
+    else if (m === 'photo') requestAnimationFrame(() => { PF.paint(); });
     else requestAnimationFrame(() => { fitStage(); zoomApply(); placeOv(); });
   }
   function placeFly() {
@@ -5351,6 +5426,11 @@ var PL = (function () {
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
       }
       const r = selRoom();
+      if (s.t === 'item' && item(s.i) && item(s.i).kind === 'photo') {
+        const it = item(s.i), ph = (S.photos || []).find((x) => x.id === it.photo), sr = ph && IMG[ph.im] ? IMG[ph.im].src : '';
+        return '<div class="phead"><h3>Фото на плане</h3></div>' + grp(ph ? ph.name : 'Фото', (sr ? '<img class="pthumb full" alt="" src="' + sr + '">' : '') + '<p class="muted small full">Камера показывает, откуда и куда снято. Тяните значок, кружок над ним поворачивает направление.</p>' +
+          '<div class="pacts full"><button type="button" class="btn sm pnext" data-pact="open-photo" data-v="' + it.photo + '">Открыть фото</button>' + btn('it-del', 'Убрать отметку', { cls: 'dng' }) + '</div>');
+      }
       if (s.t === 'item' && item(s.i) && item(s.i).top) {
         const it = item(s.i), c = G.CAT[it.ref] || {}, h0 = G.topH(p, it), ceil = G.ceilingAt(p, [it.x, it.y]), round = it.shape === 'round';
         const warn = topChecks().list.filter((q) => q.a === it.id).map((q) => q.t === 'above' ? 'Выше потолка: ' + fs(q.h) + ' при потолке ' + fs(q.ceil) + ' ' + uLab() + '.' : 'Низ на ' + fs(q.h) + ' ' + uLab() + ' над «' + topName(item(q.b)) + '»: остаётся ' + fs(q.clear) + ' ' + uLab() + ', меньше ' + fs(q.min) + '.');
@@ -5443,7 +5523,7 @@ var PL = (function () {
       r.walls.forEach((w, i) => (w.ops || []).forEach((o) => { h += '<button type="button" class="prow sub' + (s.o === o.id ? ' on' : '') + '" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">' + G.wallName(r, i) + '</span></button>'; }));
     });
     p.items.slice().sort((a, b) => (a.kind === 'table' ? 0 : 1) - (b.kind === 'table' ? 0 : 1) || (+a.num || 0) - (+b.num || 0)).forEach((it) => {
-      const lab = it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
+      const lab = it.kind === 'photo' ? '📷 ' + (((S.photos || []).find((x) => x.id === it.photo) || {}).name || 'Фото') : it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
       h += '<button type="button" class="prow' + (s.i === it.id ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>';
     });
     return h + '</div>';
@@ -5470,6 +5550,7 @@ var PL = (function () {
     const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
     const of = (bind, lab, val, t) => '<label class="nf" title="' + t + '"><b>' + lab + '</b><input type="text" inputmode="decimal" autocomplete="off" data-pbind="' + bind + '" value="' + esc(val) + '"></label>';
     const x = ib('clear', 'x', 'Снять выделение (Esc)');
+    if (s.t === 'item' && item(s.i) && item(s.i).kind === 'photo') { const it = item(s.i), ph = (S.photos || []).find((x) => x.id === it.photo); return '<span class="onm">📷 ' + esc(ph ? ph.name : 'Фото') + '</span><span class="sep"></span><span class="ohint">тяните значок; кружок — направление</span><span class="sp"></span><button type="button" class="btn sm" data-pact="open-photo" data-v="' + it.photo + '">Открыть фото</button>' + ib('it-del', 'del', 'Убрать отметку', 'dng') + x; }
     if (s.t === 'item' && item(s.i) && item(s.i).top) { const it = item(s.i), round = it.shape === 'round';
       return '<span class="onm">' + esc(G.itemLabel(it)) + '</span><span class="sep"></span>' + (it.kind === 'hook' ? '' : of('it.w', round ? 'Ø' : 'Д', fs(it.w), uLab())) + of('it.h', 'h', +it.h > 0 ? fs(it.h) : '', 'Высота, ' + uLab() + ' (пусто — от потолка: ' + fs(G.topH(P(), it)) + ')') + '<span class="ohint">' + (+it.h > 0 ? 'высота вручную' : 'от потолка: ' + fs(G.topH(P(), it))) + '</span><span class="sp"></span>' + ib('it-dup', 'copy', 'Дублировать (Ctrl+D)') + ib('it-del', 'del', 'Удалить (Del)', 'dng') + x; }
     if (s.t === 'item') { const it = item(s.i), round = it.shape === 'round';
@@ -5519,6 +5600,357 @@ var PL = (function () {
     const sm = PG.summary(S.plan || PG.newPlan()), c = sm.cnt.bad ? 'bad' : (sm.cnt.warn + sm.cnt.partial) ? 'warn' : 'ok';
     return h.replace('>Сцена</button>', '>План</button>').replace(/<i class="cdot [a-z]+"/, '<i class="cdot ' + c + '"'); };
   const ds = V.con.secs.dstrip; V.con.secs.dstrip = function () { const h = ds(); return UI.mode === 'plan' ? h.replace(/title="Сцена" aria-label="Сцена"/, 'title="План: настройки" aria-label="План: настройки"') : h; };
+})();
+
+/* ===== photos.js — the «Фото» mode: photos of the hall with size lines, notes and arrows; a photo can be pinned to
+   its place on the plan. Photos live in S.photos (pictures in IMG, like the scene's pictures), so they are saved,
+   transferred and synced with the project. Coordinates of marks are in the photo's own pixels. ===== */
+var PF = (function () {
+  'use strict';
+  const G = PG;
+  const ICO = {
+    fdim: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 16L20 8"/><path d="M3 13l2 5M19 5l2 5"/><path d="M11 9.5l1.6 3"/></svg>',
+    ftext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10h8M8 14h5"/></svg>',
+    farrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><path d="M10 5h9v9"/></svg>',
+    fgal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+    fpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
+  };
+  const COLNAME = { '#FF4D4F': 'красный', '#FFD43B': 'жёлтый', '#FFFFFF': 'белый', '#40C057': 'зелёный', '#4DABF7': 'синий' };
+  const st = { open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
+  function L() { if (!Array.isArray(S.photos)) S.photos = []; return S.photos; }
+  function cur() { return L().find((p) => p.id === st.open) || null; }
+  function mark(id) { const ph = cur(); return ph ? ph.marks.find((m) => m.id === id) || null : null; }
+  function unit() { return (S.plan && S.plan.unit) || 'm'; }
+  function uLab() { return G.UNIT[unit()].ru; }
+  function fl(mm) { return G.fmtLen(mm, unit()); }
+  function fs(mm) { let s = fl(mm); if (s.indexOf(',') >= 0) s = s.replace(/0+$/, '').replace(/,$/, ''); return s; }
+  const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const n1 = (v) => Math.round(v * 10) / 10;
+  function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
+  function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
+  function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
+  function markName(m) { return m.t === 'dim' ? 'Размер' + (m.v > 0 ? ' ' + fs(m.v) : ' без числа') : m.t === 'text' ? 'Заметка' + (m.text ? ': ' + m.text : '') : 'Стрелка' + (m.text ? ': ' + m.text : ''); }
+  function pinOf(id) { return S.plan && S.plan.items.find((it) => it.kind === 'photo' && it.photo === id) || null; }
+  function pinWhere(pin) {
+    if (!pin || !S.plan) return '';
+    let best = null; S.plan.rooms.forEach((r) => { const g = G.roomGeom(r); for (let i = 0; i < g.n; i++) { const d = G.distSeg([pin.x, pin.y], g.pts[i], g.pts[(i + 1) % g.n]).d; if (!best || d < best.d) best = { d, r, i }; } });
+    return best ? (best.r.name || 'помещение') + ', у стены ' + G.wallName(best.r, best.i) : 'на плане';
+  }
+
+  /* ---------- view ---------- */
+  function host() { return document.getElementById('photohost'); }
+  function svg() { return document.getElementById('fsvg'); }
+  function fit() {
+    const h = host(), ph = cur(); if (!h || !ph) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const s = Math.min((W - 24) / ph.w, (H - 24) / ph.h);
+    st.v = { s, x: -(W / s - ph.w) / 2, y: -(H / s - ph.h) / 2 }; st.lastW = W; st.lastH = H;
+  }
+  function ensureView() { const h = host(); if (!h) return; if (!st.v || (!st.v.user && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2))) fit(); }
+  function applyView() { const g = document.getElementById('fvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('fzlbl'); if (z && st.v) z.textContent = Math.round(st.v.s * 100) + ' %'; }
+  function toImg(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
+  function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.05, 12); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); clearTimeout(st.repaint); st.repaint = setTimeout(paint, 120); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+
+  /* ---------- painting ---------- */
+  function txt(x, y, str, px, col, bg, sel) {
+    const s = st.v.s, fz = px / s, w = (String(str).length * px * 0.6 + 12) / s, h = (px + 9) / s;
+    return '<rect class="fpill' + (sel ? ' on' : '') + '" x="' + n1(x - w / 2) + '" y="' + n1(y - h / 2) + '" width="' + n1(w) + '" height="' + n1(h) + '" rx="' + n1(h / 2) + '" fill="' + bg + '"/>' +
+      '<text x="' + n1(x) + '" y="' + n1(y) + '" font-size="' + n1(fz) + '" fill="' + col + '" text-anchor="middle" dominant-baseline="central">' + esc(str) + '</text>';
+  }
+  function markSvg(m, on) {
+    const s = st.v.s, c = m.col, dark = c === '#FFFFFF' || c === '#FFD43B' ? '#111' : '#fff';
+    let h = '<g class="fm' + (on ? ' on' : '') + '" data-r="m|' + m.id + '">';
+    if (m.t === 'text') { h += txt(m.a[0], m.a[1], m.text || 'заметка', 14, dark, c, on) + '<circle class="fhit" cx="' + n1(m.a[0]) + '" cy="' + n1(m.a[1]) + '" r="' + n1(18 / s) + '"/>'; return h + '</g>'; }
+    const a = m.a, b = m.b, dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = 9 / s;
+    h += '<line class="fhalo" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
+    if (m.t === 'dim') {
+      for (const q of [a, b]) h += '<line class="fhalo" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/><line class="fl" stroke="' + c + '" x1="' + n1(q[0] - nx * t) + '" y1="' + n1(q[1] - ny * t) + '" x2="' + n1(q[0] + nx * t) + '" y2="' + n1(q[1] + ny * t) + '"/>';
+      const lab = m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab();
+      h += txt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, lab, 14, m.v > 0 ? dark : '#fff', m.v > 0 ? c : '#C92A2A', on);
+    } else {
+      const k = 16 / s, w = 7 / s, p1 = [b[0] - ux * k + nx * w, b[1] - uy * k + ny * w], p2 = [b[0] - ux * k - nx * w, b[1] - uy * k - ny * w];
+      h += '<polygon class="fah" fill="' + c + '" points="' + n1(b[0]) + ',' + n1(b[1]) + ' ' + n1(p1[0]) + ',' + n1(p1[1]) + ' ' + n1(p2[0]) + ',' + n1(p2[1]) + '"/>';
+      if (m.text) h += txt(a[0] - ux * 18 / s, a[1] - uy * 18 / s, m.text, 13, dark, c, on);
+    }
+    h += '<line class="fhit" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
+    return h + '</g>';
+  }
+  function gallery() {
+    const list = L();
+    return '<div class="fgal-in"><div class="fgal-h"><b>Фото зала</b><span>' + (list.length ? list.length + ' шт. · коснитесь, чтобы открыть и разметить' : 'Снимите стены, углы, места для декора — и подпишите размеры прямо на фото.') + '</span></div><div class="fgrid">' +
+      list.map((ph) => { const n = ph.marks.filter((m) => m.t === 'dim').length, bad = ph.marks.filter((m) => m.t === 'dim' && !(m.v > 0)).length, pin = pinOf(ph.id), sr = src(ph);
+        return '<button type="button" class="fcard" data-fact="open" data-v="' + ph.id + '">' + (sr ? '<img alt="" src="' + sr + '">' : '<span class="fnoimg">фото ещё загружается</span>') + '<b>' + esc(ph.name) + '</b><small>' + (n ? 'размеров ' + n : 'без размеров') + (bad ? ' · без числа ' + bad : '') + (pin ? ' · на плане' : '') + '</small></button>'; }).join('') +
+      '<label class="fcard fadd"><span class="fplus">+</span><b>Добавить фото</b><small>из галереи, можно несколько</small><input type="file" accept="image/*" multiple data-fup="1" aria-label="Добавить фото"></label>' +
+      '<label class="fcard fadd"><span class="fplus">📷</span><b>Снять камерой</b><small>откроет камеру планшета</small><input type="file" accept="image/*" capture="environment" data-fup="1" aria-label="Снять камерой"></label></div></div>';
+  }
+  function paint() {
+    const h = host(); if (!h || UI.mode !== 'photo') return;
+    validate();
+    const gal = document.getElementById('fgal'), ed = document.getElementById('fed'), ph = cur();
+    if (!ph) { if (gal) { gal.hidden = false; const g = gallery(); if (gal._h !== g) { gal.innerHTML = g; gal._h = g; } } if (ed) ed.hidden = true; banner(); return; }
+    if (gal) gal.hidden = true; if (ed) ed.hidden = false;
+    ensureView(); if (!st.v) return;
+    const img = document.getElementById('fimg'), sr = src(ph);
+    if (img && img._src !== sr + ph.w) { img.setAttribute('href', sr); img.setAttribute('width', ph.w); img.setAttribute('height', ph.h); img._src = sr + ph.w; }
+    let mk = '', hnd = '';
+    ph.marks.forEach((m) => { mk += markSvg(m, m.id === st.sel); });
+    const m = mark(st.sel), s = st.v.s;
+    if (m) for (const k of m.t === 'text' ? [] : ['a', 'b']) { const q = m[k]; hnd += '<circle class="fhd" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(7 / s) + '"/><circle class="fhh" data-r="h|' + m.id + '|' + k + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(20 / s) + '"/>'; }
+    if (st.pend) hnd += '<circle class="fpd" cx="' + n1(st.pend[0]) + '" cy="' + n1(st.pend[1]) + '" r="' + n1(6 / s) + '"/>';
+    if (st.drag && st.drag.mode === 'new' && st.drag.b) { const d = st.drag; mk += markSvg({ id: '_', t: st.tool, a: d.a, b: d.b, v: null, col: st.col }, true); }
+    const set = (id, x) => { const n = document.getElementById(id); if (n && n._h !== x) { n.innerHTML = x; n._h = x; } };
+    set('fmarks', mk); set('fhnd', hnd); applyView(); banner();
+    const wsm = document.getElementById('wsm'); if (wsm) wsm.classList.toggle('fhand', st.tool === 'hand');
+  }
+  function banner() {
+    const b = document.getElementById('fbanner'); if (!b) return;
+    let t = '';
+    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Коснитесь второй точки' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': проведите пальцем от точки к точке (или два касания)') + '</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
+  }
+  /* the magnifier: a circle above the finger showing the photo under it, enlarged */
+  function loupe(ev, q) {
+    const l = document.getElementById('floupe'), ph = cur(); if (!l || !ph) return;
+    if (!ev) { l.hidden = true; return; }
+    const r = host().getBoundingClientRect(), Z = Math.max(2.5, st.v.s * 2.5), R = 64;
+    if (l._src !== ph.im) { l.style.backgroundImage = 'url("' + src(ph) + '")'; l._src = ph.im; }
+    l.style.backgroundSize = n1(ph.w * Z) + 'px ' + n1(ph.h * Z) + 'px';
+    l.style.backgroundPosition = n1(R - q[0] * Z) + 'px ' + n1(R - q[1] * Z) + 'px';
+    let x = ev.clientX - r.left - R, y = ev.clientY - r.top - R * 2 - 34; if (y < 4) y = ev.clientY - r.top + 40;
+    l.style.left = n1(x) + 'px'; l.style.top = n1(y) + 'px'; l.hidden = false;
+  }
+
+  /* ---------- pointer ---------- */
+  function within(ev) { return UI.mode === 'photo' && UI.tab === 'con' && cur() && ev.target && ev.target.closest && !!ev.target.closest('#fsvg'); }
+  const clampPt = (q) => { const ph = cur(); return [G.clamp(Math.round(q[0]), 0, ph.w), G.clamp(Math.round(q[1]), 0, ph.h)]; };
+  function down(ev) {
+    if (!within(ev)) return false;
+    ev.preventDefault();
+    st.tps[ev.pointerId] = [ev.clientX, ev.clientY];
+    const ids = Object.keys(st.tps);
+    if (ids.length === 2) { const a = st.tps[ids[0]], b = st.tps[ids[1]], r = svg().getBoundingClientRect(); st.drag = null; loupe(null); st.pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2 - r.left, cy: (a[1] + b[1]) / 2 - r.top, v: Object.assign({}, st.v) }; return true; }
+    try { svg().setPointerCapture(ev.pointerId); } catch (e) {}
+    const p = toImg(ev), n = ev.target.closest('[data-r]'), ref = n ? n.dataset.r.split('|') : null, hand = st.tool === 'hand' || UI.spaceHand || ev.button === 1;
+    const d = st.drag = { pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, p0: p, moved: false, mode: 'pan', v0: Object.assign({}, st.v), ref };
+    if (hand) return true;
+    if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = clampPt(st.pend || p); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
+    if (st.tool === 'text') { d.mode = 'newtext'; return true; }
+    if (ref && ref[0] === 'h') { d.mode = 'end'; d.k = ref[2]; d.snap = JSON.stringify(mark(ref[1])); loupe(ev, mark(ref[1])[d.k]); return true; }
+    if (ref && ref[0] === 'm') { d.mode = 'move'; d.snap = JSON.stringify(mark(ref[1])); return true; }
+    return true;
+  }
+  function move(ev) {
+    if (UI.mode !== 'photo') return false;
+    if (st.tps[ev.pointerId]) st.tps[ev.pointerId] = [ev.clientX, ev.clientY];
+    if (st.pinch) { const ids = Object.keys(st.tps); if (ids.length < 2) return true; const a = st.tps[ids[0]], b = st.tps[ids[1]], r = svg().getBoundingClientRect(), dd = Math.hypot(a[0] - b[0], a[1] - b[1]), cx = (a[0] + b[0]) / 2 - r.left, cy = (a[1] + b[1]) / 2 - r.top, v = st.pinch.v, mx = st.pinch.cx / v.s + v.x, my = st.pinch.cy / v.s + v.y, s = G.clamp(v.s * dd / st.pinch.d, 0.05, 12); st.v = { s, x: mx - cx / s, y: my - cy / s, user: true }; applyView(); return true; }
+    const d = st.drag; if (!d || ev.pointerId !== d.pid) return !!d;
+    const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+    if (!d.moved && Math.hypot(dx, dy) < 5) return true;
+    d.moved = true;
+    const p = toImg(ev);
+    if (d.mode === 'pan') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; applyView(); return true; }
+    if (d.mode === 'new') { d.b = clampPt(p); loupe(ev, d.b); paint(); return true; }
+    if (d.mode === 'end') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); m[d.k] = clampPt(p); loupe(ev, m[d.k]); paint(); return true; }
+    if (d.mode === 'move') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); const o = [p[0] - d.p0[0], p[1] - d.p0[1]]; m.a = clampPt([m.a[0] + o[0], m.a[1] + o[1]]); if (m.b) m.b = clampPt([m.b[0] + o[0], m.b[1] + o[1]]); paint(); return true; }
+    return true;
+  }
+  function up(ev, cancel) {
+    if (UI.mode !== 'photo') return false;
+    const had = !!st.tps[ev.pointerId]; delete st.tps[ev.pointerId];
+    if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
+    const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
+    st.drag = null; loupe(null);
+    if (cancel) { if (d.snap) { const o = JSON.parse(d.snap), m = mark(o.id); if (m) Object.assign(m, o); } paint(); return true; }
+    const p = clampPt(toImg(ev)), ph = cur();
+    if (d.mode === 'new') {
+      const b = d.moved ? d.b : (st.pend ? p : null);
+      if (!b) { st.pend = d.a; paint(); return true; }   // first of two taps
+      st.pend = null;
+      if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
+      const m = { id: G.uid(), t: st.tool, a: d.a, b, col: st.col }; if (m.t === 'dim') m.v = null; else m.text = '';
+      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); focusVal(); return true;
+    }
+    if (d.mode === 'newtext') { if (d.moved) { paint(); return true; } const m = { id: G.uid(), t: 'text', a: p, col: st.col, text: '' }; ph.marks.push(m); st.sel = m.id; st.tool = ''; label('заметка'); focusVal(); return true; }
+    if (d.mode === 'end' || d.mode === 'move') { if (d.moved) label(d.mode === 'end' ? 'точка размера' : 'перемещение'); else { st.sel = d.ref[1]; render(); } return true; }
+    if (d.mode === 'pan') { if (!d.moved) { if (d.ref && d.ref[0] === 'm') st.sel = d.ref[1]; else st.sel = null; render(); } else paint(); return true; }
+    return true;
+  }
+  function focusVal() { setTimeout(() => { const n = document.getElementById('pf-val'); if (n) { n.focus(); try { n.select(); } catch (e) {} } }, 40); }
+  function wheel(ev) {
+    if (!within(ev)) return; ev.preventDefault();
+    const r = svg().getBoundingClientRect();
+    if (ev.ctrlKey || ev.metaKey || Math.abs(ev.deltaY) >= 40 || ev.deltaMode) zoomAt(Math.exp(-ev.deltaY * (ev.ctrlKey ? 0.01 : 0.0022)), ev.clientX - r.left, ev.clientY - r.top);
+    else { st.v = { s: st.v.s, x: st.v.x + ev.deltaX / st.v.s, y: st.v.y + ev.deltaY / st.v.s, user: true }; applyView(); }
+  }
+
+  /* ---------- actions ---------- */
+  function openPhoto(id) { st.open = id; st.sel = null; st.pend = null; st.v = null; st.tool = ''; }
+  function upload(input) {
+    const files = Array.prototype.slice.call(input.files || []); input.value = ''; if (!files.length) return;
+    toast('Загружаю фото…');
+    let done = 0, last = null; const n0 = L().length;
+    const next = () => {
+      const f = files.shift(); if (!f) { if (last) { openPhoto(last); label(done === 1 ? 'добавлено фото' : 'добавлено фото: ' + done); if (IO._imgFull) toast('Память браузера заполнена: фото может не сохраниться на этом устройстве. Сохраните проект в облако или файлом.'); } else render(); return; }
+      if (!/^image\//.test(f.type)) { next(); return; }
+      const fr = new FileReader();
+      fr.onload = () => { const im = new Image(); im.onload = () => { const r = encodeImage(im, 'image/jpeg'); if (r) { const id = newImgId(); IMG[id] = r; IO.saveImg(id); const ph = { id: G.uid(), im: id, w: r.w, h: r.h, name: (f.name || '').replace(/\.[a-z0-9]+$/i, '').slice(0, 60) || 'Фото ' + (n0 + done + 1), marks: [] }; if (/^(img|image|photo|dsc|pxl)[_\- ]?\d/i.test(ph.name)) ph.name = 'Фото ' + (n0 + done + 1); L().push(ph); last = ph.id; done++; } next(); }; im.onerror = next; im.src = fr.result; };
+      fr.onerror = next; fr.readAsDataURL(f);
+    };
+    next();
+  }
+  function exportPng() {
+    const ph = cur(); if (!ph || !IMG[ph.im]) return;
+    const K = 2, cv = document.createElement('canvas'); cv.width = ph.w * K; cv.height = ph.h * K; const c = cv.getContext('2d'), im = new Image();
+    im.onload = () => {
+      c.drawImage(im, 0, 0, cv.width, cv.height); c.lineCap = 'round'; c.lineJoin = 'round';
+      const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
+      const line = (a, b, col, wd) => { c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = wd + 3 * K; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); c.strokeStyle = col; c.lineWidth = wd; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
+      const px = Math.max(14, Math.round(Math.max(ph.w, ph.h) / 55)) * K;
+      ph.marks.forEach((m) => {
+        const a = [m.a[0] * K, m.a[1] * K], dark = m.col === '#FFFFFF' || m.col === '#FFD43B' ? '#111' : '#fff';
+        if (m.t === 'text') { pill(a[0], a[1], m.text || 'заметка', px, dark, m.col); return; }
+        const b = [m.b[0] * K, m.b[1] * K], dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = px * 0.6, wd = Math.max(2, px / 7);
+        line(a, b, m.col, wd);
+        if (m.t === 'dim') { for (const q of [a, b]) line([q[0] - nx * t, q[1] - ny * t], [q[0] + nx * t, q[1] + ny * t], m.col, wd); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
+        else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
+      });
+      IO.canvasBlob(cv).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + ' — размеры.png', bl, 'img'));
+    };
+    im.src = IMG[ph.im].src;
+  }
+  function act(name, a) {
+    const v = a && a.dataset ? a.dataset.v : undefined, ph = cur(), m = mark(st.sel);
+    switch (name) {
+      case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
+      case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
+      case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } render(); return;
+      case 'col': st.col = v; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
+      case 'clear': st.sel = null; render(); return;
+      case 'sel': st.sel = v; render(); return;
+      case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
+      case 'm-del': if (ph && m) { ph.marks = ph.marks.filter((x) => x.id !== m.id); st.sel = null; label('удалено: ' + markName(m).toLowerCase()); } return;
+      case 'p-del': if (ph) { const i = L().indexOf(ph); L().splice(i, 1); if (S.plan) S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); st.open = null; st.sel = null; label('фото удалено'); } return;
+      case 'png': exportPng(); return;
+      case 'pin': if (ph) { const ex = pinOf(ph.id); PL.setMode('plan'); if (ex) { PL.st.sel = { t: 'item', i: ex.id }; render(); toast('Фото уже отмечено на плане — тяните отметку, кружок поворачивает направление съёмки.'); } else { PL.st.layer = 'floor'; PL.st.tool = 'pin:' + ph.id; render(); } } return;
+      case 'unpin': if (ph && S.plan) { S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); label('отметка на плане убрана'); } return;
+      case 'zin': zoomBy(1.4); return;
+      case 'zout': zoomBy(1 / 1.4); return;
+      case 'zfit': st.v = null; fit(); paint(); return;
+      case 'unit': if (S.plan) { S.plan.unit = v; label('единицы: ' + G.UNIT[v].ru); } return;
+    }
+  }
+  function bind(path, raw) {
+    const ph = cur(), m = mark(st.sel);
+    switch (path) {
+      case 'p.name': if (ph) { ph.name = String(raw).trim().slice(0, 80) || 'Фото'; label('название'); } return;
+      case 'm.v': if (m) { if (String(raw).trim() === '') { m.v = null; label('размер без числа'); return; } const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Размер в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return; } m.v = v; label('размер ' + fl(v)); } return;
+      case 'm.text': if (m) { m.text = String(raw).trim().slice(0, 200); label(m.t === 'text' ? 'заметка' : 'подпись стрелки'); } return;
+    }
+  }
+  function key(ev, typing) {
+    const k = ev.key;
+    if (typing) { if (k === 'Enter' && ev.target && ev.target.id === 'pf-val') { ev.preventDefault(); ev.target.blur(); return true; } return false; }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+    if (k === 'Escape') { if (st.pend) { st.pend = null; paint(); return true; } if (st.tool) { st.tool = ''; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } if (st.open) { act('gallery'); return true; } return false; }
+    if ((k === 'Delete' || k === 'Backspace') && st.sel) { ev.preventDefault(); act('m-del'); return true; }
+    if (k === '+' || k === '=') { zoomBy(1.4); return true; } if (k === '-' || k === '_') { zoomBy(1 / 1.4); return true; } if (k === '0') { act('zfit'); return true; }
+    const kk = k.toLowerCase();
+    if (kk === 'd' || kk === 'в') { act('tool', { dataset: { v: 'dim' } }); return true; }
+    if (kk === 't' || kk === 'е') { act('tool', { dataset: { v: 'text' } }); return true; }
+    if (kk === 'a' || kk === 'ф') { act('tool', { dataset: { v: 'arrow' } }); return true; }
+    if (kk === 'h' || kk === 'р') { act('tool', { dataset: { v: st.tool === 'hand' ? '' : 'hand' } }); return true; }
+    if (kk === 'v' || kk === 'м') { act('tool', { dataset: { v: '' } }); return true; }
+    return false;
+  }
+
+  /* ---------- panels ---------- */
+  const tb = (attrs, ico, title, on) => '<button type="button" class="tb" ' + attrs + ' aria-pressed="' + !!on + '" title="' + title + '" aria-label="' + title + '">' + ico + '</button>';
+  function vTools() {
+    const has = !!cur();
+    return tb('data-fact="gallery"', ICO.fgal, 'Все фото', !has) + '<hr>' + tb('data-fact="tool" data-v=""', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>', 'Выбор (V)', has && !st.tool) + tb('data-fact="tool" data-v="hand"', U.ico.hand, 'Рука (H)', st.tool === 'hand') + '<hr>' +
+      tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' +
+      '<div class="fcols">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (st.col === c) + '" title="Цвет: ' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+  }
+  const fld = (bind, lab, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + lab + '</span><input type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' autocomplete="off" data-fbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
+  const btn = (act, t, o) => { o = o || {}; return '<button type="button" class="btn sm' + (o.cls ? ' ' + o.cls : '') + '" data-fact="' + act + '"' + (o.v != null ? ' data-v="' + o.v + '"' : '') + '>' + t + '</button>'; };
+  const grp = (t, h) => V.group(t, h);
+  const cols = (curc) => '<div class="fcols wide full">' + G.MARK_COLS.map((c) => '<button type="button" class="fcol" data-fact="col" data-v="' + c + '" style="--c:' + c + '" aria-pressed="' + (curc === c) + '" title="' + COLNAME[c] + '" aria-label="Цвет: ' + COLNAME[c] + '"></button>').join('') + '</div>';
+  function vInsp() {
+    U.inDock = true;
+    try {
+      const ph = cur();
+      if (!ph) {
+        const list = L(), bad = G.photoChecks(list).filter((q) => q.t === 'nonum').length;
+        return '<div class="phead"><h3>Фото</h3></div>' + grp('Фото проекта', (list.length ? '<div class="plist full">' + list.map((p) => '<button type="button" class="prow" data-fact="open" data-v="' + p.id + '"><span>' + esc(p.name) + '</span><span class="muted small">' + p.marks.length + ' отм.' + (pinOf(p.id) ? ' · на плане' : '') + '</span></button>').join('') + '</div>' : '<p class="muted small full">Фото пока нет. Добавьте их карточкой «Добавить фото» или снимите камерой.</p>') +
+          (bad ? '<p class="pst warn full">Размеров без числа: ' + bad + ' — откройте фото и впишите.</p>' : '') +
+          '<p class="muted small full">Фото хранятся в проекте: сохраняются, переносятся файлом и синхронизируются вместе с ним. Перед сохранением фото уменьшается до 1280 точек по длинной стороне — для разметки этого хватает.</p>');
+      }
+      const m = mark(st.sel);
+      if (m) {
+        const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
+        return '<div class="phead"><h3>' + nm + ' — ' + esc(ph.name) + '</h3></div>' + (m.t === 'dim' && !(m.v > 0) ? '<p class="pst warn">Впишите размер, который вы намерили. Без числа линия остаётся «?» и попадает в проверки.</p>' : '') +
+          grp(nm, (m.t === 'dim' ? fld('m.v', 'Размер, ' + uLab(), m.v > 0 ? fl(m.v) : '', { id: 'pf-val', num: true, cls: 'plen', ph: 'впишите замер' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+            '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' +
+            '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
+          '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';
+      }
+      const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
+      return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<p class="pst warn">Размеров без числа: ' + bad + '.</p>' : '') +
+        grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
+        grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
+        grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +
+        '<div class="pacts">' + btn('png', 'Скачать фото с размерами') + btn('p-del', 'Удалить фото', { cls: 'dng' }) + '</div>';
+    } finally { U.inDock = false; }
+  }
+  function vLayers() {
+    const ph = cur();
+    if (!ph) return L().length ? '<div class="plist lyrp">' + L().map((p) => '<button type="button" class="prow" data-fact="open" data-v="' + p.id + '"><span>▣ ' + esc(p.name) + '</span><b>' + p.marks.length + '</b></button>').join('') + '</div>' : '<p class="muted small pad">Фото пока нет.</p>';
+    if (!ph.marks.length) return '<p class="muted small pad">На этом фото пока нет разметки.</p>';
+    return '<div class="plist lyrp">' + ph.marks.map((m) => '<button type="button" class="prow' + (m.id === st.sel ? ' on' : '') + '" data-fact="sel" data-v="' + m.id + '"><i class="cdot" style="background:' + m.col + '"></i><span>' + esc(markName(m)) + '</span>' + (m.t === 'dim' && !(m.v > 0) ? '<b class="est">?</b>' : '') + '</button>').join('') + '</div>';
+  }
+  function vChecks() {
+    const pc = G.photoChecks(L()); if (!L().length) return '<p class="muted small pad">Проверки появятся, когда будут фото.</p>';
+    if (!pc.length) return '<p class="muted small pad">У всех размеров на фото вписаны числа.</p>';
+    return '<div class="plist">' + pc.map((q) => { const ph = L().find((p) => p.id === q.photo); return '<button type="button" class="prow chk" data-fact="openmark" data-v="' + q.photo + '|' + q.mark + '"><i class="cdot warn"></i><span><b>' + esc(ph.name) + '.</b> ' + (q.t === 'nonum' ? 'Размер без числа.' : 'Пустая заметка.') + '</span></button>'; }).join('') + '</div>';
+  }
+  function vSettings() { U.inDock = true; try { return '<div class="pad"><div class="fld"><span class="fl">Единицы</span><span class="seg" role="group">' + [['m', 'м'], ['cm', 'см'], ['mm', 'мм']].map((x) => '<button type="button" data-fact="unit" data-v="' + x[0] + '" aria-pressed="' + (unit() === x[0]) + '">' + x[1] + '</button>').join('') + '</span></div><p class="muted small">Единицы общие с планом.</p></div>'; } finally { U.inDock = false; } }
+  function vOptbar() {
+    const ph = cur(), m = mark(st.sel), ib = (a, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-fact="' + a + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';
+    if (!ph) return '<span class="ohint">Фото: добавьте снимки зала и подпишите на них размеры</span>';
+    if (m) return '<span class="onm">' + esc(m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка') + '</span><span class="sep"></span>' + (m.t === 'dim' ? '<label class="nf" title="Размер, ' + uLab() + '"><b>' + uLab() + '</b><input type="text" inputmode="decimal" autocomplete="off" data-fbind="m.v" value="' + (m.v > 0 ? fl(m.v) : '') + '" placeholder="?"></label>' : '<label class="nf wide" title="Текст"><b>Т</b><input type="text" autocomplete="off" data-fbind="m.text" value="' + esc(m.text || '') + '"></label>') + '<span class="sp"></span>' + ib('m-del', 'del', 'Удалить (Del)', 'dng') + ib('clear', 'x', 'Снять выделение (Esc)');
+    return '<span class="onm">' + esc(ph.name) + '</span><span class="sep"></span><span class="ohint">' + ph.marks.length + ' отметок · «Размер» слева: проведите от точки к точке</span><span class="sp"></span>' + ib('gallery', 'x', 'К списку фото (Esc)');
+  }
+  function vStatbar() {
+    const pc = G.photoChecks(L()), ph = cur();
+    return (ph ? '<span class="zm"><button type="button" class="ib s" data-fact="zout" title="Отдалить" aria-label="Отдалить">' + U.ico.zout + '</button><button type="button" class="zl" id="fzlbl" data-fact="zfit" title="Вписать фото">' + (st.v ? Math.round(st.v.s * 100) + ' %' : '') + '</button><button type="button" class="ib s" data-fact="zin" title="Приблизить" aria-label="Приблизить">' + U.ico.zin + '</button><button type="button" class="ib s" data-fact="zfit" title="Вписать фото" aria-label="Вписать фото">' + U.ico.fit + '</button></span>' : '') +
+      '<span>фото ' + L().length + '</span>' + (ph ? '<span>' + esc(ph.name) + ': отметок ' + ph.marks.length + '</span>' : '') +
+      (L().length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (pc.length ? 'warn' : 'ok') + '"></i>' + (pc.length ? 'без числа: ' + pc.length : 'все размеры с числами') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
+  }
+  const SKEL = '<div id="fgal" class="fgal"></div><div id="fed" class="fed" hidden><svg id="fsvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Фото с разметкой"><g id="fvp"><image id="fimg" preserveAspectRatio="none" x="0" y="0"/><g id="fmarks"></g><g id="fhnd"></g></g></svg></div>' +
+    '<div id="floupe" class="floupe" hidden></div><div id="fbanner" class="pbanner" hidden></div>';
+  function init() {
+    document.addEventListener('wheel', wheel, { passive: false });
+    window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
+  }
+  return { st, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO };
+})();
+
+/* the photo mode's panels take the place of the others in «Фото» mode */
+(function () {
+  const wrap = (obj, key, alt) => { const o = obj[key]; obj[key] = function () { return UI.mode === 'photo' ? alt() : o.apply(this, arguments); }; };
+  V.con.skel = V.con.skel.replace('<div class="fly" id="fly"', '<div class="photohost" id="photohost" data-sec="photo"></div><div class="fly" id="fly"');
+  V.con.secs.photo = function () { return PF.SKEL; };
+  wrap(V.con.secs, 'tools', PF.vTools);
+  wrap(V.con.secs, 'pal', function () { return ''; });
+  wrap(V.con.secs, 'insp', PF.vInsp);
+  wrap(V.con.secs, 'layers', PF.vLayers);
+  wrap(V.con.secs, 'checks', PF.vChecks);
+  wrap(V.con.secs, 'scene', PF.vSettings);
+  wrap(V, 'optbar', PF.vOptbar);
+  wrap(V, 'statbar', PF.vStatbar);
+  const dt = V.con.secs.dtabs; V.con.secs.dtabs = function () { const h = dt(); if (UI.mode !== 'photo') return h; const n = PG.photoChecks(S.photos || []).length;
+    return h.replace(/>(Сцена|План)<\/button>/, '>Фото</button>').replace(/<i class="cdot [a-z]+"/, '<i class="cdot ' + (n ? 'warn' : 'ok') + '"'); };
 })();
 
 /* ===== io.js — pictures, files, cloud projects, autosave. Everything here may be unavailable; the page works without it. ===== */
@@ -5841,7 +6273,7 @@ if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventList
 
 /* ===== main.js — state, history, rendering loop, pointer editing on the scene, actions. ===== */
 var S, R, UI = {mode:'scene', pgroup:'room', tab:'con', sel:null, group:'bg', mod:null, ced:null, hist:[], hi:-1, modal:null, projects:null, ph:null, phTall:0, fold:IO.loadFold(), hsv:null, imp:null, multi:null, mmode:false, zoom:{z:1,x:0,y:0}, night:false, analyses:null, anBusy:false, anErr:false, phPaste:false, phText:'', phNoImg:false, histL:[], dtab:'layers', fly:false, tool:null, isec:{}, dock:'', nextLabel:null, scrubbing:false};
-(function(){try{var q=localStorage.getItem('fotozona.ws.v1');if(q){q=JSON.parse(q);if(q.dock==='mini')UI.dock='mini';if(/^(layers|hist|checks|scene)$/.test(q.dtab))UI.dtab=q.dtab;if(q.mode==='plan')UI.mode='plan';if(+q.split>80)UI.dsplit=+q.split;if(q.isec&&typeof q.isec==='object')UI.isec=q.isec}}catch(e){}})();
+(function(){try{var q=localStorage.getItem('fotozona.ws.v1');if(q){q=JSON.parse(q);if(q.dock==='mini')UI.dock='mini';if(/^(layers|hist|checks|scene)$/.test(q.dtab))UI.dtab=q.dtab;if(q.mode==='plan'||q.mode==='photo')UI.mode=q.mode;if(+q.split>80)UI.dsplit=+q.split;if(q.isec&&typeof q.isec==='object')UI.isec=q.isec}}catch(e){}})();
 function wsSave(){try{localStorage.setItem('fotozona.ws.v1',JSON.stringify({mode:UI.mode,dock:UI.dock,dtab:UI.dtab,split:UI.dsplit||0,isec:UI.isec}))}catch(e){}}
 var IMG = {};   // pictures loaded from files: id -> {src, w, h}. Kept out of the undo history.
 function $(s,r){return (r||document).querySelector(s)}
@@ -5936,7 +6368,7 @@ function renderNow(){
   renderSecs($('#view'),V.con,'con');
   var w=$('#wsm');if(w){w.classList.toggle('flyon',!!UI.fly);w.classList.toggle('mini',UI.dock==='mini');w.dataset.dtab=UI.dtab;w.classList.toggle('hand',UI.tool==='hand')}
   var dk=$('#dock');if(dk&&UI.dsplit)dk.style.setProperty('--dsplit',UI.dsplit+'px');
-  PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly();
+  PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else if(UI.mode==='photo'){PF.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly();
   var cw=$('#calcwin');
   if(UI.tab!=='con'&&V[UI.tab]){cw.hidden=false;renderSecs($('#calcview'),V[UI.tab],UI.tab);if(UI.tab==='client')IO.drawOffer($('#offer'))}
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
@@ -6852,6 +7284,7 @@ function init(){
 
   document.addEventListener('click',function(ev){
     var pa=ev.target.closest&&ev.target.closest('[data-pact]');if(pa){if(!pa.disabled)PL.act(pa.dataset.pact,pa,ev);return}
+    var fa=ev.target.closest&&ev.target.closest('[data-fact]');if(fa){if(!fa.disabled)PF.act(fa.dataset.fact,fa,ev);return}
     var a=ev.target.closest('[data-step],[data-set],[data-act]');if(!a||a.disabled)return;
     // keep the tapped block where it is when something above it appears or disappears (iOS has no scroll anchoring)
     if(a.dataset.step){var inp=a.parentNode.querySelector('input'),v=(parseFloat(inp.value)||0)+parseFloat(a.dataset.step);v=Math.round(v*1000)/1000;if(inp.min!==''&&v<+inp.min)v=+inp.min;if(inp.max!==''&&v>+inp.max)v=+inp.max;inp.value=v;applyBind(inp.dataset.bind,v);return}
@@ -6864,6 +7297,8 @@ function init(){
   document.addEventListener('change',function(ev){
     var n=ev.target,panel=n.closest&&n.closest('[data-cmyk]');
     if(n.dataset&&n.dataset.pbind){PL.bind(n.dataset.pbind,n.type==='checkbox'?n.checked:n.value,n);return}
+    if(n.dataset&&n.dataset.fbind){PF.bind(n.dataset.fbind,n.value,n);return}
+    if(n.dataset&&n.dataset.fup){PF.upload(n);return}
     if(n.id==='menu-name'){setName(n.value);return}
     if(n.id==='file'||n.id==='mfile'||n.id==='mfile2'){menuClose();var f=n.files&&n.files[0];n.value='';if(!f)return;var fr=new FileReader();fr.onload=function(){var o=null;try{o=JSON.parse(fr.result)}catch(e){}
         if(o&&o.kind===IO.TRANSFER){transferIn(o);return}
@@ -6883,10 +7318,10 @@ function init(){
   document.addEventListener('pointerdown',function(ev){helpClose(ev);var t=ev.target;
     if(!(t.closest&&(t.closest('#mpop')||t.closest('.mbar'))))menuClose();
     if(UI.fly&&!(t.closest&&(t.closest('#fly')||t.closest('.tools [data-tool]')||t.closest('#modal')))){UI.fly=false;render()}
-    if(scrubDown(ev)||dspDown(ev))return;if(lyDown(ev))return;if(PL.down(ev))return;wheelDown(ev);impDown(ev);if(zDown(ev))return;onDown(ev)});
-  document.addEventListener('pointermove',function(ev){if(scrubMove(ev)||dspMove(ev))return;if(lyMove(ev))return;if(PL.move(ev))return;wheelMove(ev);impMove(ev);if(zMove(ev)&&pinch)return;onMove(ev)});
-  document.addEventListener('pointerup',function(ev){if(scrubUp(ev)||dspUp(ev))return;if(lyUp(ev))return;if(PL.up(ev))return;wheelUp(ev);impUp(ev);if(zUp(ev))return;onUp(ev)});
-  document.addEventListener('pointercancel',function(ev){if(scrubUp(ev)||dspUp(ev))return;if(lyUp(ev,true))return;if(PL.up(ev,true))return;wheelUp(ev);if(idrag&&ev.pointerId===idrag.pid){if(UI.imp)UI.imp.crop=idrag.crop;idrag=null;impCropStyle()}zUp(ev);onCancel(ev)});
+    if(scrubDown(ev)||dspDown(ev))return;if(lyDown(ev))return;if(PL.down(ev)||PF.down(ev))return;wheelDown(ev);impDown(ev);if(zDown(ev))return;onDown(ev)});
+  document.addEventListener('pointermove',function(ev){if(scrubMove(ev)||dspMove(ev))return;if(lyMove(ev))return;if(PL.move(ev)||PF.move(ev))return;wheelMove(ev);impMove(ev);if(zMove(ev)&&pinch)return;onMove(ev)});
+  document.addEventListener('pointerup',function(ev){if(scrubUp(ev)||dspUp(ev))return;if(lyUp(ev))return;if(PL.up(ev)||PF.up(ev))return;wheelUp(ev);impUp(ev);if(zUp(ev))return;onUp(ev)});
+  document.addEventListener('pointercancel',function(ev){if(scrubUp(ev)||dspUp(ev))return;if(lyUp(ev,true))return;if(PL.up(ev,true)||PF.up(ev,true))return;wheelUp(ev);if(idrag&&ev.pointerId===idrag.pid){if(UI.imp)UI.imp.crop=idrag.crop;idrag=null;impCropStyle()}zUp(ev);onCancel(ev)});
   document.addEventListener('wheel',function(ev){var w=$('#stagewrap');if(!w||!w.contains(ev.target)||!(ev.ctrlKey||ev.metaKey))return;ev.preventDefault();var r=w.getBoundingClientRect();zoomAt(UI.zoom.z*Math.exp(-ev.deltaY*.01),ev.clientX-r.left,ev.clientY-r.top)},{passive:false});
   document.addEventListener('keyup',function(ev){if(ev.key===' '&&UI.spaceHand){UI.spaceHand=false;var wsm=$('#wsm');if(wsm)wsm.classList.toggle('hand',UI.tool==='hand')}});   // Space held down: the hand moves the view
   window.addEventListener('resize',function(){menuClose();fitStage();zoomApply();placeFly()});
@@ -6903,8 +7338,9 @@ function init(){
     if(ev.key==='Enter'&&t&&t.tagName==='INPUT'&&t.closest&&t.closest('#optbar')){t.blur();return}
     if(ev.key===' '&&!typing&&UI.tab==='con'&&!UI.modal&&(UI.mode!=='plan'||!PL.st.draw)){ev.preventDefault();if(!UI.spaceHand){UI.spaceHand=true;var wsm=$('#wsm');if(wsm)wsm.classList.add('hand')}return}   // Enter takes the value and gives the keys back to the scene
     if((ev.ctrlKey||ev.metaKey)&&(ev.key==='s'||ev.key==='S'||ev.key==='ы'||ev.key==='Ы')){ev.preventDefault();act('save');return}
-    if(UI.mode==='plan'&&UI.tab==='con'&&!UI.modal&&PL.key(ev,typing))return;   // the plan's own keys; Ctrl+Z / Ctrl+Y go on to the common history
-    if(!typing&&!UI.modal&&!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&UI.mode!=='plan'){var kk=ev.key.toLowerCase();
+    if(UI.mode==='plan'&&UI.tab==='con'&&!UI.modal&&PL.key(ev,typing))return;
+    if(UI.mode==='photo'&&UI.tab==='con'&&!UI.modal&&PF.key(ev,typing))return;   // the plan's own keys; Ctrl+Z / Ctrl+Y go on to the common history
+    if(!typing&&!UI.modal&&!ev.ctrlKey&&!ev.metaKey&&!ev.altKey&&UI.mode==='scene'){var kk=ev.key.toLowerCase();
       if(UI.tab==='con'&&(kk==='v'||kk==='м')){setMv('wall');UI.tool=null;paintStage();return}
       if(UI.tab==='con'&&(kk==='f'||kk==='а')){setMv('floor');UI.tool=null;paintStage();return}
       if(UI.tab==='con'&&(kk==='h'||kk==='р')){act('tool',{dataset:{id:'hand'}});return}
@@ -6913,7 +7349,7 @@ function init(){
       if(/^[1-7]$/.test(kk)){act('tab',{dataset:{id:V.TABS[+kk][0]}});return}}
     if((ev.ctrlKey||ev.metaKey)&&!typing&&(ev.key==='z'||ev.key==='Z'||ev.key==='я'||ev.key==='Я')){ev.preventDefault();act(ev.shiftKey?'redo':'undo');return}
     if((ev.ctrlKey||ev.metaKey)&&!typing&&(ev.key==='y'||ev.key==='Y')){ev.preventDefault();act('redo');return}
-    if(typing||UI.tab!=='con'||UI.modal||UI.mode==='plan')return;if(ev.key==='Escape'&&(UI.sel||UI.multi)){act('gclear');return}
+    if(typing||UI.tab!=='con'||UI.modal||UI.mode!=='scene')return;if(ev.key==='Escape'&&(UI.sel||UI.multi)){act('gclear');return}
     if(ev.ctrlKey||ev.metaKey){var ck=ev.key.toLowerCase();
       if(ck==='a'||ck==='ф'){ev.preventDefault();selectAll();return}
       if(ck==='c'||ck==='с'){if(clipCopy(false))ev.preventDefault();return}
@@ -6934,7 +7370,7 @@ function init(){
   IO.init(function(){if(IO.db&&!IO._libSynced){IO._libSynced=1;IO.libSync().then(function(ch){if(ch){IO.loadImgs(IO.libImgs());render()}})}if(UI.modal&&UI.modal.type==='menu'){renderModal();refreshProjects()}else if(UI.modal){renderModal();if(UI.modal.type==='photo'&&IO.db&&UI.analyses===null)refreshAnalyses()}});
   IO.fonts().then(function(){var ch=false;S.els.forEach(function(e){if(e.type==='text'){var w=e.w;M.fit(e);if(e.w!==w)ch=true}});V._tiles={};if(ch){calc();UI.hist[UI.hi]=JSON.stringify(S)}render()});
 }
-PL.init();
+PL.init();PF.init();
 init();
 
 </script>

@@ -1,7 +1,7 @@
 import sys,os,shutil,datetime
 src='src/'
 site='--site' in sys.argv
-files=['data.js','engine.js','model.js','plancore.js','photo.js','scene.js','ui.js','views.js','plan.js','io.js']+(['site.js'] if site else [])+['main.js']
+files=['data.js','engine.js','model.js','plancore.js','photo.js','scene.js','ui.js','views.js','plan.js','photos.js','io.js']+(['site.js'] if site else [])+['main.js']
 js='\n'.join(open(src+f,encoding='utf-8').read() for f in files)
 css=open(src+'style.css',encoding='utf-8').read()
 assert '</script' not in js.lower() and '</style' not in css.lower()
