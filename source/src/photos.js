@@ -22,6 +22,28 @@ var PF = (function () {
   function fs(mm) { let s = fl(mm); if (s.indexOf(',') >= 0) s = s.replace(/0+$/, '').replace(/,$/, ''); return s; }
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n1 = (v) => Math.round(v * 10) / 10;
+  /* figures: size lines meeting at their ends */
+  function figTol(ph) { return Math.max(4, 0.012 * Math.max(ph.w, ph.h)); }
+  function figures(ph) { return ph ? G.photoFigures(ph.marks, figTol(ph)) : []; }
+  function fArea(a) {
+    if (!(a > 0)) return '—';
+    const m2 = a / 1e6, cm2 = a / 100;
+    if (unit() === 'cm') return G.nf(cm2, 0).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' см² (' + G.nf(m2, 3) + ' м²)';
+    return m2 < 0.01 ? G.nf(cm2, 0) + ' см²' : G.nf(m2, m2 < 10 ? 3 : 2) + ' м²';
+  }
+  function figHtml(f, i) {
+    const fa = fArea(f.area), m = fa.match(/^(.*) \((.*)\)$/), S0 = f.area > 0 ? (f.exact ? '' : '≈') + (m ? m[1] + '<small>' + m[2] + '</small>' : fa) : '—';
+    const help = 'Периметр — сумма сторон' + (f.diag ? ' (диагональ не входит)' : '') + '. Площадь ' + (f.exact ? 'точная: ' + f.how + '.' : f.how === 'при прямых углах' ? 'посчитана при прямых углах — по одним сторонам форму не определить. Проведите размер-диагональ между противоположными углами и впишите её замер: площадь станет точной.' : f.how + '.');
+    return '<div class="fig full"><div class="figh"><b>Фигура ' + (i + 1) + '</b><span class="muted small">' + f.n + ' стор.' + (f.diag ? ' + диагональ' : '') + '</span>' + U.help(help) + '</div>' +
+      (f.known ? '<div class="kv2"><span>Периметр</span><b>' + fl(f.P) + ' ' + uLab() + '</b><span>Площадь</span><b>' + S0 + '</b></div>' + (f.area > 0 && !f.exact ? '<span class="figtag">при прямых углах</span>' : f.exact ? '<span class="figtag ok">точно</span>' : '') : '<p class="muted small">Впишите все размеры фигуры — тогда будут периметр и площадь.</p>') +
+      (f.warn ? '<div class="pchip warn"><i class="cdot warn"></i><span>' + esc(f.warn) + '</span>' + U.help(esc(f.warn)) + '</div>' : '') + '</div>';
+  }
+  /* a new or dragged end sticks to the nearest end of another size line */
+  function snapEnd(q, own) {
+    const ph = cur(), lim = 16 / st.v.s; let best = null;
+    ph.marks.forEach((m) => { if (m.id === own || m.t !== 'dim') return; for (const e of [m.a, m.b]) { const d = Math.hypot(e[0] - q[0], e[1] - q[1]); if (d < lim && (!best || d < best.d)) best = { d, e }; } });
+    return best ? best.e.slice() : q;
+  }
   function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
   function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
   function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
@@ -91,6 +113,7 @@ var PF = (function () {
     if (img && img._src !== sr + ph.w) { img.setAttribute('href', sr); img.setAttribute('width', ph.w); img.setAttribute('height', ph.h); img._src = sr + ph.w; }
     let mk = '', hnd = '';
     ph.marks.forEach((m) => { mk += markSvg(m, m.id === st.sel); });
+    figures(ph).forEach((f) => { if (f.area > 0) mk += txt(f.c[0], f.c[1], 'S ' + (f.exact ? '' : '≈') + fArea(f.area).replace(/ \(.*\)$/, ''), 13, '#111', 'rgba(255,255,255,.92)', false); });
     const m = mark(st.sel), s = st.v.s;
     if (m) for (const k of m.t === 'text' ? [] : ['a', 'b']) { const q = m[k]; hnd += '<circle class="fhd" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(7 / s) + '"/><circle class="fhh" data-r="h|' + m.id + '|' + k + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(20 / s) + '"/>'; }
     if (st.pend) hnd += '<circle class="fpd" cx="' + n1(st.pend[0]) + '" cy="' + n1(st.pend[1]) + '" r="' + n1(6 / s) + '"/>';
@@ -131,7 +154,7 @@ var PF = (function () {
     const p = toImg(ev), n = ev.target.closest('[data-r]'), ref = n ? n.dataset.r.split('|') : null, hand = st.tool === 'hand' || UI.spaceHand || ev.button === 1;
     const d = st.drag = { pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, p0: p, moved: false, mode: 'pan', v0: Object.assign({}, st.v), ref };
     if (hand) return true;
-    if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = clampPt(st.pend || p); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
+    if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = st.pend || (st.tool === 'dim' ? snapEnd(clampPt(p), null) : clampPt(p)); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
     if (st.tool === 'text') { d.mode = 'newtext'; return true; }
     if (ref && ref[0] === 'h') { d.mode = 'end'; d.k = ref[2]; d.snap = JSON.stringify(mark(ref[1])); loupe(ev, mark(ref[1])[d.k]); return true; }
     if (ref && ref[0] === 'm') { d.mode = 'move'; d.snap = JSON.stringify(mark(ref[1])); return true; }
@@ -147,8 +170,8 @@ var PF = (function () {
     d.moved = true;
     const p = toImg(ev);
     if (d.mode === 'pan') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; applyView(); return true; }
-    if (d.mode === 'new') { d.b = clampPt(p); loupe(ev, d.b); paint(); return true; }
-    if (d.mode === 'end') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); m[d.k] = clampPt(p); loupe(ev, m[d.k]); paint(); return true; }
+    if (d.mode === 'new') { d.b = st.tool === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), null) : clampPt(p); loupe(ev, d.b); paint(); return true; }
+    if (d.mode === 'end') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); m[d.k] = m.t === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), m.id) : clampPt(p); loupe(ev, m[d.k]); paint(); return true; }
     if (d.mode === 'move') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); const o = [p[0] - d.p0[0], p[1] - d.p0[1]]; m.a = clampPt([m.a[0] + o[0], m.a[1] + o[1]]); if (m.b) m.b = clampPt([m.b[0] + o[0], m.b[1] + o[1]]); paint(); return true; }
     return true;
   }
@@ -161,7 +184,7 @@ var PF = (function () {
     if (cancel) { if (d.snap) { const o = JSON.parse(d.snap), m = mark(o.id); if (m) Object.assign(m, o); } paint(); return true; }
     const p = clampPt(toImg(ev)), ph = cur();
     if (d.mode === 'new') {
-      const b = d.moved ? d.b : (st.pend ? p : null);
+      const b = d.moved ? d.b : (st.pend ? (st.tool === 'dim' ? snapEnd(p, null) : p) : null);
       if (!b) { st.pend = d.a; paint(); return true; }   // first of two taps
       st.pend = null;
       if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
@@ -213,6 +236,7 @@ var PF = (function () {
         if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
+      figures(ph).forEach((f) => { if (f.area > 0) pill(f.c[0] * K, f.c[1] * K, 'S ' + (f.exact ? '' : '≈') + fArea(f.area).replace(/ \(.*\)$/, '') + ' · P ' + fl(f.P) + ' ' + uLab(), px * 0.9, '#111', 'rgba(255,255,255,.93)'); });
       IO.canvasBlob(cv).then((bl) => IO.save((ph.name || 'Фото').replace(/[\\/:*?"<>|]+/g, '_') + ' — размеры.png', bl, 'img'));
     };
     im.src = IMG[ph.im].src;
@@ -236,7 +260,7 @@ var PF = (function () {
       case 'zin': zoomBy(1.4); return;
       case 'zout': zoomBy(1 / 1.4); return;
       case 'zfit': st.v = null; fit(); paint(); return;
-      case 'unit': if (S.plan) { S.plan.unit = v; label('единицы: ' + G.UNIT[v].ru); } return;
+      case 'unit': if (!S.plan) S.plan = G.newPlan(); S.plan.unit = v; label('единицы: ' + G.UNIT[v].ru); return;
     }
   }
   function bind(path, raw) {
@@ -292,13 +316,14 @@ var PF = (function () {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
         return '<div class="phead"><h3>' + nm + '</h3></div>' +
           grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'mdone', cls: m.v > 0 ? '' : 'bad', help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
-            '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' +
+            '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' + (function () { const fs2 = figures(ph), k = fs2.findIndex((f) => f.ids.indexOf(m.id) >= 0 || f.diag === m.id); return k >= 0 ? figHtml(fs2[k], k) : ''; })() +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
           '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';
       }
       const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
       return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<div class="pchip warn"><i class="cdot warn"></i><span>без числа: ' + bad + '</span>' + U.help('У этих размеров не вписан замер — на фото они стоят как «?». Коснитесь линии и впишите число.') + '</div>' : '') +
         grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
+        (figures(ph).length ? grp('Площадь и периметр', figures(ph).map(figHtml).join('')) : '') +
         grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
         grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +
         '<div class="pacts">' + btn('png', 'Скачать фото с размерами') + btn('p-del', 'Удалить фото', { cls: 'dng' }) + '</div>';
@@ -325,7 +350,7 @@ var PF = (function () {
   function vStatbar() {
     const pc = G.photoChecks(L()), ph = cur();
     return (ph ? '<span class="zm"><button type="button" class="ib s" data-fact="zout" title="Отдалить" aria-label="Отдалить">' + U.ico.zout + '</button><button type="button" class="zl" id="fzlbl" data-fact="zfit" title="Вписать фото">' + (st.v ? Math.round(st.v.s * 100) + ' %' : '') + '</button><button type="button" class="ib s" data-fact="zin" title="Приблизить" aria-label="Приблизить">' + U.ico.zin + '</button><button type="button" class="ib s" data-fact="zfit" title="Вписать фото" aria-label="Вписать фото">' + U.ico.fit + '</button></span>' : '') +
-      '<span>фото ' + L().length + '</span>' + (ph ? '<span>' + esc(ph.name) + ': отметок ' + ph.marks.length + '</span>' : '') +
+      '<span>фото ' + L().length + '</span>' + (ph ? '<span>' + esc(ph.name) + ': отметок ' + ph.marks.length + '</span>' : '') + (function () { const f = figures(ph).filter((q) => q.known); return f.length ? '<span><b>P ' + fl(f[0].P) + ' ' + uLab() + (f[0].area > 0 ? ' · S ' + (f[0].exact ? '' : '≈') + fArea(f[0].area).replace(/ \(.*\)$/, '') : '') + '</b>' + (f.length > 1 ? ' · фигур ' + f.length : '') + '</span>' : ''; })() +
       (L().length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (pc.length ? 'warn' : 'ok') + '"></i>' + (pc.length ? 'без числа: ' + pc.length : 'все размеры с числами') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
   }
   const SKEL = '<div id="fgal" class="fgal"></div><div id="fed" class="fed" hidden><svg id="fsvg" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Фото с разметкой"><g id="fvp"><image id="fimg" preserveAspectRatio="none" x="0" y="0"/><g id="fmarks"></g><g id="fhnd"></g></g></svg></div>' +

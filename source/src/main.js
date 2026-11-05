@@ -1013,7 +1013,7 @@ function init(){
   $('#undo').innerHTML=U.ico.undo;$('#redo').innerHTML=U.ico.redo;$('#burger').innerHTML='<img src="'+U.LOGO+'" alt="" width="24" height="24" draggable="false">';try{var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.href=U.LOGO;document.head.appendChild(fi)}catch(e){}$('#photobtn').innerHTML=U.ico.cam+'<span>По фото</span>';$('#savebtn').innerHTML=U.ico.save+'<span>Сохранить</span>';$('.tclose').innerHTML=U.ico.x+'<span>К сцене</span>';themeBtn();
   try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',themeBtn)}catch(e){}
   try{UI.mv=localStorage.getItem('fotozona.move.v1')==='floor'?'floor':'wall';localStorage.removeItem('fotozona.keepar.v1')}catch(e){UI.mv='wall'}
-  var saved=IO.loadAuto();S=(saved&&M.normalize(saved))||M.template('three');
+  var saved=IO.loadAuto();S=(saved&&M.normalize(saved))||M.normalize(M.template('three'))||M.template('three');if(!S.plan)S.plan=PG.newPlan();if(!S.photos)S.photos=[];   // a fresh start has a plan and a photo list too
   IO.libInit();IO.loadImgs(SC.usedImgs(S));IO.sweepImgs(SC.usedImgs(S).concat(IO.libImgs()));syncImgDefs();
   calc();UI.hist=[JSON.stringify(S)];UI.histL=['Исходное состояние'];UI.hi=0;render();
 

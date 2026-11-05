@@ -668,6 +668,48 @@ var PG = (function () {
     (photos || []).forEach((ph) => ph.marks.forEach((m) => { if (m.t === 'dim' && !(m.v > 0)) out.push({ t: 'nonum', photo: ph.id, mark: m.id }); if (m.t === 'text' && !String(m.text || '').trim()) out.push({ t: 'notext', photo: ph.id, mark: m.id }); }));
     return out;
   }
+  /* size lines that meet at their ends make a figure: its perimeter is the sum of the sides (exact); its area is exact for a
+     triangle, exact for a four-sided figure when a diagonal is measured too, and otherwise «≈ at right angles» (the average
+     of opposite sides) — four sides alone do not fix a shape. */
+  function heron(a, b, c) { const s = (a + b + c) / 2, q = s * (s - a) * (s - b) * (s - c); return q >= -1e-6 * s * s * s * s ? Math.sqrt(Math.max(0, q)) : null; }
+  function photoFigures(marks, tol) {
+    const dims = (marks || []).filter((m) => m.t === 'dim'), pts = [], node = (q) => { for (let i = 0; i < pts.length; i++) if (hyp(pts[i][0] - q[0], pts[i][1] - q[1]) <= tol) return i; pts.push(q.slice()); return pts.length - 1; };
+    const E = dims.map((m) => ({ m, u: node(m.a), v: node(m.b) })).filter((e) => e.u !== e.v);
+    const adj = pts.map(() => []); E.forEach((e, k) => { adj[e.u].push(k); adj[e.v].push(k); });
+    const seen = new Set(), out = [];
+    for (let st0 = 0; st0 < pts.length; st0++) {
+      if (seen.has(st0) || !adj[st0].length) continue;
+      const comp = [], stack = [st0]; seen.add(st0);
+      while (stack.length) { const x = stack.pop(); comp.push(x); adj[x].forEach((k) => { const y = E[k].u === x ? E[k].v : E[k].u; if (!seen.has(y)) { seen.add(y); stack.push(y); } }); }
+      const ce = [...new Set(comp.flatMap((x) => adj[x]))], n = comp.length, deg = (x) => adj[x].length;
+      let ring = null, diag = null;
+      if (n >= 3 && ce.length === n && comp.every((x) => deg(x) === 2)) ring = ce;
+      else if (n === 4 && ce.length === 5) { const hi = comp.filter((x) => deg(x) === 3); if (hi.length === 2 && comp.filter((x) => deg(x) === 2).length === 2) { diag = ce.find((k) => hi.includes(E[k].u) && hi.includes(E[k].v)); if (diag != null) ring = ce.filter((k) => k !== diag); } }
+      if (!ring) continue;
+      /* walk the ring in order */
+      const order = [], vs = []; let cur = E[ring[0]].u, used = new Set();
+      for (let i = 0; i < ring.length; i++) { const k = ring.find((q) => !used.has(q) && (E[q].u === cur || E[q].v === cur)); if (k == null) break; used.add(k); order.push(k); vs.push(cur); cur = E[k].u === cur ? E[k].v : E[k].u; }
+      if (order.length !== ring.length) continue;
+      const sides = order.map((k) => E[k].m.v), ids = order.map((k) => E[k].m.id), known = sides.every((v) => v > 0);
+      const f = { ids, n: order.length, sides, known, P: known ? sides.reduce((a, b) => a + b, 0) : null, area: null, exact: false, how: '', warn: '', diag: diag != null ? E[diag].m.id : null,
+        c: [vs.reduce((a, i) => a + pts[i][0], 0) / vs.length, vs.reduce((a, i) => a + pts[i][1], 0) / vs.length] };
+      if (known) {
+        if (f.n === 3) { const A = heron(sides[0], sides[1], sides[2]); if (A === null) f.warn = 'такого треугольника не бывает — проверьте размеры'; else { f.area = A; f.exact = true; f.how = 'треугольник по трём сторонам'; } }
+        else if (f.n === 4 && diag != null && E[diag].m.v > 0) {
+          const d = E[diag].m.v, i0 = vs.indexOf(E[diag].u), i1 = vs.indexOf(E[diag].v), a0 = Math.min(i0, i1), a1 = Math.max(i0, i1);
+          const sA = sides.slice(a0, a1), sB = sides.slice(a1).concat(sides.slice(0, a0));
+          const A1 = sA.length === 2 ? heron(sA[0], sA[1], d) : null, A2 = sB.length === 2 ? heron(sB[0], sB[1], d) : null;
+          if (A1 === null || A2 === null) f.warn = 'диагональ не сходится со сторонами — проверьте замеры'; else { f.area = A1 + A2; f.exact = true; f.how = 'по сторонам и диагонали'; }
+        } else if (f.n === 4) {
+          const a = (sides[0] + sides[2]) / 2, b = (sides[1] + sides[3]) / 2, da = Math.abs(sides[0] - sides[2]), db = Math.abs(sides[1] - sides[3]);
+          f.area = a * b; f.how = 'при прямых углах';
+          if (da > 0.02 * a || db > 0.02 * b) f.warn = 'противоположные стороны отличаются на ' + Math.round(Math.max(da, db)) + ' мм — углы, похоже, не прямые; проведите диагональ для точной площади';
+        } else f.how = 'для ' + f.n + ' сторон площадь нужна с диагоналями — посчитан только периметр';
+      }
+      out.push(f);
+    }
+    return out;
+  }
   function totals(p) {
     let tables = 0, seats = 0, stand = 0;
     p.items.forEach((it) => { if (it.kind !== 'table') return; if (it.stand) stand++; else { tables++; seats += seatCount(it); } });
@@ -713,7 +755,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

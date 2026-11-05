@@ -1025,3 +1025,9 @@ html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gr
 .pbanner .btn.sm{min-height:28px;padding:0 10px;font-size:12px;border-radius:999px}
 .pbanner .hq{flex:none}
 .kpl{display:inline-flex;align-items:center;gap:6px} .kk svg{display:block;margin:auto}
+.fig{display:flex;flex-direction:column;gap:5px;padding:8px 10px;border:1px solid var(--wline);border-radius:9px;background:var(--surface)}
+.figh{display:flex;align-items:center;gap:7px} .figh b{font-size:13px} .figh .muted{flex:1}
+.fig .kv2 b{font-size:14px}
+.figtag{align-self:flex-start;font-size:11px;font-weight:600;color:var(--warn);background:color-mix(in srgb,var(--warn) 14%,transparent);border-radius:999px;padding:2px 8px}
+.figtag.ok{color:var(--ok);background:color-mix(in srgb,var(--ok) 14%,transparent)}
+.fig .kv2 b small{display:block;font-size:11.5px;font-weight:500;color:var(--muted)}
