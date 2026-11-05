@@ -12,7 +12,7 @@ var PF = (function () {
     fpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   };
   const COLNAME = { '#FF4D4F': 'красный', '#FFD43B': 'жёлтый', '#FFFFFF': 'белый', '#40C057': 'зелёный', '#4DABF7': 'синий' };
-  const st = { open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
+  const st = { pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
   function L() { if (!Array.isArray(S.photos)) S.photos = []; return S.photos; }
   function cur() { return L().find((p) => p.id === st.open) || null; }
   function mark(id) { const ph = cur(); return ph ? ph.marks.find((m) => m.id === id) || null : null; }
@@ -23,6 +23,27 @@ var PF = (function () {
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n1 = (v) => Math.round(v * 10) / 10;
   /* figures: size lines meeting at their ends */
+  /* «В план»: which wall this size goes to */
+  function wallList() { const out = []; (S.plan ? S.plan.rooms : []).forEach((r, ri) => { const g = G.roomGeom(r); r.walls.forEach((w, i) => out.push({ rid: r.id, wid: w.id, r, i, w, L: g.lens[i], room: r.name || 'Помещение ' + (ri + 1) })); }); return out; }
+  function wallPick(m, ph) {
+    const list = wallList(); if (!list.length) return null;
+    const has = (rid, wid) => list.find((x) => x.rid === rid && x.wid === wid);
+    if (st.pick[m.id] && has.apply(null, st.pick[m.id].split('|'))) return has.apply(null, st.pick[m.id].split('|'));
+    if (m.wid && has(m.rid, m.wid)) return has(m.rid, m.wid);
+    const pin = pinOf(ph.id), seen = pin && G.wallSeen(S.plan, pin); if (seen && has(seen.rid, seen.wid)) return has(seen.rid, seen.wid);
+    return list[0];
+  }
+  function toPlanHtml(m, ph) {
+    const list = wallList();
+    if (!list.length) return grp('В план', '<p class="small full">На плане пока нет помещений — нарисуйте зал в режиме «План», и замер можно будет передать в стену.</p><div class="pacts full"><button type="button" class="btn sm" data-pact="mode" data-v="plan">Открыть план</button></div>');
+    const cur0 = wallPick(m, ph), pin = pinOf(ph.id), seen = pin && G.wallSeen(S.plan, pin), linked = m.wid && list.find((x) => x.rid === m.rid && x.wid === m.wid);
+    const opt = (x) => '<option value="' + x.rid + '|' + x.wid + '"' + (cur0 && x.rid === cur0.rid && x.wid === cur0.wid ? ' selected' : '') + '>' + esc(x.room) + ' · ' + G.wallName(x.r, x.i) + ' · ' + (x.w.m ? '' : '≈') + fl(x.L) + (seen && seen.wid === x.wid ? ' — сюда смотрит камера' : '') + '</option>';
+    let st0 = '';
+    if (linked) { const same = linked.w.m && linked.w.len === m.v; st0 = '<div class="pchip ' + (same ? 'ok' : 'warn') + ' full"><i class="cdot ' + (same ? 'ok' : 'warn') + '"></i><span>' + (same ? 'в плане: ' + G.wallName(linked.r, linked.i) + ' = ' + fl(m.v) : 'в плане ' + G.wallName(linked.r, linked.i) + ' = ' + (linked.w.m ? '' : '≈') + fl(linked.L) + ', на фото ' + (m.v > 0 ? fl(m.v) : '?')) + '</span></div>'; }
+    return grp('В план', st0 + '<label class="fld full"><span class="fl">Стена</span><span class="dsel"><select data-fbind="m.wpick" aria-label="Стена плана">' + list.map(opt).join('') + '</select></span></label>' +
+      '<div class="pacts full"><button type="button" class="btn sm pnext" data-fact="send"' + (m.v > 0 ? '' : ' disabled') + '>' + (linked && linked.wid === cur0.wid ? 'Обновить стену' : 'Передать замер в стену') + '</button>' + (linked ? '<button type="button" class="btn sm" data-fact="showwall">Показать на плане</button>' : '') + '</div>' +
+      '<p class="muted small full">Стена станет «точной» с длиной этого размера; остальные стены подстроятся, если они примерные. ' + (pin ? 'По камере на плане предложена стена, в которую она смотрит.' : 'Отметьте фото на плане — тогда стена подставится сама.') + '</p>');
+  }
   function figTol(ph) { return Math.max(4, 0.012 * Math.max(ph.w, ph.h)); }
   function figures(ph) { return ph ? G.photoFigures(ph.marks, figTol(ph)) : []; }
   function fArea(a) {
@@ -251,6 +272,8 @@ var PF = (function () {
       case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
       case 'sel': st.sel = v; render(); return;
+      case 'send': { const w = m && wallPick(m, ph); if (!w || !(m.v > 0)) return; if (G.sendToWall(S.plan, m, w.rid, w.wid)) { label('замер ' + fl(m.v) + ' → стена ' + G.wallName(w.r, w.i)); toast('Стена ' + G.wallName(w.r, w.i) + ' в плане = ' + fl(m.v) + ' ' + uLab() + '.'); } return; }
+      case 'showwall': if (m && m.wid) { PL.setMode('plan'); PL.st.layer = 'floor'; PL.st.sel = { t: 'wall', r: m.rid, w: m.wid }; render(); } return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
       case 'm-del': if (ph && m) { ph.marks = ph.marks.filter((x) => x.id !== m.id); st.sel = null; label('удалено: ' + markName(m).toLowerCase()); } return;
       case 'p-del': if (ph) { const i = L().indexOf(ph); L().splice(i, 1); if (S.plan) S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); st.open = null; st.sel = null; label('фото удалено'); } return;
@@ -268,6 +291,7 @@ var PF = (function () {
     switch (path) {
       case 'p.name': if (ph) { ph.name = String(raw).trim().slice(0, 80) || 'Фото'; label('название'); } return;
       case 'm.v': if (m) { if (String(raw).trim() === '') { m.v = null; label('размер без числа'); return; } const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Размер в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return; } m.v = v; label('размер ' + fl(v)); } return;
+      case 'm.wpick': if (m) { st.pick[m.id] = String(raw); render(); } return;
       case 'm.text': if (m) { m.text = String(raw).trim().slice(0, 200); label(m.t === 'text' ? 'заметка' : 'подпись стрелки'); } return;
     }
   }
@@ -316,7 +340,7 @@ var PF = (function () {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
         return '<div class="phead"><h3>' + nm + '</h3></div>' +
           grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'mdone', cls: m.v > 0 ? '' : 'bad', help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
-            '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' + (function () { const fs2 = figures(ph), k = fs2.findIndex((f) => f.ids.indexOf(m.id) >= 0 || f.diag === m.id); return k >= 0 ? figHtml(fs2[k], k) : ''; })() +
+            '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' + (m.t === 'dim' ? toPlanHtml(m, ph) : '') + (function () { const fs2 = figures(ph), k = fs2.findIndex((f) => f.ids.indexOf(m.id) >= 0 || f.diag === m.id); return k >= 0 ? figHtml(fs2[k], k) : ''; })() +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
           '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';
       }

@@ -658,8 +658,10 @@ var PG = (function () {
         if (m.t !== 'text') o.b = fin(m.b);
         if (m.t === 'dim') o.v = +m.v > 0 ? Math.round(+m.v) : null;
         if (m.t !== 'dim' || m.text) o.text = String(m.text || '').slice(0, 200);
+        if (m.t === 'dim' && m.wid && m.rid) { o.rid = String(m.rid); o.wid = String(m.wid); }   // the plan wall this size was sent to
         return o;
       }),
+      ...(ph.fit && normFit(ph.fit, ph) ? { fit: normFit(ph.fit, ph) } : {}),
     }));
   }
   /* a size line without its number is not a size: listed until a number is typed or the line is removed */
@@ -710,6 +712,24 @@ var PG = (function () {
     }
     return out;
   }
+  /* the wall a photo pin looks at: the first wall hit by a ray from the pin along its direction (the camera looks along its local −y) */
+  function wallSeen(p, pin) {
+    const a = (pin.rot || 0) * DEG, d = [Math.sin(a), -Math.cos(a)]; let best = null;
+    p.rooms.forEach((r) => { const g = roomGeom(r); for (let i = 0; i < g.n; i++) {
+      const P0 = g.pts[i], P1 = g.pts[(i + 1) % g.n], ex = P1[0] - P0[0], ey = P1[1] - P0[1], den = d[0] * ey - d[1] * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((P0[0] - pin.x) * ey - (P0[1] - pin.y) * ex) / den, u = ((P0[0] - pin.x) * d[1] - (P0[1] - pin.y) * d[0]) / den;
+      if (t > 1 && u >= 0 && u <= 1 && (!best || t < best.t)) best = { t, r, i };
+    } });
+    return best ? { rid: best.r.id, wid: best.r.walls[best.i].id, i: best.i } : null;
+  }
+  /* send a size from a photo to a plan wall: the wall becomes measured with that length */
+  function sendToWall(p, m, rid, wid) {
+    const r = p.rooms.find((x) => x.id === rid), w = r && r.walls.find((x) => x.id === wid);
+    if (!w || !(m.v > 0)) return false;
+    w.len = Math.round(m.v); w.m = true; (w.ops || []).forEach((o) => clampOpening(o, w.len));
+    m.rid = rid; m.wid = wid; return true;
+  }
   function totals(p) {
     let tables = 0, seats = 0, stand = 0;
     p.items.forEach((it) => { if (it.kind !== 'table') return; if (it.stand) stand++; else { tables++; seats += seatCount(it); } });
@@ -718,6 +738,54 @@ var PG = (function () {
   /* table numbers: the next free one */
   function nextNum(p) { let m = 0; p.items.forEach((it) => { if (it.kind === 'table' && !it.stand && +it.num > m) m = +it.num; }); return m + 1; }
 
+  /* ---------- trying the scene on a photo: a picture warped onto four corners ---------- */
+  /* the projective map of the unit square onto a quad TL, TR, BR, BL (Heckbert): (u,v) -> [x,y] */
+  function sq2quad(q) {
+    const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
+    const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+    let a, b, c = x0, d, e, f = y0, g = 0, h = 0;
+    if (Math.abs(dx3) < 1e-9 && Math.abs(dy3) < 1e-9) { a = x1 - x0; b = x3 - x0; d = y1 - y0; e = y3 - y0; }
+    else { const det = dx1 * dy2 - dx2 * dy1; g = (dx3 * dy2 - dx2 * dy3) / det; h = (dx1 * dy3 - dx3 * dy1) / det; a = x1 - x0 + g * x1; b = x3 - x0 + h * x3; d = y1 - y0 + g * y1; e = y3 - y0 + h * y3; }
+    return (u, v) => { const w = g * u + h * v + 1; return [(a * u + b * v + c) / w, (d * u + e * v + f) / w]; };
+  }
+  /* the affine map taking triangle s onto triangle d, as canvas setTransform(a, b, c, d, e, f) */
+  function triAffine(s, t) {
+    const sx1 = s[1][0] - s[0][0], sy1 = s[1][1] - s[0][1], sx2 = s[2][0] - s[0][0], sy2 = s[2][1] - s[0][1];
+    const dx1 = t[1][0] - t[0][0], dy1 = t[1][1] - t[0][1], dx2 = t[2][0] - t[0][0], dy2 = t[2][1] - t[0][1], det = sx1 * sy2 - sx2 * sy1;
+    if (Math.abs(det) < 1e-12) return null;
+    const a = (dx1 * sy2 - dx2 * sy1) / det, c = (dx2 * sx1 - dx1 * sx2) / det, b = (dy1 * sy2 - dy2 * sy1) / det, d = (dy2 * sx1 - dy1 * sx2) / det;
+    return [a, b, c, d, t[0][0] - a * s[0][0] - c * s[0][1], t[0][1] - b * s[0][0] - d * s[0][1]];
+  }
+  /* four corners in order, turning one way, none folded: otherwise the picture would turn inside out */
+  function quadOk(q, minSide) {
+    if (!Array.isArray(q) || q.length !== 4) return false;
+    let sg = 0;
+    for (let i = 0; i < 4; i++) {
+      const p = q[i], n = q[(i + 1) % 4], m = q[(i + 2) % 4];
+      if (Math.hypot(n[0] - p[0], n[1] - p[1]) < (minSide || 1)) return false;
+      const cr = (n[0] - p[0]) * (m[1] - n[1]) - (n[1] - p[1]) * (m[0] - n[0]);
+      if (Math.abs(cr) < 1e-6) return false; const s1 = Math.sign(cr); if (sg && s1 !== sg) return false; sg = s1;
+    }
+    return sg > 0;   // clockwise on screen (y down): TL, TR, BR, BL
+  }
+  /* where the scene first lands on a photo: its real size if a measured size line gives the scale, otherwise half the photo; standing near the bottom */
+  function fitQuad(ph, wmm, hmm) {
+    let k = 0, best = 0;
+    (ph.marks || []).forEach((m) => { if (m.t === 'dim' && m.v > 0) { const L = Math.hypot(m.b[0] - m.a[0], m.b[1] - m.a[1]); if (L > best) { best = L; k = L / m.v; } } });
+    const r = hmm > 0 && wmm > 0 ? hmm / wmm : 0.75;
+    let w = k > 0 ? wmm * k : ph.w * 0.5;
+    w = clamp(w, ph.w * 0.15, ph.w * 0.95); let h = w * r;
+    if (h > ph.h * 0.85) { h = ph.h * 0.85; w = h / r; }
+    const cx = ph.w / 2, by = Math.min(ph.h - 4, ph.h * 0.5 + h / 2 + ph.h * 0.12), x0 = cx - w / 2, x1 = cx + w / 2, y0 = by - h;
+    const R = (v) => Math.round(v * 10) / 10;
+    return { q: [[R(x0), R(y0)], [R(x1), R(y0)], [R(x1), R(by)], [R(x0), R(by)]], scaled: k > 0 };
+  }
+  function normFit(f, ph) {
+    if (!f || typeof f !== 'object' || !Array.isArray(f.q) || f.q.length !== 4) return null;
+    const q = f.q.map((p) => Array.isArray(p) && isFinite(+p[0]) && isFinite(+p[1]) ? [+p[0], +p[1]] : null);
+    if (q.some((p) => !p) || !quadOk(q)) return null;
+    return { q, op: clamp(+f.op || 1, 0.2, 1), on: f.on !== false };
+  }
   /* ---------- the plan as a whole ---------- */
   function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [] }; }
   function normalize(p) {
@@ -755,7 +823,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;
