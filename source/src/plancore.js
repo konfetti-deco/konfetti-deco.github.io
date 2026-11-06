@@ -836,6 +836,35 @@ var PG = (function () {
     if (by) { let a = mb.x0, c = mb.x1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.y, b.y0, b.y1], by.L)) { a = Math.min(a, b.x0); c = Math.max(c, b.x1); n++; } }); guides.push({ vert: false, at: by.L, a: a - 250, b: c + 250, n }); }
     return { x: nx, y: ny, guides, onGuide: { x: ux ? ux.L : null, y: uy ? uy.L : null } };
   }
+  /* a side being pulled (resizing): its line sticks to another object's side or centre line, or to a ruler guide.
+     vert: a vertical line at x = val. Returns { v, g } (g: a guide segment to draw) or null */
+  function snapLine(p, it, vert, val, tol, opt) {
+    opt = opt || {}; let best = null;
+    const me = itemBBox(it);
+    (opt.guides || []).forEach((g) => { if (!!g.vert === !!vert) { const d = Math.abs(g.at - val); if (d <= tol && (!best || d < best.d)) best = { d, v: g.at, g: null }; } });
+    if (opt.objects !== false) p.items.forEach((o) => {
+      if (o.id === it.id || o.kind === 'photo' || !!o.top !== !!it.top) return;
+      const b = itemBBox(o);
+      (vert ? [b.x0, o.x, b.x1] : [b.y0, o.y, b.y1]).forEach((L) => { const d = Math.abs(L - val);
+        if (d <= tol && (!best || d < best.d - 1e-9)) best = { d, v: L, g: vert ? { vert: true, at: L, a: Math.min(me.y0, b.y0) - 250, b: Math.max(me.y1, b.y1) + 250 } : { vert: false, at: L, a: Math.min(me.x0, b.x0) - 250, b: Math.max(me.x1, b.x1) + 250 } }; });
+    });
+    return best ? { v: best.v, g: best.g } : null;
+  }
+  /* after a resize step of an object turned by a multiple of 90°: the sides that moved stick to lines; sizes and centre follow */
+  function snapResize(p, it, before, tol, opt) {
+    const q = ((Math.round((it.rot || 0) / 90) % 4) + 4) % 4; if (Math.abs((it.rot || 0) - q * 90) > 0.5 && Math.abs((it.rot || 0) - q * 90 - 360) > 0.5) return [];
+    if (it.shape === 'round') return [];
+    const b0 = itemBBox(before), b = itemBBox(it), gd = []; let x0 = b.x0, x1 = b.x1, y0 = b.y0, y1 = b.y1, ch = false;
+    const one = (vert, val) => { const r = snapLine(p, it, vert, val, tol, opt); if (r) { ch = true; if (r.g) gd.push(r.g); return r.v; } return val; };
+    if (Math.abs(b.x0 - b0.x0) > 0.5) x0 = one(true, x0); else if (Math.abs(b.x1 - b0.x1) > 0.5) x1 = one(true, x1);
+    if (Math.abs(b.y0 - b0.y0) > 0.5) y0 = one(false, y0); else if (Math.abs(b.y1 - b0.y1) > 0.5) y1 = one(false, y1);
+    if (ch && x1 - x0 >= 100 && y1 - y0 >= 100) {
+      const W = Math.round(x1 - x0), H = Math.round(y1 - y0);
+      if (q % 2) { it.d = W; it.w = H; } else { it.w = W; it.d = H; }
+      it.x = (x0 + x1) / 2; it.y = (y0 + y1) / 2;
+    }
+    return gd;
+  }
   function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
   /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
   function freeSpot(p, it, cx, cy) {
@@ -918,7 +947,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

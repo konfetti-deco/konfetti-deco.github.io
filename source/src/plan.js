@@ -376,7 +376,7 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
-    (st.drag && st.drag.mode === 'item' && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
+    (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     over += guidesSvg(false);
     set('pgrid', gridSvg()); set('pbody', fill + walls + guidesSvg(true)); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
@@ -534,11 +534,14 @@ var PL = (function () {
           const h = String(d.ref[2] || ''), w0 = it.w, d0 = it.d, e = h[0] === 'e' ? +h.slice(1) : -1;
           const kx = e >= 0 ? [0, 1, 0, -1][e] : [-1, 1, 1, -1][+h], ky = e >= 0 ? [-1, 0, 1, 0][e] : [-1, -1, 1, 1][+h];
           let cx = 0, cy = 0;
+          st.guides = [];
           if (free) { if (kx) it.w = G.clamp(r10(2 * Math.abs(lx)), 100, 60000); if (ky) it.d = G.clamp(r10(2 * Math.abs(ly)), 100, 60000); }   // Shift: from the centre, both sides
           else {
             if (kx) { const fx = -kx * w0 / 2; it.w = G.clamp(r10(kx * (lx - fx)), 100, 60000); cx = fx + kx * it.w / 2; }
             if (ky) { const fy = -ky * d0 / 2; it.d = G.clamp(r10(ky * (ly - fy)), 100, 60000); cy = fy + ky * it.d / 2; }
             const c = G.toWorld(it, cx, cy); it.x = Math.round(c[0] * 10) / 10; it.y = Math.round(c[1] * 10) / 10;
+            // the side being pulled sticks to other objects' sides and centres and to ruler guides
+            st.guides = G.snapResize(P(), it, JSON.parse(d.isnap), 9 / s, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [] });
           }
           tip(e >= 0 ? (kx ? (it.shape === 'oval' ? 'длина ' : 'ширина ') + fs(it.w) : (it.shape === 'oval' ? 'ширина ' : 'глубина ') + fs(it.d)) + ' ' + uLab() : fs(it.w) + ' × ' + fs(it.d) + ' ' + uLab());
         }

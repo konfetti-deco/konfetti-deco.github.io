@@ -1104,7 +1104,7 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 43</span>
+  <span class="ver" id="ver">версия 44</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -3256,6 +3256,35 @@ var PG = (function () {
     if (by) { let a = mb.x0, c = mb.x1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.y, b.y0, b.y1], by.L)) { a = Math.min(a, b.x0); c = Math.max(c, b.x1); n++; } }); guides.push({ vert: false, at: by.L, a: a - 250, b: c + 250, n }); }
     return { x: nx, y: ny, guides, onGuide: { x: ux ? ux.L : null, y: uy ? uy.L : null } };
   }
+  /* a side being pulled (resizing): its line sticks to another object's side or centre line, or to a ruler guide.
+     vert: a vertical line at x = val. Returns { v, g } (g: a guide segment to draw) or null */
+  function snapLine(p, it, vert, val, tol, opt) {
+    opt = opt || {}; let best = null;
+    const me = itemBBox(it);
+    (opt.guides || []).forEach((g) => { if (!!g.vert === !!vert) { const d = Math.abs(g.at - val); if (d <= tol && (!best || d < best.d)) best = { d, v: g.at, g: null }; } });
+    if (opt.objects !== false) p.items.forEach((o) => {
+      if (o.id === it.id || o.kind === 'photo' || !!o.top !== !!it.top) return;
+      const b = itemBBox(o);
+      (vert ? [b.x0, o.x, b.x1] : [b.y0, o.y, b.y1]).forEach((L) => { const d = Math.abs(L - val);
+        if (d <= tol && (!best || d < best.d - 1e-9)) best = { d, v: L, g: vert ? { vert: true, at: L, a: Math.min(me.y0, b.y0) - 250, b: Math.max(me.y1, b.y1) + 250 } : { vert: false, at: L, a: Math.min(me.x0, b.x0) - 250, b: Math.max(me.x1, b.x1) + 250 } }; });
+    });
+    return best ? { v: best.v, g: best.g } : null;
+  }
+  /* after a resize step of an object turned by a multiple of 90°: the sides that moved stick to lines; sizes and centre follow */
+  function snapResize(p, it, before, tol, opt) {
+    const q = ((Math.round((it.rot || 0) / 90) % 4) + 4) % 4; if (Math.abs((it.rot || 0) - q * 90) > 0.5 && Math.abs((it.rot || 0) - q * 90 - 360) > 0.5) return [];
+    if (it.shape === 'round') return [];
+    const b0 = itemBBox(before), b = itemBBox(it), gd = []; let x0 = b.x0, x1 = b.x1, y0 = b.y0, y1 = b.y1, ch = false;
+    const one = (vert, val) => { const r = snapLine(p, it, vert, val, tol, opt); if (r) { ch = true; if (r.g) gd.push(r.g); return r.v; } return val; };
+    if (Math.abs(b.x0 - b0.x0) > 0.5) x0 = one(true, x0); else if (Math.abs(b.x1 - b0.x1) > 0.5) x1 = one(true, x1);
+    if (Math.abs(b.y0 - b0.y0) > 0.5) y0 = one(false, y0); else if (Math.abs(b.y1 - b0.y1) > 0.5) y1 = one(false, y1);
+    if (ch && x1 - x0 >= 100 && y1 - y0 >= 100) {
+      const W = Math.round(x1 - x0), H = Math.round(y1 - y0);
+      if (q % 2) { it.d = W; it.w = H; } else { it.w = W; it.d = H; }
+      it.x = (x0 + x1) / 2; it.y = (y0 + y1) / 2;
+    }
+    return gd;
+  }
   function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
   /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
   function freeSpot(p, it, cx, cy) {
@@ -3338,7 +3367,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;
@@ -5371,7 +5400,7 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
-    (st.drag && st.drag.mode === 'item' && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
+    (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     over += guidesSvg(false);
     set('pgrid', gridSvg()); set('pbody', fill + walls + guidesSvg(true)); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
@@ -5529,11 +5558,14 @@ var PL = (function () {
           const h = String(d.ref[2] || ''), w0 = it.w, d0 = it.d, e = h[0] === 'e' ? +h.slice(1) : -1;
           const kx = e >= 0 ? [0, 1, 0, -1][e] : [-1, 1, 1, -1][+h], ky = e >= 0 ? [-1, 0, 1, 0][e] : [-1, -1, 1, 1][+h];
           let cx = 0, cy = 0;
+          st.guides = [];
           if (free) { if (kx) it.w = G.clamp(r10(2 * Math.abs(lx)), 100, 60000); if (ky) it.d = G.clamp(r10(2 * Math.abs(ly)), 100, 60000); }   // Shift: from the centre, both sides
           else {
             if (kx) { const fx = -kx * w0 / 2; it.w = G.clamp(r10(kx * (lx - fx)), 100, 60000); cx = fx + kx * it.w / 2; }
             if (ky) { const fy = -ky * d0 / 2; it.d = G.clamp(r10(ky * (ly - fy)), 100, 60000); cy = fy + ky * it.d / 2; }
             const c = G.toWorld(it, cx, cy); it.x = Math.round(c[0] * 10) / 10; it.y = Math.round(c[1] * 10) / 10;
+            // the side being pulled sticks to other objects' sides and centres and to ruler guides
+            st.guides = G.snapResize(P(), it, JSON.parse(d.isnap), 9 / s, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [] });
           }
           tip(e >= 0 ? (kx ? (it.shape === 'oval' ? 'длина ' : 'ширина ') + fs(it.w) : (it.shape === 'oval' ? 'ширина ' : 'глубина ') + fs(it.d)) + ' ' + uLab() : fs(it.w) + ' × ' + fs(it.d) + ' ' + uLab());
         }
@@ -7336,6 +7368,19 @@ function snapGuides(el,k,noY){
   if(by){el.y=Math.round(el.y+by.d);lines.push('<i class="gh" style="top:'+((S.room.h-(SC.CAM.h+(by.v-SC.CAM.h)*sc))/HH*100).toFixed(3)+'%"></i>')}
   var g=$('#guides');if(g)g.innerHTML=lines.join('');
 }
+/* while a side is pulled: that side sticks to the edges and centres of elements at about the same depth (and to the middle of the room) */
+function snapSize(el,h,k){
+  var ze=SC.zOf(S,el),sc=SC.sc(ze),tol=10*k/sc,cx0=S.room.w/2,HH=S.room.h+SC.FLOOR,lines=[],bx=null,by=null;
+  var right=(h==='e'||h==='ne'),left=(h==='w'),top=(h==='n'||h==='ne')&&handlesFor(el).indexOf('n')>=0;
+  var px=right?el.x+el.w:left?el.x:null,py=top?el.y+el.h:null;
+  S.els.forEach(function(o){if(o===el||o.hide||Math.abs(SC.zOf(S,o)-ze)>150)return;
+    if(px!==null)[o.x,o.x+o.w,o.x+o.w/2].forEach(function(c){var d=c-px;if(Math.abs(d)<tol&&(!bx||Math.abs(d)<Math.abs(bx.d)))bx={d:d,v:c}});
+    if(py!==null)[o.y,o.y+o.h,o.y+o.h/2].forEach(function(c){var d=c-py;if(Math.abs(d)<tol&&(!by||Math.abs(d)<Math.abs(by.d)))by={d:d,v:c}})});
+  if(px!==null){var d0=cx0-px;if(Math.abs(d0)<tol&&(!bx||Math.abs(d0)<Math.abs(bx.d)))bx={d:d0,v:cx0}}
+  if(bx&&(right?el.w+bx.d:el.w-bx.d)>=60){if(right)el.w=Math.round(el.w+bx.d);else{el.x=Math.round(el.x+bx.d);el.w=Math.round(el.w-bx.d)}lines.push('<i class="gv" style="left:'+((cx0+(bx.v-cx0)*sc)/S.room.w*100).toFixed(3)+'%"></i>')}
+  if(by&&el.h+by.d>=60){el.h=Math.round(el.h+by.d);lines.push('<i class="gh" style="top:'+((S.room.h-(SC.CAM.h+(by.v-SC.CAM.h)*sc))/HH*100).toFixed(3)+'%"></i>')}
+  var g=$('#guides');if(g)g.innerHTML=lines.join('');
+}
 /* props stand on what is under them: plinths, podiums, tables, boxes. Near the top of one under its centre, the prop lands on it. */
 var STANDS={plc:1,plq:1,plinths:1,mframe:1,mglass:1,mcyl:1,mset:1,podr:1,podq:1,table:1,gift:1,giftpile:1};
 /* the height a thing stands at on top of o, at x = cx: the middle of a frame's top face, the table top, each frame of a set */
@@ -7970,6 +8015,7 @@ function onMove(ev){
       e.w=Math.max(60,e.w);e.h=Math.max(60,e.h||60);M.fit(e);
       if(e.rot){e.x=Math.round(o.x+o.w/2-e.w/2);if(!M.floorOnly(e))e.y=Math.max(0,Math.round(o.y+o.h/2-e.h/2))}   // turned elements grow around their centre
       else if(h==='w')e.x=o.x+o.w-e.w;
+      if(!e.rot&&!ev.altKey)snapSize(e,h,p.k);
     }
     if(e.rot&&e.type==='text'){e.x=Math.round(o.x+o.w/2-e.w/2);if(!M.floorOnly(e))e.y=Math.max(0,Math.round(o.y+o.h/2-e.h/2))}
     placeOv();paintLater();tip(e,e.type==='text'?'буквы '+e.size+' мм':e.type==='circle'?'Ø '+U.n(e.w)+' мм':U.n(e.w)+' × '+U.n(e.h)+' мм')}

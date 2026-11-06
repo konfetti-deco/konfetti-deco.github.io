@@ -29,6 +29,7 @@ for (let k = 0; k < 400; k++) {
   ok(PG.quadOk(q), 'convex clockwise quad accepted');
   ok(!PG.quadOk([q[0], q[2], q[1], q[3]]), 'crossed (bow-tie) quad refused'); ok(!PG.quadOk([q[3], q[2], q[1], q[0]]), 'mirrored order refused');
   const s = [[rnd(0, 99), rnd(0, 99)], [rnd(100, 200), rnd(0, 50)], [rnd(0, 50), rnd(100, 200)]], t = [H(0, 0), H(0.3, 0.1), H(0.1, 0.4)], A = PG.triAffine(s, t);
+  if (!A) { const dd = (s[1][0] - s[0][0]) * (s[2][1] - s[0][1]) - (s[2][0] - s[0][0]) * (s[1][1] - s[0][1]); ok(dd === 0, 'no map only for a flat triangle'); continue; }
   s.forEach((p, i) => { near(A[0] * p[0] + A[2] * p[1] + A[4], t[i][0], 1e-6, 'affine x ' + i); near(A[1] * p[0] + A[3] * p[1] + A[5], t[i][1], 1e-6, 'affine y ' + i); });
 }
 { const sq = [[0, 0], [10, 0], [10, 10], [0, 10]], H = PG.sq2quad(sq), p = H(0.25, 0.75); near(p[0], 2.5, 1e-9, 'rectangle: plain scaling x'); near(p[1], 7.5, 1e-9, 'rectangle: plain scaling y');
@@ -110,6 +111,26 @@ for (let k = 0; k < 400; k++) {
   const o = Object.assign(PG.makeItem('t_r150', 0, 0), { w: 2400, d: 1200, shape: 'oval' }), lo = PG.seatLimits(o).per[0].dense; ok(lo === Math.floor(PG.edgeLens(o)[0] / 500), 'oval by its perimeter: ' + lo);
   near(PG.edgeLens(Object.assign({}, o, { d: 2400 }))[0], Math.PI * 2400, 1e-6, 'an oval with equal sides is a circle');
   const r = R(1500); r.seats = 30; ok(PG.fitSeats(r) && r.seats === 9, 'round Ø1,5: 30 → 9'); ok(!PG.fitSeats(r), 'nothing to cut the second time'); }
+
+/* 26. resizing: the side being pulled sticks to another object's side or centre, or to a ruler guide; turned 90° too */
+{ const p = PG.normalize({ rooms: [], items: [] }), A = Object.assign(PG.makeItem('t_q180', 6000, 6000), { id: 'A', w: 6000, d: 1000 }); p.items.push(A);   // y 5500..6500
+  const mk = (o) => Object.assign(PG.makeItem('t_q180', 0, 0), { id: 'M' }, o);
+  for (let k = 0; k < 200; k++) {
+    const off = rnd(-70, 70), before = mk({ x: 1000, y: 3500, w: 1000, d: 3000 });   // y 2000..5000
+    const it = mk({ x: 1000, y: 3500 + (1500 + off) / 2, w: 1000, d: 3000 + 1500 + off });   // bottom pulled to 6500 + off, top fixed at 2000
+    const g = PG.snapResize(p, it, before, 80, {}); const b = PG.itemBBox(it);
+    near(b.y1, 6500, 1e-6, 'bottom side sticks to table A bottom (off ' + off + ')'); near(b.y0, 2000, 1e-6, 'top side stays'); ok(it.w === 1000, 'width untouched'); ok(g.length === 1 && !g[0].vert && g[0].at === 6500, 'a horizontal guide at 6500');
+  }
+  let before = mk({ x: 1000, y: 3500, w: 1000, d: 3000 }), it = mk({ x: 1000, y: 3500 + 1260, w: 1000, d: 3000 + 2520 });   // bottom at 7520, near a ruler guide at 7500
+  PG.snapResize(p, it, before, 80, { guides: [{ vert: false, at: 7500 }] }); near(PG.itemBBox(it).y1, 7500, 1e-6, 'bottom sticks to the ruler guide');
+  it = mk({ x: 1000, y: 3500 + 1260, w: 1000, d: 3000 + 2520 }); PG.snapResize(p, it, before, 80, { guides: [{ vert: true, at: 7500 }] }); near(PG.itemBBox(it).y1, 7520, 1e-6, 'a vertical guide does not catch a horizontal side');
+  it = mk({ x: 1000, y: 3500 + 1260, w: 1000, d: 3000 + 2520 }); PG.snapResize(p, it, before, 80, { objects: false, guides: [] }); near(PG.itemBBox(it).y1, 7520, 1e-6, '«к объектам» off: no sticking');
+  // turned 90°: its depth runs along x
+  before = mk({ x: 2000, y: 3000, w: 1000, d: 2000, rot: 90 }); it = mk({ x: 2000 + 1980, y: 3000, w: 1000, d: 2000 + 3960 / 1 - 0, rot: 90 });
+  it.d = 2000 + 3960; it.x = 1000 + (2000 + 3960) / 2;   // left side fixed at x=1000, right pulled to 6960, near A's right? no: A spans 3000..9000 — centre 6000, so use 6960 vs nothing; pull to 8980 instead
+  it.d = 7980; it.x = 1000 + 7980 / 2; PG.snapResize(p, it, before, 80, {}); const bt = PG.itemBBox(it); near(bt.x1, 9000, 1e-6, 'turned 90°: right side sticks to A right side'); near(bt.x0, 1000, 1e-6, 'left side stays'); ok(it.d === 8000 && it.w === 1000, 'its own depth changed: ' + it.w + '×' + it.d);
+  it = mk({ x: 2000, y: 3000, w: 1000, d: 2000, rot: 30 }); ok(PG.snapResize(p, it, mk({ x: 2000, y: 3000, w: 1000, d: 1900, rot: 30 }), 80, {}).length === 0, 'a slanted object is left alone');
+  const r = PG.snapLine(p, mk({ x: 0, y: 0 }), true, 6030, 80, {}); ok(r && r.v === 6000, 'a side line also sticks to a centre line'); }
 
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

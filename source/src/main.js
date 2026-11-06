@@ -259,6 +259,19 @@ function snapGuides(el,k,noY){
   if(by){el.y=Math.round(el.y+by.d);lines.push('<i class="gh" style="top:'+((S.room.h-(SC.CAM.h+(by.v-SC.CAM.h)*sc))/HH*100).toFixed(3)+'%"></i>')}
   var g=$('#guides');if(g)g.innerHTML=lines.join('');
 }
+/* while a side is pulled: that side sticks to the edges and centres of elements at about the same depth (and to the middle of the room) */
+function snapSize(el,h,k){
+  var ze=SC.zOf(S,el),sc=SC.sc(ze),tol=10*k/sc,cx0=S.room.w/2,HH=S.room.h+SC.FLOOR,lines=[],bx=null,by=null;
+  var right=(h==='e'||h==='ne'),left=(h==='w'),top=(h==='n'||h==='ne')&&handlesFor(el).indexOf('n')>=0;
+  var px=right?el.x+el.w:left?el.x:null,py=top?el.y+el.h:null;
+  S.els.forEach(function(o){if(o===el||o.hide||Math.abs(SC.zOf(S,o)-ze)>150)return;
+    if(px!==null)[o.x,o.x+o.w,o.x+o.w/2].forEach(function(c){var d=c-px;if(Math.abs(d)<tol&&(!bx||Math.abs(d)<Math.abs(bx.d)))bx={d:d,v:c}});
+    if(py!==null)[o.y,o.y+o.h,o.y+o.h/2].forEach(function(c){var d=c-py;if(Math.abs(d)<tol&&(!by||Math.abs(d)<Math.abs(by.d)))by={d:d,v:c}})});
+  if(px!==null){var d0=cx0-px;if(Math.abs(d0)<tol&&(!bx||Math.abs(d0)<Math.abs(bx.d)))bx={d:d0,v:cx0}}
+  if(bx&&(right?el.w+bx.d:el.w-bx.d)>=60){if(right)el.w=Math.round(el.w+bx.d);else{el.x=Math.round(el.x+bx.d);el.w=Math.round(el.w-bx.d)}lines.push('<i class="gv" style="left:'+((cx0+(bx.v-cx0)*sc)/S.room.w*100).toFixed(3)+'%"></i>')}
+  if(by&&el.h+by.d>=60){el.h=Math.round(el.h+by.d);lines.push('<i class="gh" style="top:'+((S.room.h-(SC.CAM.h+(by.v-SC.CAM.h)*sc))/HH*100).toFixed(3)+'%"></i>')}
+  var g=$('#guides');if(g)g.innerHTML=lines.join('');
+}
 /* props stand on what is under them: plinths, podiums, tables, boxes. Near the top of one under its centre, the prop lands on it. */
 var STANDS={plc:1,plq:1,plinths:1,mframe:1,mglass:1,mcyl:1,mset:1,podr:1,podq:1,table:1,gift:1,giftpile:1};
 /* the height a thing stands at on top of o, at x = cx: the middle of a frame's top face, the table top, each frame of a set */
@@ -893,6 +906,7 @@ function onMove(ev){
       e.w=Math.max(60,e.w);e.h=Math.max(60,e.h||60);M.fit(e);
       if(e.rot){e.x=Math.round(o.x+o.w/2-e.w/2);if(!M.floorOnly(e))e.y=Math.max(0,Math.round(o.y+o.h/2-e.h/2))}   // turned elements grow around their centre
       else if(h==='w')e.x=o.x+o.w-e.w;
+      if(!e.rot&&!ev.altKey)snapSize(e,h,p.k);
     }
     if(e.rot&&e.type==='text'){e.x=Math.round(o.x+o.w/2-e.w/2);if(!M.floorOnly(e))e.y=Math.max(0,Math.round(o.y+o.h/2-e.h/2))}
     placeOv();paintLater();tip(e,e.type==='text'?'буквы '+e.size+' мм':e.type==='circle'?'Ø '+U.n(e.w)+' мм':U.n(e.w)+' × '+U.n(e.h)+' мм')}
