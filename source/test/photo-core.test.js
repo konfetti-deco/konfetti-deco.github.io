@@ -132,5 +132,36 @@ for (let k = 0; k < 400; k++) {
   it = mk({ x: 2000, y: 3000, w: 1000, d: 2000, rot: 30 }); ok(PG.snapResize(p, it, mk({ x: 2000, y: 3000, w: 1000, d: 1900, rot: 30 }), 80, {}).length === 0, 'a slanted object is left alone');
   const r = PG.snapLine(p, mk({ x: 0, y: 0 }), true, 6030, 80, {}); ok(r && r.v === 6000, 'a side line also sticks to a centre line'); }
 
+/* 27. several objects: line up, spread evenly, number again, one seating */
+{ const T = (id, x, y, w, d, o) => Object.assign(PG.makeItem('t_q180', x, y), { id, w, d, sides: [0, 0, 0, 0] }, o || {});
+  for (let k = 0; k < 200; k++) {
+    const L = [T('a', rnd(1000, 9000), rnd(1000, 9000), rnd(600, 3000), rnd(600, 1500)), T('b', rnd(1000, 9000), rnd(1000, 9000), rnd(600, 3000), rnd(600, 1500)), T('c', rnd(1000, 9000), rnd(1000, 9000), rnd(600, 3000), rnd(600, 1500), { rot: 90 })];
+    const B = L.map(PG.itemBBox), x0 = Math.min(...B.map((b) => b.x0)), y1 = Math.max(...B.map((b) => b.y1)), cx = (Math.min(...B.map((b) => b.x0)) + Math.max(...B.map((b) => b.x1))) / 2;
+    const C = JSON.parse(JSON.stringify(L)); PG.alignItems(C, 'left'); C.forEach((it) => near(PG.itemBBox(it).x0, x0, 0.11, 'left edges line up'));
+    C.forEach((it, i) => near(it.y, L[i].y, 1e-9, 'left: y untouched'));
+    const D = JSON.parse(JSON.stringify(L)); PG.alignItems(D, 'bottom'); D.forEach((it) => near(PG.itemBBox(it).y1, y1, 0.11, 'bottoms line up'));
+    const E = JSON.parse(JSON.stringify(L)); PG.alignItems(E, 'cx'); E.forEach((it) => { const b = PG.itemBBox(it); near((b.x0 + b.x1) / 2, cx, 0.11, 'centres on one vertical line'); });
+    // spread: the outer two stay, gaps equal
+    const F = JSON.parse(JSON.stringify(L)); { let x = 500; F.forEach((it) => { const b = PG.itemBBox(it), w = b.x1 - b.x0; it.x = x + w / 2; x += w + rnd(0, 3000); }); F.reverse(); }   // a row without overlaps, listed in any order
+    const F0 = JSON.parse(JSON.stringify(F)); PG.distributeItems(F, 'x'); const S = F.map(PG.itemBBox).sort((a, b) => (a.x0 + a.x1) - (b.x0 + b.x1));
+    const g1 = S[1].x0 - S[0].x1, g2 = S[2].x0 - S[1].x1; near(g1, g2, 0.25, 'equal gaps (' + g1.toFixed(1) + ' / ' + g2.toFixed(1) + ')');
+    const ends = (A) => { const s = A.map(PG.itemBBox); return [Math.min(...s.map((b) => b.x0)), Math.max(...s.map((b) => b.x1))]; }; const e0 = ends(F0), e1 = ends(F);
+    near(e1[0], e0[0], 0.11, 'left end stays'); near(e1[1], e0[1], 0.25, 'right end stays'); ok(g1 >= -0.25, 'no overlap made');
+    const G2 = JSON.parse(JSON.stringify(L)); PG.distributeItems(G2, 'y', 1500); const S2 = G2.map(PG.itemBBox).sort((a, b) => (a.y0 + a.y1) - (b.y0 + b.y1));
+    near(S2[1].y0 - S2[0].y1, 1500, 0.25, 'given gap 1,5 m'); near(S2[2].y0 - S2[1].y1, 1500, 0.25, 'given gap 1,5 m (2)');
+  }
+  const lk = [T('a', 1000, 1000, 1000, 800), T('b', 3000, 1600, 1000, 800, { lock: true })]; PG.alignItems(lk, 'top'); ok(lk[1].y === 1600 && Math.abs(PG.itemBBox(lk[0]).y0 - 600) < 0.11, 'a locked one stays and still counts for the line');
+  // renumber: two rows, left to right, top to bottom
+  const p = { items: [T('t1', 7000, 2000, 1800, 800, { num: 9 }), T('t2', 1000, 2100, 1800, 800, { num: 4 }), T('t3', 4000, 1950, 1800, 800, { num: 12 }), T('t4', 2000, 5000, 1800, 800, { num: 2 }), T('t5', 6000, 5100, 1800, 800, { num: 7 }), Object.assign(PG.makeItem('z_podium', 0, 0), { id: 'z' })] };
+  PG.renumber(p, 'rows'); ok(['t2', 't3', 't1', 't4', 't5'].map((id) => p.items.find((i) => i.id === id).num).join() === '1,2,3,4,5', 'by rows: 1 2 3 / 4 5');
+  PG.renumber(p, 'cols'); ok(['t2', 't4', 't3', 't5', 't1'].map((id) => p.items.find((i) => i.id === id).num).join() === '1,2,3,4,5', 'by columns');
+  ok(p.items.find((i) => i.id === 'z').num === undefined, 'a podium gets no number');
+  // seating for a table
+  const t = T('s', 0, 0, 2000, 800); t.sides = [3, 3, 0, 0]; PG.applySeating(t, 'dense'); ok(t.sides.join() === '4,4,0,0', 'dense on the used sides: 4,4,0,0');
+  PG.applySeating(t, 'comfort'); ok(t.sides.join() === '2,2,0,0', 'comfort: 2,2,0,0');
+  const e = T('e', 0, 0, 2000, 800); PG.applySeating(e, 'normal'); ok(e.sides.join() === '3,3,0,0', 'no chairs yet: long sides, normal 3,3');
+  const w = T('w', 0, 0, 2000, 800); w.sides = [1, 1, 1, 1]; PG.applySeating(w, 'dense'); ok(w.sides.join() === '4,4,1,1', 'all four sides used: 4,4,1,1');
+  const r = Object.assign(PG.makeItem('t_r150', 0, 0), { w: 1800, shape: 'round' }); PG.applySeating(r, 'normal'); ok(r.seats === 9, 'round Ø1,8 normal: 9'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

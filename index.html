@@ -1091,6 +1091,17 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .seatn small{font-size:10px;opacity:.8}
 .stp .sb:disabled{opacity:.35;cursor:not-allowed}
 #plan .phe{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5}
+/* v46: several objects on the plan */
+#plan .pmq{fill:rgba(27,161,199,.10);stroke:#1BA1C7;stroke-width:1.2;stroke-dasharray:5 4;pointer-events:none}
+#plan .pmb{fill:none;stroke:#1BA1C7;stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none}
+.albar{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.albar .alb{width:38px;height:38px;border:1px solid var(--wline);border-radius:9px}
+.albar .alb svg,.albar .btn svg{width:20px;height:20px}
+.albar .sep{width:6px}
+.seg.seg4{display:grid;grid-template-columns:repeat(4,1fr);width:100%}
+.seg.seg4 button{padding:6px 2px;font-size:12px}
+.seatrow{display:flex;flex-direction:column;gap:4px}
+.seatrow .fl{font-size:12px;color:var(--muted)}
 
 </style>
 </head>
@@ -1104,7 +1115,7 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 45</span>
+  <span class="ver" id="ver">версия 46</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -3179,6 +3190,48 @@ var PG = (function () {
   /* table numbers: the next free one */
   function nextNum(p) { let m = 0; p.items.forEach((it) => { if (it.kind === 'table' && !it.stand && +it.num > m) m = +it.num; }); return m + 1; }
 
+  /* ---------- several objects at once: line up, spread evenly, number again, one seating for many tables ---------- */
+  function moveBy(it, dx, dy) { it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; }
+  /* how: left, cx, right (by the table bodies), top, cy, bottom; the reference is the outermost body of the set (or the middle for cx/cy) */
+  function alignItems(list, how) {
+    const L = list.filter((it) => !it.lock); if (list.length < 2) return 0;
+    const B = list.map(itemBBox), x0 = Math.min(...B.map((b) => b.x0)), x1 = Math.max(...B.map((b) => b.x1)), y0 = Math.min(...B.map((b) => b.y0)), y1 = Math.max(...B.map((b) => b.y1));
+    let n = 0;
+    L.forEach((it) => { const b = itemBBox(it), dx = how === 'left' ? x0 - b.x0 : how === 'right' ? x1 - b.x1 : how === 'cx' ? (x0 + x1) / 2 - (b.x0 + b.x1) / 2 : 0, dy = how === 'top' ? y0 - b.y0 : how === 'bottom' ? y1 - b.y1 : how === 'cy' ? (y0 + y1) / 2 - (b.y0 + b.y1) / 2 : 0;
+      if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) { moveBy(it, dx, dy); n++; } });
+    return n;
+  }
+  /* equal gaps between neighbours along x or y; the two outermost stay; gap given → from the first one at that gap */
+  function distributeItems(list, axis, gap) {
+    if (list.length < 3 && !(gap >= 0 && list.length >= 2)) return 0;
+    const X = axis === 'x', key = (it) => { const b = itemBBox(it); return X ? (b.x0 + b.x1) / 2 : (b.y0 + b.y1) / 2; };
+    const S = list.slice().sort((a, b) => key(a) - key(b)), B = S.map(itemBBox), size = (b) => X ? b.x1 - b.x0 : b.y1 - b.y0;
+    const start = X ? B[0].x0 : B[0].y0, end = X ? B[B.length - 1].x1 : B[B.length - 1].y1, total = B.reduce((a, b) => a + size(b), 0);
+    const g = gap >= 0 ? gap : (end - start - total) / (S.length - 1);
+    let pos = start, n = 0;
+    S.forEach((it, i) => { const b = B[i], cur = X ? b.x0 : b.y0, d = pos - cur; if (!it.lock && Math.abs(d) > 0.05) { moveBy(it, X ? d : 0, X ? 0 : d); n++; } pos += size(b) + g; });
+    return n;
+  }
+  /* tables numbered again 1, 2, 3…: by rows (top to bottom, left to right inside a row) or by columns; only the given ones if a list is passed */
+  function renumber(p, order, only) {
+    const T = (only || p.items).filter((it) => it.kind === 'table' && !it.stand);
+    const a = order === 'cols' ? 'x' : 'y', b = order === 'cols' ? 'y' : 'x';
+    const S = T.slice().sort((u, v) => u[a] - v[a]); const rows = [];
+    S.forEach((it) => { const half = (order === 'cols' ? itemBBox(it).x1 - itemBBox(it).x0 : itemBBox(it).y1 - itemBBox(it).y0) / 2, r = rows.find((q) => Math.abs(q.at - it[a]) <= Math.max(300, half)); if (r) r.list.push(it); else rows.push({ at: it[a], list: [it] }); });
+    let n = 1;   // the whole plan from 1; a chosen few from the smallest number among them
+    if (only) { const have = T.map((it) => +it.num).filter((x) => x > 0); n = have.length ? Math.min(...have) : nextNum(p); }
+    rows.sort((q, w) => q.at - w.at).forEach((r) => r.list.sort((u, v) => u[b] - v[b]).forEach((it) => { it.num = n++; }));
+    return T.length;
+  }
+  /* one seating for a table: the sides that already have chairs (or the long ones when none) get as many as that density allows */
+  function applySeating(it, density) {
+    if (it.kind !== 'table' || it.stand) return false;
+    const lim = seatLimits(it);
+    if (it.shape === 'rect') { const s = it.sides || [0, 0, 0, 0], used = s.map((v) => (+v || 0) > 0), any = used.some(Boolean), on = any ? used : [true, true, false, false];
+      it.sides = lim.per.map((o, k) => (on[k] ? o[density] : 0)); }
+    else it.seats = lim.per[0][density];
+    return true;
+  }
   /* ---------- trying the scene on a photo: a picture warped onto four corners ---------- */
   /* the projective map of the unit square onto a quad TL, TR, BR, BL (Heckbert): (u,v) -> [x,y] */
   function sq2quad(q) {
@@ -3235,7 +3288,7 @@ var PG = (function () {
      (on the same layer), within tol mm; with no such line and a grid on, its centre on the grid. guides: lines to draw */
   function alignSnap(p, it, x, y, tol, grid, opt) {
     opt = opt || {};
-    const others = opt.objects === false ? [] : p.items.filter((o) => o.id !== it.id && o.kind !== 'photo' && !!o.top === !!it.top);
+    const ex = opt.exclude || [], others = opt.objects === false ? [] : p.items.filter((o) => o.id !== it.id && ex.indexOf(o.id) < 0 && o.kind !== 'photo' && !!o.top === !!it.top);
     const me = itemBBox(Object.assign({}, it, { x, y })), offX = [0, me.x0 - x, me.x1 - x], offY = [0, me.y0 - y, me.y1 - y];
     let bx = null, by = null;
     others.forEach((o) => {
@@ -3367,7 +3420,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;
@@ -5083,7 +5136,7 @@ var PL = (function () {
   };
 
   /* ---------- state that is not saved: view, selection, tool ---------- */
-  const st = { v: null, sel: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, layer: 'floor', tc: null, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
+  const st = { v: null, sel: null, multi: [], mgap: null, marq: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, layer: 'floor', tc: null, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
   function P() { if (!S.plan) S.plan = G.newPlan(); return S.plan; }
   function unit() { return P().unit || 'm'; }
   function uLab() { return G.UNIT[unit()].ru; }
@@ -5095,7 +5148,10 @@ var PL = (function () {
   function item(id) { return P().items.find((r) => r.id === id) || null; }
   function wallIx(r, wid) { return r ? r.walls.findIndex((w) => w.id === wid) : -1; }
   function selRoom() { return st.sel && st.sel.r ? room(st.sel.r) : null; }
+  function plural(n) { return n % 10 === 1 && n % 100 !== 11 ? '' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'а' : 'ов'; }
   function validate() {
+    if (!Array.isArray(st.multi)) st.multi = [];
+    if (st.multi.length) { st.multi = st.multi.filter((id) => item(id)); if (st.multi.length === 1) { st.sel = { t: 'item', i: st.multi[0] }; st.multi = []; } else if (st.multi.length > 1) st.sel = null; }
     const s = st.sel; if (!s) return;
     if (s.t === 'item') { if (!item(s.i)) st.sel = null; return; }
     if (s.t === 'guide') { if (!(P().guides || []).some((g) => g.id === s.g)) st.sel = null; return; }
@@ -5363,7 +5419,7 @@ var PL = (function () {
         labels += text(c[0], c[1] + 9 / s, (g.allM ? '' : '≈') + m2(g.area) + ' м²', 11.5, 'pa' + (g.status === 'bad' ? ' bad' : ''));
       }
     });
-    const tc = topChecks(), mk = (it) => ({ id: it.id, html: itemHtml(it, sel.t === 'item' && sel.i === it.id, !!(cf.ids[it.id] || tc.ids[it.id]), s) });
+    const tc = topChecks(), mk = (it) => ({ id: it.id, html: itemHtml(it, (sel.t === 'item' && sel.i === it.id) || st.multi.indexOf(it.id) >= 0, !!(cf.ids[it.id] || tc.ids[it.id]), s) });
     const list = p.items.filter((it) => !it.top).map(mk), listTop = p.showTop === false ? [] : p.items.filter((it) => it.top).map(mk);
     const it = sel.t === 'item' ? item(sel.i) : null;
     if (it) {
@@ -5400,8 +5456,10 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
-    (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
+    (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize' || st.drag.mode === 'gmove') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     over += guidesSvg(false);
+    if (st.marq) { const m = st.marq, x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1]); over += '<rect class="pmq" x="' + n1(x0) + '" y="' + n1(y0) + '" width="' + n1(Math.abs(m.b[0] - m.a[0])) + '" height="' + n1(Math.abs(m.b[1] - m.a[1])) + '"/>'; }
+    if (st.multi.length > 1) { const bs = st.multi.map(item).filter(Boolean).map(G.itemBBox); if (bs.length) { const x0 = Math.min(...bs.map((b) => b.x0)), y0 = Math.min(...bs.map((b) => b.y0)), x1 = Math.max(...bs.map((b) => b.x1)), y1 = Math.max(...bs.map((b) => b.y1)), pd = 8 / s; over += '<rect class="pmb" x="' + n1(x0 - pd) + '" y="' + n1(y0 - pd) + '" width="' + n1(x1 - x0 + 2 * pd) + '" height="' + n1(y1 - y0 + 2 * pd) + '"/>'; } }
     set('pgrid', gridSvg()); set('pbody', fill + walls + guidesSvg(true)); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
     const em = document.getElementById('pempty'); if (em) em.hidden = p.rooms.length > 0 || !!st.draw || p.items.length > 0;
@@ -5464,6 +5522,14 @@ var PL = (function () {
     if (st.draw) { d.mode = 'draw'; return true; }
     if (st.tool === 'ruler') { st.ruler = { a: snapPoint(p), b: null }; d.mode = 'ruler'; return true; }
     if (st.tool && /^(op|col|it|combo|pin):/.test(st.tool)) { d.mode = 'place'; return true; }
+    /* «Несколько»: a tap adds or removes an object, a drag on an empty spot draws a frame, a drag on a chosen one moves them all */
+    const multiOn = st.tool === 'multi' || ev.shiftKey;
+    if (st.tool === 'multi' && (!ref || ref[0] === 'r' || ref[0] === 'w' || ref[0] === 'm')) { d.mode = 'marq'; d.m0 = p; return true; }
+    if (ref && ref[0] === 'i' && item(ref[1]) && (multiOn || (st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0))) {
+      d.mode = 'gmove'; d.gid = ref[1]; d.toggle = multiOn; d.gsnap = {};
+      const ids = st.multi.indexOf(ref[1]) >= 0 ? st.multi : st.multi.concat([ref[1]]); d.ids = ids;
+      ids.forEach((id) => { const it = item(id); if (it) d.gsnap[id] = { x: it.x, y: it.y }; }); return true;
+    }
     if (!ref) return true;
     const t = ref[0], sel = st.sel || {};
     if (t === 'R') { if (ref[1] === 'c') { d.mode = 'tap'; return true; } d.mode = 'newguide'; d.vert = ref[1] === 'y'; return true; }
@@ -5512,6 +5578,15 @@ var PL = (function () {
     if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' ? 'pan' : d.mode; applyView(); return true; }
     if (d.mode === 'draw') { st.draw.hover = snapDraw(p, st.draw.pts[st.draw.pts.length - 1], free); paint(); return true; }
     if (d.mode === 'ruler') { st.ruler.b = free ? p.map(Math.round) : snapPoint(p); paint(); return true; }
+    if (d.mode === 'marq') { st.marq = { a: d.m0, b: p }; paint(); return true; }
+    if (d.mode === 'gmove') {
+      const lead = item(d.gid); if (!lead) return true; const o = d.gsnap[d.gid];
+      if (st.multi.indexOf(d.gid) < 0) { st.multi = d.ids.slice(); st.sel = null; }
+      const a = free ? { x: r10(o.x + mm[0]), y: r10(o.y + mm[1]), guides: [] } : G.alignSnap(P(), Object.assign({}, lead, { x: o.x, y: o.y }), o.x + mm[0], o.y + mm[1], 9 / s, P().snap || 0, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [], exclude: d.ids });
+      const dx = a.x - o.x, dy = a.y - o.y; st.guides = a.guides;
+      d.ids.forEach((id) => { const it = item(id), q = d.gsnap[id]; if (it && q && !it.lock) { it.x = Math.round((q.x + dx) * 10) / 10; it.y = Math.round((q.y + dy) * 10) / 10; } });
+      tip('выделено ' + d.ids.length + ' · сдвиг ' + fl(Math.hypot(dx, dy)) + ' ' + uLab()); paint(); return true;
+    }
     if (d.mode === 'newguide' || d.mode === 'guide') {
       const pl = P(); let g = d.mode === 'guide' ? pl.guides.find((q) => q.id === d.gid) : d.g;
       if (!g) { if (d.mode === 'guide') return true; g = d.g = { id: G.uid(), vert: d.vert, at: 0 }; pl.guides.push(g); }
@@ -5581,6 +5656,21 @@ var PL = (function () {
     if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
     st.drag = null; st.guides = null; tip('');
+    if (d.mode === 'marq') {
+      const m = st.marq; st.marq = null;
+      if (cancel || !d.moved || !m) { if (!d.moved && !ev.shiftKey && st.tool === 'multi') { st.multi = []; st.sel = null; render(); } else paint(); return true; }
+      const x0 = Math.min(m.a[0], m.b[0]), x1 = Math.max(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1]), y1 = Math.max(m.a[1], m.b[1]);
+      const got = P().items.filter((it) => it.kind !== 'photo' && !!it.top === (st.layer === 'top') && it.x >= x0 && it.x <= x1 && it.y >= y0 && it.y <= y1).map((it) => it.id);
+      st.multi = Array.from(new Set(st.multi.concat(got))); st.sel = st.multi.length === 1 ? { t: 'item', i: st.multi[0] } : null; if (st.multi.length === 1) st.multi = [];
+      render(); return true;
+    }
+    if (d.mode === 'gmove') {
+      if (cancel) { d.ids.forEach((id) => { const it = item(id), q = d.gsnap[id]; if (it && q) { it.x = q.x; it.y = q.y; } }); st.guides = null; paint(); return true; }
+      if (d.moved) { st.guides = null; label('перемещение — ' + d.ids.length + ' объект' + plural(d.ids.length)); return true; }
+      if (d.toggle) { const i = st.multi.indexOf(d.gid); if (i >= 0) st.multi.splice(i, 1); else { if (!st.multi.length && st.sel && st.sel.t === 'item' && st.sel.i !== d.gid) st.multi.push(st.sel.i); st.multi.push(d.gid); } }
+      if (st.multi.length === 1) { st.sel = { t: 'item', i: st.multi[0] }; st.multi = []; } else if (st.multi.length) st.sel = null; else if (!d.toggle) st.sel = { t: 'item', i: d.gid };
+      render(); return true;
+    }
     if (d.mode === 'newguide' || d.mode === 'guide') {
       const pl = P(), g = pl.guides.find((q) => q.id === (d.mode === 'guide' ? d.gid : d.g && d.g.id)), r0 = svg().getBoundingClientRect();
       const onRuler = !!g && (g.vert ? ev.clientX - r0.left < RW : ev.clientY - r0.top < RW);
@@ -5709,7 +5799,7 @@ var PL = (function () {
     const r = selRoom(), s = st.sel || {};
     switch (name) {
       case 'mode': setMode(v); return;
-      case 'ptool': st.placed = 0; st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
+      case 'ptool': st.placed = 0; if (st.tool === 'multi' && v !== 'multi') { st.multi = []; } if (v === 'multi' && st.tool === 'multi') { st.tool = null; st.multi = []; render(); return; } if (v === 'multi' && st.sel && st.sel.t === 'item') { st.multi = []; } st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
       case 'layer': st.layer = v === 'top' ? 'top' : 'floor'; st.tool = null; UI.fly = false; if (st.sel && st.sel.t === 'item') { const it = item(st.sel.i); if (it && !!it.top !== (st.layer === 'top')) st.sel = null; } if (st.layer === 'top' && P().showTop === false) P().showTop = true; render(); return;
       case 'showtop': P().showTop = v === '1'; if (!P().showTop && st.layer === 'top') st.layer = 'floor'; label(P().showTop ? 'верхний слой показан' : 'верхний слой скрыт'); return;
       case 'pfly': UI.pgroup = v; UI.fly = !(UI.fly && UI.pgroup === v); render(); return;
@@ -5736,6 +5826,15 @@ var PL = (function () {
       case 'lyr-del': { const [k, id] = String(v).split('|');
         if (k === 'r') { const r = room(id); if (!r) return; P().rooms = P().rooms.filter((x) => x.id !== id); if (st.sel && st.sel.r === id) st.sel = null; label('удалено помещение — ' + rname(r)); return; }
         const it = item(id); if (!it) return; P().items = P().items.filter((x) => x.id !== id); if (st.sel && st.sel.i === id) st.sel = null; label('удалено — ' + G.itemLabel(it)); return; }
+      case 'm-align': { const L = st.multi.map(item).filter(Boolean); if (G.alignItems(L, v)) label('выровнено — ' + ({ left: 'по левому краю', cx: 'по центру', right: 'по правому краю', top: 'по верху', cy: 'по середине', bottom: 'по низу' })[v]); else toast('Уже на одной линии.'); return; }
+      case 'm-dist': { const L = st.multi.map(item).filter(Boolean); if (L.length < 3 && st.mgap == null) { toast('Чтобы распределить поровну, нужно хотя бы 3 объекта — или впишите промежуток.'); return; } G.distributeItems(L, v, st.mgap == null ? undefined : st.mgap); label(st.mgap == null ? 'поровну ' + (v === 'x' ? 'по горизонтали' : 'по вертикали') : 'через ' + fl(st.mgap) + ' ' + uLab()); return; }
+      case 'm-rot': { st.multi.map(item).filter((it) => it && !it.lock).forEach((it) => { it.rot = G.normDeg((it.rot || 0) + 90); }); label('повёрнуто на 90° — ' + st.multi.length); return; }
+      case 'm-lock': { const L = st.multi.map(item).filter(Boolean), on = L.some((it) => !it.lock); L.forEach((it) => { if (on) it.lock = true; else delete it.lock; }); label((on ? 'закреплено — ' : 'откреплено — ') + L.length); return; }
+      case 'm-del': { const n = st.multi.length; P().items = P().items.filter((it) => st.multi.indexOf(it.id) < 0); st.multi = []; st.sel = null; label('удалено — ' + n + ' объект' + plural(n)); return; }
+      case 'm-none': st.multi = []; st.sel = null; render(); return;
+      case 'm-num': { const L = st.multi.map(item).filter(Boolean); G.renumber(P(), v || 'rows', L); label('номера по ' + (v === 'cols' ? 'колонкам' : 'рядам') + ' — выделенные'); return; }
+      case 'renum': G.renumber(P(), v || 'rows'); label('столы пронумерованы по ' + (v === 'cols' ? 'колонкам' : 'рядам')); return;
+      case 'seat-set': { if (!G.SEAT.some((q) => q.id === v)) return; const L = st.multi.length > 1 ? st.multi.map(item).filter(Boolean) : a && a.dataset.all ? P().items : s.t === 'item' ? [item(s.i)] : []; let n = 0; L.forEach((it) => { if (it && G.applySeating(it, v)) n++; }); if (!n) { toast('Среди выбранного нет столов со стульями.'); return; } const d0 = G.SEAT.find((q) => q.id === v); label('посадка «' + d0.ru + '» — ' + n + ' стол' + (n % 10 === 1 && n % 100 !== 11 ? '' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'а' : 'ов')); return; }
       case 'g-del': if (s.t === 'guide') { P().guides = P().guides.filter((q) => q.id !== s.g); st.sel = null; label('направляющая убрана'); } return;
       case 'g-clear': P().guides = []; if (s.t === 'guide') st.sel = null; label('все направляющие убраны'); return;
       case 'smart': P().smart = P().smart === false; label(P().smart ? 'притяжение к объектам включено' : 'притяжение к объектам выключено'); return;
@@ -5789,6 +5888,7 @@ var PL = (function () {
     const r = selRoom(), s = st.sel || {};
     const len = () => { const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Длина в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return null; } return v; };
     switch (path) {
+      case 'm.gap': { if (String(raw).trim() === '') { st.mgap = null; render(); return; } const v = G.parseLen(raw, unit()); if (v === null || v < 0) { toast('Промежуток — число в ' + uLab() + '.'); render(); return; } st.mgap = v; render(); return; }
       case 'g.at': { const g = (P().guides || []).find((q) => s.t === 'guide' && q.id === s.g); if (!g) return; const v = G.parseLen(raw, unit()); if (v === null) { toast('Не число: «' + raw + '».'); render(); return; } g.at = Math.round(G.gridOrigin(P())[g.vert ? 0 : 1] + v); label('направляющая: ' + fl(v) + ' от угла A'); return; }
       case 'p.h': { const v = len(); if (v === null) return; if (v < 1800 || v > 20000) { toast('Высота потолка — от 1,8 до 20 м.'); render(); return; } P().h = v; label('высота потолка по умолчанию'); return; }
       case 'r.name': if (r) { r.name = String(raw).trim().slice(0, 60); label('название'); } return;
@@ -5826,10 +5926,11 @@ var PL = (function () {
     }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.sel && st.sel.t === 'item') { ev.preventDefault(); act('it-dup'); return true; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
+    if (k === 'Escape' && st.multi.length) { st.multi = []; render(); return true; }
     if (k === 'Escape') { if (st.draw) { st.draw = null; render(); return true; } if (st.tool) { st.tool = null; st.ruler = null; st.placed = 0; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } return false; }
     if (k === 'Enter' && st.draw && st.draw.pts.length >= 3) { finishDraw(); return true; }
     if ((k === 'Backspace' || k === 'Delete') && st.draw) { st.draw.pts.pop(); paint(); return true; }
-    if (k === 'Delete' || k === 'Backspace') { const s = st.sel; if (!s) return false; ev.preventDefault(); act(s.t === 'guide' ? 'g-del' : s.t === 'op' ? 'op-del' : s.t === 'item' ? 'it-del' : s.t === 'corner' ? 'c-del' : s.t === 'room' ? 'r-del' : '', null); return true; }
+    if (k === 'Delete' || k === 'Backspace') { const s = st.sel; if (st.multi.length > 1) { ev.preventDefault(); act('m-del', null); return true; } if (!s) return false; ev.preventDefault(); act(s.t === 'guide' ? 'g-del' : s.t === 'op' ? 'op-del' : s.t === 'item' ? 'it-del' : s.t === 'corner' ? 'c-del' : s.t === 'room' ? 'r-del' : '', null); return true; }
     if (k === '+' || k === '=') { zoomBy(1.4); return true; }
     if (k === '-' || k === '_') { zoomBy(1 / 1.4); return true; }
     if (k === '0') { act('zfit'); return true; }
@@ -5867,7 +5968,7 @@ var PL = (function () {
   const tb = (attrs, ico, title, on, fly) => '<button type="button" class="tb' + (fly ? ' hasfly' : '') + '" ' + attrs + ' aria-pressed="' + !!on + '" title="' + title + '" aria-label="' + title + '">' + ico + (fly ? '<i class="tri" aria-hidden="true"></i>' : '') + '</button>';
   function vTools() {
     let h = '<div class="plyr" role="group" aria-label="Слой плана"><button type="button" data-pact="layer" data-v="floor" aria-pressed="' + (st.layer === 'floor') + '" title="Пол: стены, двери, столы, зоны">Пол</button><button type="button" data-pact="layer" data-v="top" aria-pressed="' + (st.layer === 'top') + '" title="Верх: потолок, подвес, свет, декор под потолком">Верх</button></div>' +
-      tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + '<hr>';
+      tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + tb('data-pact="ptool" data-v="multi"', U.ico.multi, 'Несколько: касание добавляет или убирает, рамка — по пустому месту', st.tool === 'multi') + '<hr>';
     (st.layer === 'top' ? TOOLS_TOP : TOOLS).forEach((t) => { h += tb('data-pact="pfly" data-v="' + t[0] + '" data-ptool="' + t[0] + '" data-tool="p' + t[0] + '"', ICO[t[1]], t[2] + ': ' + t[3], UI.fly && UI.pgroup === t[0], true); });
     h += '<hr>' + tb('data-pact="ptool" data-v="ruler"', ICO.pruler, 'Линейка (R)', st.tool === 'ruler');
     return h;
@@ -5900,10 +6001,12 @@ var PL = (function () {
     const s = st.sel, p = P();
     U.inDock = true;
     try {
+      if (st.multi.length > 1) return multiHtml();
       if (!s) {
         const sm = G.summary(p);
         return '<div class="phead"><h3>План зала</h3></div>' +
           grp('Помещения', p.rooms.length ? '<div class="plist full">' + p.rooms.map((r, i) => { const g = sm.geoms[i]; return '<button type="button" class="prow" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (g.status === 'ok' ? 'ok' : g.status === 'warn' || g.status === 'partial' ? 'warn' : 'bad') + '"></i><span>' + esc(rname(r)) + '</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b></button>'; }).join('') + '</div>' : '<p class="muted small full">Плана пока нет. Добавьте зал инструментом «Помещение» слева: прямоугольник, Г, П или по углам. Потом впишите замеры стен.</p>') +
+          (G.totals(p).tables ? grp('Столы', '<div class="seatrow full"><span class="fl">Посадка для всех столов</span>' + seatSeg(' data-all="1"', '') + '</div><div class="pacts full">' + btn('renum', 'Пронумеровать по рядам', { v: 'rows' }) + btn('renum', 'по колонкам', { v: 'cols' }) + '</div><p class="muted small full">По рядам — сверху вниз, в ряду слева направо. Несколько столов: инструмент «Несколько» слева — касаниями или рамкой.</p>') : '') +
           grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + '<div class="fld full"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
       }
@@ -6007,9 +6110,25 @@ var PL = (function () {
     const lim = G.seatLimits(it), T = lim.tot, over = it.shape === 'rect' ? (it.sides || []).some((v, k) => (+v || 0) > lim.max[k]) : (+it.seats || 0) > lim.max[0];
     const norms = '<div class="seatn full">' + G.SEAT.map((d) => '<span><b>' + T[d.id] + '</b> ' + d.ru + ' <small>' + d.w / 10 + ' см</small></span>').join('') + '</div>';
     const row = (nm, k, val, act, bind) => '<label class="fld"><span class="fl">' + nm + ' <small class="muted">до ' + lim.max[k] + '</small></span><span class="stp"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="-1" aria-label="Меньше"' + (val <= 0 ? ' disabled' : '') + '>−</button><input type="text" inputmode="numeric" data-pbind="' + bind + '" value="' + val + '"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="1" aria-label="Больше"' + (val >= lim.max[k] ? ' disabled' : '') + '>+</button></span></label>';
-    return (over ? note('bad', 'Стульев больше, чем помещается даже при плотной посадке (50 см на человека). Уменьшите число или увеличьте стол.') : '') +
+    return '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', seatNow(it)) + '</div>' + (over ? note('bad', 'Стульев больше, чем помещается даже при плотной посадке (50 см на человека). Уменьшите число или увеличьте стол.') : '') +
       (it.shape === 'rect' ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => row(nm, k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k)).join('') : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
       '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' «Сверху» и «снизу» — длинные стороны (до поворота).' : '') + '</p>' + norms;
+  }
+  const AL = { left: '<path d="M4 3v18M8 7h10v4H8zM8 14h6v4H8z"/>', cx: '<path d="M12 3v18M6 7h12v4H6zM8 14h8v4H8z"/>', right: '<path d="M20 3v18M6 7h10v4H6zM10 14h6v4h-6z"/>', top: '<path d="M3 4h18M7 8v10h4V8zM14 8v6h4V8z"/>', cy: '<path d="M3 12h18M7 6v12h4V6zM14 8v8h4V8z"/>', bottom: '<path d="M3 20h18M7 6v10h4V6zM14 10v6h4v-6z"/>', dx: '<path d="M3 4v16M21 4v16M7 9h3v6H7zM14 9h3v6h-3z"/>', dy: '<path d="M4 3h16M4 21h16M9 7v3h6V7zM9 14v3h6v-3z"/>' };
+  function alIco(k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">' + AL[k] + '</svg>'; }
+  function seatSeg(attrs, cur) { return '<span class="seg seg4" role="group" aria-label="Посадка">' + G.SEAT.map((d) => '<button type="button" data-pact="seat-set" data-v="' + d.id + '"' + (attrs || '') + ' aria-pressed="' + (cur === d.id) + '" title="' + d.ru + ': ' + d.w / 10 + ' см на человека">' + (({ comfort: 'комфорт' })[d.id] || d.ru) + '</button>').join('') + '</span>'; }
+  /* which density the chairs of a table match now (for the pressed button) */
+  function seatNow(it) { const lim = G.seatLimits(it); return (G.SEAT.slice().reverse().find((d) => it.shape === 'rect' ? (it.sides || [0, 0, 0, 0]).every((v, k) => !(+v) || +v === lim.per[k][d.id]) && (it.sides || []).some((v) => +v > 0) : +it.seats === lim.per[0][d.id]) || {}).id || ''; }
+  function multiHtml() {
+    const L = st.multi.map(item).filter(Boolean), T = L.filter((it) => it.kind === 'table' && !it.stand), lk = L.some((it) => !it.lock);
+    const ab = (v, t) => '<button type="button" class="ib alb" data-pact="m-align" data-v="' + v + '" title="' + t + '" aria-label="' + t + '">' + alIco(v) + '</button>';
+    return '<div class="phead"><h3>Выделено: ' + L.length + '</h3></div>' +
+      grp('Выровнять', '<div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
+        '<p class="muted small full">Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>') +
+      grp('Распределить', '<div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
+        fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
+      (T.length ? grp('Столы: ' + T.length, '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
+      '<div class="pacts">' + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }
   function rowBtns(k, id, lk, name) {
     return '<button type="button" class="ib s prlk" data-pact="lyr-lock" data-v="' + k + '|' + id + '" aria-pressed="' + !!lk + '" title="' + (lk ? 'Открепить' : 'Закрепить') + '" aria-label="' + (lk ? 'Открепить' : 'Закрепить') + ' «' + esc(name) + '»">' + U.ico[lk ? 'lock' : 'unlock'] + '</button>' +
@@ -6025,7 +6144,8 @@ var PL = (function () {
     });
     p.items.slice().sort((a, b) => (a.kind === 'table' ? 0 : 1) - (b.kind === 'table' ? 0 : 1) || (+a.num || 0) - (+b.num || 0)).forEach((it) => {
       const lab = it.kind === 'photo' ? '📷 ' + (((S.photos || []).find((x) => x.id === it.photo) || {}).name || 'Фото') : it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
-      h += '<div class="prw' + (s.i === it.id ? ' on' : '') + '"><button type="button" class="prow' + (s.i === it.id ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>' + rowBtns('i', it.id, it.lock, lab) + '</div>';
+      const on = s.i === it.id || st.multi.indexOf(it.id) >= 0;
+      h += '<div class="prw' + (on ? ' on' : '') + '"><button type="button" class="prow' + (on ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>' + rowBtns('i', it.id, it.lock, lab) + '</div>';
     });
     return h + '</div>';
   }
@@ -6050,6 +6170,7 @@ var PL = (function () {
   function vOptbar() {
     const s = st.sel;
     if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
+    if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
     if (s && s.t === 'guide') { const g = (P().guides || []).find((q) => q.id === s.g); return g ? '<span class="onm">Направляющая</span><span class="sep"></span><span class="ohint">от угла A: ' + fl(g.at - G.gridOrigin(P())[g.vert ? 0 : 1]) + ' ' + uLab() + ' · утащите на линейку, чтобы убрать</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="g-del" title="Убрать направляющую" aria-label="Убрать направляющую">' + U.ico.del + '</button>' : ''; }
     if (!s) return '<span class="ohint">План: коснитесь помещения, стены, угла, проёма или стола · один палец по пустому месту двигает план, два — масштаб</span>';
     const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';

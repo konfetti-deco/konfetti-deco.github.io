@@ -759,6 +759,48 @@ var PG = (function () {
   /* table numbers: the next free one */
   function nextNum(p) { let m = 0; p.items.forEach((it) => { if (it.kind === 'table' && !it.stand && +it.num > m) m = +it.num; }); return m + 1; }
 
+  /* ---------- several objects at once: line up, spread evenly, number again, one seating for many tables ---------- */
+  function moveBy(it, dx, dy) { it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; }
+  /* how: left, cx, right (by the table bodies), top, cy, bottom; the reference is the outermost body of the set (or the middle for cx/cy) */
+  function alignItems(list, how) {
+    const L = list.filter((it) => !it.lock); if (list.length < 2) return 0;
+    const B = list.map(itemBBox), x0 = Math.min(...B.map((b) => b.x0)), x1 = Math.max(...B.map((b) => b.x1)), y0 = Math.min(...B.map((b) => b.y0)), y1 = Math.max(...B.map((b) => b.y1));
+    let n = 0;
+    L.forEach((it) => { const b = itemBBox(it), dx = how === 'left' ? x0 - b.x0 : how === 'right' ? x1 - b.x1 : how === 'cx' ? (x0 + x1) / 2 - (b.x0 + b.x1) / 2 : 0, dy = how === 'top' ? y0 - b.y0 : how === 'bottom' ? y1 - b.y1 : how === 'cy' ? (y0 + y1) / 2 - (b.y0 + b.y1) / 2 : 0;
+      if (Math.abs(dx) > 0.05 || Math.abs(dy) > 0.05) { moveBy(it, dx, dy); n++; } });
+    return n;
+  }
+  /* equal gaps between neighbours along x or y; the two outermost stay; gap given → from the first one at that gap */
+  function distributeItems(list, axis, gap) {
+    if (list.length < 3 && !(gap >= 0 && list.length >= 2)) return 0;
+    const X = axis === 'x', key = (it) => { const b = itemBBox(it); return X ? (b.x0 + b.x1) / 2 : (b.y0 + b.y1) / 2; };
+    const S = list.slice().sort((a, b) => key(a) - key(b)), B = S.map(itemBBox), size = (b) => X ? b.x1 - b.x0 : b.y1 - b.y0;
+    const start = X ? B[0].x0 : B[0].y0, end = X ? B[B.length - 1].x1 : B[B.length - 1].y1, total = B.reduce((a, b) => a + size(b), 0);
+    const g = gap >= 0 ? gap : (end - start - total) / (S.length - 1);
+    let pos = start, n = 0;
+    S.forEach((it, i) => { const b = B[i], cur = X ? b.x0 : b.y0, d = pos - cur; if (!it.lock && Math.abs(d) > 0.05) { moveBy(it, X ? d : 0, X ? 0 : d); n++; } pos += size(b) + g; });
+    return n;
+  }
+  /* tables numbered again 1, 2, 3…: by rows (top to bottom, left to right inside a row) or by columns; only the given ones if a list is passed */
+  function renumber(p, order, only) {
+    const T = (only || p.items).filter((it) => it.kind === 'table' && !it.stand);
+    const a = order === 'cols' ? 'x' : 'y', b = order === 'cols' ? 'y' : 'x';
+    const S = T.slice().sort((u, v) => u[a] - v[a]); const rows = [];
+    S.forEach((it) => { const half = (order === 'cols' ? itemBBox(it).x1 - itemBBox(it).x0 : itemBBox(it).y1 - itemBBox(it).y0) / 2, r = rows.find((q) => Math.abs(q.at - it[a]) <= Math.max(300, half)); if (r) r.list.push(it); else rows.push({ at: it[a], list: [it] }); });
+    let n = 1;   // the whole plan from 1; a chosen few from the smallest number among them
+    if (only) { const have = T.map((it) => +it.num).filter((x) => x > 0); n = have.length ? Math.min(...have) : nextNum(p); }
+    rows.sort((q, w) => q.at - w.at).forEach((r) => r.list.sort((u, v) => u[b] - v[b]).forEach((it) => { it.num = n++; }));
+    return T.length;
+  }
+  /* one seating for a table: the sides that already have chairs (or the long ones when none) get as many as that density allows */
+  function applySeating(it, density) {
+    if (it.kind !== 'table' || it.stand) return false;
+    const lim = seatLimits(it);
+    if (it.shape === 'rect') { const s = it.sides || [0, 0, 0, 0], used = s.map((v) => (+v || 0) > 0), any = used.some(Boolean), on = any ? used : [true, true, false, false];
+      it.sides = lim.per.map((o, k) => (on[k] ? o[density] : 0)); }
+    else it.seats = lim.per[0][density];
+    return true;
+  }
   /* ---------- trying the scene on a photo: a picture warped onto four corners ---------- */
   /* the projective map of the unit square onto a quad TL, TR, BR, BL (Heckbert): (u,v) -> [x,y] */
   function sq2quad(q) {
@@ -815,7 +857,7 @@ var PG = (function () {
      (on the same layer), within tol mm; with no such line and a grid on, its centre on the grid. guides: lines to draw */
   function alignSnap(p, it, x, y, tol, grid, opt) {
     opt = opt || {};
-    const others = opt.objects === false ? [] : p.items.filter((o) => o.id !== it.id && o.kind !== 'photo' && !!o.top === !!it.top);
+    const ex = opt.exclude || [], others = opt.objects === false ? [] : p.items.filter((o) => o.id !== it.id && ex.indexOf(o.id) < 0 && o.kind !== 'photo' && !!o.top === !!it.top);
     const me = itemBBox(Object.assign({}, it, { x, y })), offX = [0, me.x0 - x, me.x1 - x], offY = [0, me.y0 - y, me.y1 - y];
     let bx = null, by = null;
     others.forEach((o) => {
@@ -947,7 +989,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

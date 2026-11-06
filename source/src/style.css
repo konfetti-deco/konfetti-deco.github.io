@@ -1072,3 +1072,14 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .seatn small{font-size:10px;opacity:.8}
 .stp .sb:disabled{opacity:.35;cursor:not-allowed}
 #plan .phe{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5}
+/* v46: several objects on the plan */
+#plan .pmq{fill:rgba(27,161,199,.10);stroke:#1BA1C7;stroke-width:1.2;stroke-dasharray:5 4;pointer-events:none}
+#plan .pmb{fill:none;stroke:#1BA1C7;stroke-width:1.2;stroke-dasharray:3 4;pointer-events:none}
+.albar{display:flex;flex-wrap:wrap;gap:4px;align-items:center}
+.albar .alb{width:38px;height:38px;border:1px solid var(--wline);border-radius:9px}
+.albar .alb svg,.albar .btn svg{width:20px;height:20px}
+.albar .sep{width:6px}
+.seg.seg4{display:grid;grid-template-columns:repeat(4,1fr);width:100%}
+.seg.seg4 button{padding:6px 2px;font-size:12px}
+.seatrow{display:flex;flex-direction:column;gap:4px}
+.seatrow .fl{font-size:12px;color:var(--muted)}
