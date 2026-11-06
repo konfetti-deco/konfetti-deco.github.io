@@ -1071,3 +1071,4 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .seatn b{font:600 16px var(--f-mono,ui-monospace,monospace);color:var(--ink)}
 .seatn small{font-size:10px;opacity:.8}
 .stp .sb:disabled{opacity:.35;cursor:not-allowed}
+#plan .phe{fill:var(--accent);stroke:var(--pl-bg);stroke-width:1.5}

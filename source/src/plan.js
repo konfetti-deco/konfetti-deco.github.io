@@ -285,6 +285,8 @@ var PL = (function () {
     run(A, B, false); run(B, A, true); return best;
   }
   function handle(cls, ref, x, y, r) { return '<circle class="' + cls + '" cx="' + n1(x) + '" cy="' + n1(y) + '" r="' + n1(r) + '"/><circle class="hh" data-r="' + ref + '" cx="' + n1(x) + '" cy="' + n1(y) + '" r="' + n1(r * 2.6) + '"/>'; }
+  /* a handle in the middle of a side: a short bar along that side, changes only the length or only the width */
+  function pill(ref, x, y, r, ang) { return '<rect class="phd phe" x="' + n1(x - r * 1.7) + '" y="' + n1(y - r * 0.75) + '" width="' + n1(r * 3.4) + '" height="' + n1(r * 1.5) + '" rx="' + n1(r * 0.7) + '" transform="rotate(' + n1(ang) + ' ' + n1(x) + ' ' + n1(y) + ')"/><circle class="hh" data-r="' + ref + '" cx="' + n1(x) + '" cy="' + n1(y) + '" r="' + n1(r * 3) + '"/>'; }
   function sq(cls, ref, x, y, r) { return '<rect class="' + cls + '" x="' + n1(x - r) + '" y="' + n1(y - r) + '" width="' + n1(2 * r) + '" height="' + n1(2 * r) + '" rx="' + n1(r * 0.3) + '"/><circle class="hh" data-r="' + ref + '" cx="' + n1(x) + '" cy="' + n1(y) + '" r="' + n1(r * 3) + '"/>'; }
   function paint() {
     const sv = svg(); if (!sv || UI.mode !== 'plan') return;
@@ -357,6 +359,8 @@ var PL = (function () {
       else if (it.kind === 'hook') {}   // a hanging point has no size
       else if (it.shape === 'round') { const q = W(hw, 0); hnd += sq('phd', 'z|' + it.id + '|r', q[0], q[1], r); }
       else { [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((k, j) => { const q = W(k[0] * hw, k[1] * hd); hnd += sq('phd', 'z|' + it.id + '|' + j, q[0], q[1], r); });
+        // sides: top, right, bottom, left — only when the side is long enough on screen for three handles
+        [[0, -1, 0], [1, 0, 90], [0, 1, 0], [-1, 0, 90]].forEach((k, j) => { const along = (j % 2 ? 2 * hd : 2 * hw) * s; if (along < 36) return; const q = W(k[0] * hw, k[1] * hd); hnd += pill('z|' + it.id + '|e' + j, q[0], q[1], r, (it.rot || 0) + k[2]); });
         const t0 = W(0, -hd), t1 = W(0, -hd - 34 / s); hnd += '<line class="prl" x1="' + n1(t0[0]) + '" y1="' + n1(t0[1]) + '" x2="' + n1(t1[0]) + '" y2="' + n1(t1[1]) + '"/>' + handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }
     }
     /* the sketch being drawn and the ruler */
@@ -525,7 +529,19 @@ var PL = (function () {
       const a = -(it.rot || 0) * G.DEG, vx = p[0] - it.x, vy = p[1] - it.y, lx = vx * Math.cos(a) - vy * Math.sin(a), ly = vx * Math.sin(a) + vy * Math.cos(a);
       if (d.mode === 'isize') {
         if (it.shape === 'round') { it.w = G.clamp(r10(2 * G.hyp(vx, vy)), 100, 60000); it.d = it.w; tip('Ø ' + fs(it.w)); }
-        else { it.w = G.clamp(r10(2 * Math.abs(lx)), 100, 60000); it.d = G.clamp(r10(2 * Math.abs(ly)), 100, 60000); tip(fs(it.w) + ' × ' + fs(it.d) + ' ' + uLab()); }
+        else {
+          /* the opposite corner or side stays where it was: a table against a wall keeps touching it */
+          const h = String(d.ref[2] || ''), w0 = it.w, d0 = it.d, e = h[0] === 'e' ? +h.slice(1) : -1;
+          const kx = e >= 0 ? [0, 1, 0, -1][e] : [-1, 1, 1, -1][+h], ky = e >= 0 ? [-1, 0, 1, 0][e] : [-1, -1, 1, 1][+h];
+          let cx = 0, cy = 0;
+          if (free) { if (kx) it.w = G.clamp(r10(2 * Math.abs(lx)), 100, 60000); if (ky) it.d = G.clamp(r10(2 * Math.abs(ly)), 100, 60000); }   // Shift: from the centre, both sides
+          else {
+            if (kx) { const fx = -kx * w0 / 2; it.w = G.clamp(r10(kx * (lx - fx)), 100, 60000); cx = fx + kx * it.w / 2; }
+            if (ky) { const fy = -ky * d0 / 2; it.d = G.clamp(r10(ky * (ly - fy)), 100, 60000); cy = fy + ky * it.d / 2; }
+            const c = G.toWorld(it, cx, cy); it.x = Math.round(c[0] * 10) / 10; it.y = Math.round(c[1] * 10) / 10;
+          }
+          tip(e >= 0 ? (kx ? (it.shape === 'oval' ? 'длина ' : 'ширина ') + fs(it.w) : (it.shape === 'oval' ? 'ширина ' : 'глубина ') + fs(it.d)) + ' ' + uLab() : fs(it.w) + ' × ' + fs(it.d) + ' ' + uLab());
+        }
       } else { let ang = Math.atan2(vy, vx) / G.DEG + 90; if (!free) ang = Math.round(ang / 15) * 15; it.rot = G.normDeg(ang); tip('поворот ' + G.nf(it.rot, 0) + '°'); }
       st.sel = { t: 'item', i: it.id }; paint(); return true;
     }

@@ -7,7 +7,8 @@ css=open(src+'style.css',encoding='utf-8').read()
 assert '</script' not in js.lower() and '</style' not in css.lower()
 html=open(src+'index.tpl.html',encoding='utf-8').read().replace('/*CSS*/',css).replace('/*JS*/','(function(){"use strict";\n'+js+'\n})();' if '--iife' in sys.argv else js)
 if not site:
-    open('dist/konstruktor-fotozon.html','w',encoding='utf-8').write(html)
+    # the artifact host wraps the page in a skeleton with a charset; opened as a local file it needs its own, or Chrome may guess another encoding
+    open('dist/konstruktor-fotozon.html','w',encoding='utf-8').write('<meta charset="utf-8">\n'+html)
     print('built',len(html),'bytes')
 else:
     # the stand-alone site (GitHub Pages): a full document with the home-screen icon, manifest and offline cache
