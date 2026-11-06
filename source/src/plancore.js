@@ -680,10 +680,12 @@ var PG = (function () {
         if (m.t === 'dim') o.v = +m.v > 0 ? Math.round(+m.v) : null;
         if (m.t !== 'dim' || m.text) o.text = String(m.text || '').slice(0, 200);
         if (m.t === 'dim' && m.poly) o.poly = String(m.poly).slice(0, 24);
+        if (m.t === 'dim' && m.est && o.v) o.est = true;   // the number came from the reference, not from a tape
         if (m.t === 'dim' && m.wid && m.rid) { o.rid = String(m.rid); o.wid = String(m.wid); }   // the plan wall this size was sent to
         return o;
       }),
       ...(ph.fit && normFit(ph.fit, ph) ? { fit: normFit(ph.fit, ph) } : {}),
+      ...(ph.ref && normRef(ph.ref) ? { ref: normRef(ph.ref) } : {}),
     }));
   }
   /* a size line without its number is not a size: listed until a number is typed or the line is removed */
@@ -834,6 +836,27 @@ var PG = (function () {
   }
   /* ---------- trying the scene on a photo: a picture warped onto four corners ---------- */
   /* the projective map of the unit square onto a quad TL, TR, BR, BL (Heckbert): (u,v) -> [x,y] */
+  /* the 8 numbers of the projective map unit square → quad: x = (a u + b v + c) / (g u + h v + 1), y = (d u + e v + f) / (…) */
+  function homMat(q) {
+    const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
+    const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+    if (Math.abs(dx3) < 1e-9 && Math.abs(dy3) < 1e-9) return [x1 - x0, x3 - x0, x0, y1 - y0, y3 - y0, y0, 0, 0];
+    const det = dx1 * dy2 - dx2 * dy1, g = (dx3 * dy2 - dx2 * dy3) / det, h = (dx1 * dy3 - dx3 * dy1) / det;
+    return [x1 - x0 + g * x1, x3 - x0 + h * x3, x0, y1 - y0 + g * y1, y3 - y0 + h * y3, y0, g, h];
+  }
+  /* the way back: a point of the photo → (u, v) of the square (the inverse matrix by its adjugate) */
+  function quad2sq(q) {
+    const [a, b, c, d, e, f, g, h] = homMat(q);
+    const A = e - f * h, B = c * h - b, C = b * f - c * e, D = f * g - d, E = a - c * g, F = c * d - a * f, G2 = d * h - e * g, H = b * g - a * h, I = a * e - b * d;
+    return (x, y) => { const w = G2 * x + H * y + I; return [(A * x + B * y + C) / w, (D * x + E * y + F) / w]; };
+  }
+  /* a length on the plane of a reference rectangle of known size (ref: {q, w, h} in photo px and mm) */
+  function refLen(ref, p1, p2) {
+    if (!ref || !quadOk(ref.q) || !(ref.w > 0) || !(ref.h > 0)) return null;
+    const M = quad2sq(ref.q), u = M(p1[0], p1[1]), v = M(p2[0], p2[1]);
+    if (![u[0], u[1], v[0], v[1]].every(isFinite)) return null;
+    return Math.hypot((u[0] - v[0]) * ref.w, (u[1] - v[1]) * ref.h);
+  }
   function sq2quad(q) {
     const [x0, y0] = q[0], [x1, y1] = q[1], [x2, y2] = q[2], [x3, y3] = q[3];
     const dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
@@ -873,6 +896,12 @@ var PG = (function () {
     const cx = ph.w / 2, by = Math.min(ph.h - 4, ph.h * 0.5 + h / 2 + ph.h * 0.12), x0 = cx - w / 2, x1 = cx + w / 2, y0 = by - h;
     const R = (v) => Math.round(v * 10) / 10;
     return { q: [[R(x0), R(y0)], [R(x1), R(y0)], [R(x1), R(by)], [R(x0), R(by)]], scaled: k > 0 };
+  }
+  function normRef(r) {
+    if (!r || typeof r !== 'object' || !Array.isArray(r.q) || r.q.length !== 4) return null;
+    const q = r.q.map((p) => Array.isArray(p) && isFinite(+p[0]) && isFinite(+p[1]) ? [+p[0], +p[1]] : null);
+    if (q.some((p) => !p) || !quadOk(q)) return null;
+    return { q, w: +r.w > 0 ? Math.round(+r.w) : null, h: +r.h > 0 ? Math.round(+r.h) : null };
   }
   function normFit(f, ph) {
     if (!f || typeof f !== 'object' || !Array.isArray(f.q) || f.q.length !== 4) return null;
@@ -1002,7 +1031,7 @@ var PG = (function () {
     const phs = list.map((ph) => {
       const dims = ph.marks.filter((m) => m.t === 'dim');
       return { id: ph.id, name: ph.name, w: ph.w, h: ph.h,
-        dims: dims.map((m, i) => ({ n: i + 1, name: m.text || '', v: m.v > 0 ? m.v : null, wall: m.wid && wallOf[m.wid] ? wallOf[m.wid] : '' })),
+        dims: dims.map((m, i) => ({ n: i + 1, name: m.text || '', est: !!m.est, v: m.v > 0 ? m.v : null, wall: m.wid && wallOf[m.wid] ? wallOf[m.wid] : '' })),
         notes: ph.marks.filter((m) => m.t !== 'dim' && String(m.text || '').trim()).map((m) => String(m.text).trim()),
         figs: photoFigures(ph.marks, figTol(ph)).filter((f) => f.known).map((f) => ({ n: f.n, P: f.P, area: f.area, exact: f.exact, how: f.how, warn: f.warn || '' })),
         fit: !!(ph.fit && ph.fit.on) };
@@ -1055,7 +1084,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

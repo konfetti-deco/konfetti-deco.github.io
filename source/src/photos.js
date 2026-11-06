@@ -14,7 +14,7 @@ var PF = (function () {
     fpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   };
   const COLNAME = { '#FF4D4F': 'красный', '#FFD43B': 'жёлтый', '#FFFFFF': 'белый', '#40C057': 'зелёный', '#4DABF7': 'синий' };
-  const st = { poly: null, kpOpen: null, cutFor: '', lay: null, pim: null, pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
+  const st = { refEdit: 'w', f2: null, poly: null, kpOpen: null, cutFor: '', lay: null, pim: null, pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
   function L() { if (!Array.isArray(S.photos)) S.photos = []; return S.photos; }
   function cur() { return L().find((p) => p.id === st.open) || null; }
   function mark(id) { const ph = cur(); return ph ? ph.marks.find((m) => m.id === id) || null : null; }
@@ -115,7 +115,7 @@ var PF = (function () {
     return grp('Примерка сцены', (cut ? '' : '<div class="pchip warn full"><i class="cdot warn"></i><span>Сцена пуста — примерять нечего</span></div>') +
       '<div class="fld full"><span class="fl">Видимость, %</span><span class="seg" role="group" aria-label="Насколько видна сцена, процентов">' + ops.map((o) => '<button type="button" data-fact="fit-op" data-v="' + o + '" aria-pressed="' + (Math.abs(f.op - o) < 0.01) + '">' + Math.round(o * 100) + '</button>').join('') + '</span></div>' +
       (sz ? '<div class="kv2 full"><span>Сцена</span><b>' + sz + '</b></div>' : '') +
-      '<div class="pacts full">' + (st.tool === 'fit' ? btn('tool', 'Готово', { v: '', cls: 'pnext' }) : btn('tool', 'Двигать углы', { v: 'fit', cls: 'pnext' })) + btn('fit-on', f.on ? 'Скрыть' : 'Показать') + btn('fit-rect', 'Выпрямить') + btn('fit-reset', 'Заново') + btn('fit-del', 'Убрать', { cls: 'dng' }) + '</div>' +
+      '<div class="pacts full">' + (st.tool === 'fit' ? btn('tool', 'Готово', { v: '', cls: 'pnext' }) : btn('tool', 'Двигать углы', { v: 'fit', cls: 'pnext' })) + btn('fit-on', f.on ? 'Скрыть' : 'Показать') + btn('fit-floor', 'По 2 точкам пола') + btn('fit-rect', 'Выпрямить') + btn('fit-reset', 'Заново') + btn('fit-del', 'Убрать', { cls: 'dng' }) + '</div>' +
       '<p class="muted small full">Тяните четыре угла: нижние — на пол там, где будет стоять фотозона, верхние — на нужную высоту. Сцена искажается в перспективе, как на фото. Внутри рамки — сдвиг целиком. Картинка берётся из режима «Сцена»: поменяете там — примерка обновится. «Выпрямить» — снова прямоугольник на том же месте, «Заново» — исходный размер' + (ph.marks.some((m) => m.t === 'dim' && m.v > 0) ? ' по вашему самому длинному замеру' : '') + '.</p>');
   }
   function figTol(ph) { return G.figTol(ph); }
@@ -142,6 +142,24 @@ var PF = (function () {
   function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
   function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
   function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
+  /* a size without a number: its length on the plane of the reference (null when there is no full reference) */
+  function estOf(m, ph) { ph = ph || cur(); return ph && ph.ref && m && m.t === 'dim' ? G.refLen(ph.ref, m.a, m.b) : null; }
+  function refStart(ph) {
+    if (!ph.ref) { const w = ph.w * 0.16, h = ph.h * 0.42, cx = ph.w / 2, cy = ph.h / 2, R0 = (v) => Math.round(v * 10) / 10; ph.ref = { q: [[R0(cx - w / 2), R0(cy - h / 2)], [R0(cx + w / 2), R0(cy - h / 2)], [R0(cx + w / 2), R0(cy + h / 2)], [R0(cx - w / 2), R0(cy + h / 2)]], w: null, h: null }; st.refEdit = 'w'; label('эталон'); toast('Поставьте 4 угла на предмет известного размера — дверь, плитку, стол — и впишите его ширину и высоту.'); }
+    else render();
+  }
+  function refHtml(ph) {
+    const r = ph.ref; if (!r && st.tool !== 'ref') return grp('Измерить по эталону', '<p class="muted small full">Отметьте на фото предмет известного размера: дверь, плитку, стол. Тогда размеры в той же плоскости (та же стена или пол) посчитаются сами — без рулетки.</p><div class="pacts full">' + btn('tool', 'Задать эталон', { v: 'ref', cls: 'pnext' }) + '</div>');
+    if (!r) return '';
+    const e = st.refEdit === 'h' ? 'h' : 'w', ok = r.w > 0 && r.h > 0;
+    const PRE = [['Дверь', 900, 2100], ['Двойная дверь', 1400, 2100], ['Плитка 60', 600, 600], ['Лист A4', 210, 297]];
+    return grp('Эталон', '<div class="seg full" role="group" aria-label="Что вписываю">' + [['w', 'Ширина'], ['h', 'Высота']].map((q) => '<button type="button" data-fact="ref-edit" data-v="' + q[0] + '" aria-pressed="' + (e === q[0]) + '">' + q[1] + ': ' + (r[q[0]] > 0 ? fl(r[q[0]]) : '?') + '</button>').join('') + '</div>' +
+      KP.html({ id: 'pf-ref', bind: 'data-fbind="r.' + e + '"', act: 'data-fact', label: e === 'w' ? 'Ширина эталона' : 'Высота эталона', val: r[e] > 0 ? fl(r[e]) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'refnext', cls: r[e] > 0 ? '' : 'bad' }) +
+      '<div class="pacts full">' + PRE.map((x) => '<button type="button" class="btn sm" data-fact="ref-pre" data-v="' + x[1] + '|' + x[2] + '">' + x[0] + ' ' + G.nf(x[1] / 1000, 2) + '×' + G.nf(x[2] / 1000, 2) + '</button>').join('') + '</div>' +
+      (ok ? '<div class="pchip ok full"><i class="cdot ok"></i><span>Размеры без числа теперь показывают «≈» — по эталону</span></div>' : '<div class="pchip warn full"><i class="cdot warn"></i><span>Впишите ширину и высоту эталона</span></div>') +
+      '<div class="pacts full">' + (st.tool === 'ref' ? btn('tool', 'Готово', { v: '', cls: 'pnext' }) : btn('tool', 'Двигать углы', { v: 'ref' })) + btn('ref-del', 'Убрать эталон', { cls: 'dng' }) + '</div>' +
+      '<p class="muted small full">Углы — по порядку: левый верхний, правый верхний, правый нижний, левый нижний (как у прямоугольника на фото). Точно меряется только то, что лежит в той же плоскости, что и эталон: на той же стене или на полу. Число по эталону помечается «≈»; ваш замер рулеткой точнее.</p>');
+  }
   function polySides(m) { const ph = cur(); return ph && m && m.poly ? ph.marks.filter((x) => x.poly === m.poly) : []; }
   function nextSide(m) { const L = polySides(m), i = L.indexOf(m); for (let k = 1; k < L.length; k++) { const q = L[(i + k) % L.length]; if (!(q.v > 0)) return q; } return null; }
   function closePoly() {
@@ -200,7 +218,7 @@ var PF = (function () {
     if (m.t === 'dim') {
       const k = 15 / s, w = 3.6 / s;   // thin sharp arrows pointing at the two ends
       for (const [q, dir] of [[a, -1], [b, 1]]) { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; h += '<polygon class="fah" fill="' + c + '" points="' + n1(q[0]) + ',' + n1(q[1]) + ' ' + n1(bx + nx * w) + ',' + n1(by + ny * w) + ' ' + n1(bx - nx * w) + ',' + n1(by - ny * w) + '"/>'; }
-      const lab = (m.text ? m.text + ' · ' : '') + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab());
+      const es = !(m.v > 0) ? estOf(m) : null, lab = (m.text ? m.text + ' · ' : '') + (m.v > 0 ? (m.est ? '≈' : '') + fl(m.v) + ' ' + uLab() : es ? '≈' + fl(es) + ' ' + uLab() : '? ' + uLab());
       h += txt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, lab, 14, m.v > 0 ? dark : '#fff', m.v > 0 ? c : '#C92A2A', on);
     } else {
       const k = 16 / s, w = 7 / s, p1 = [b[0] - ux * k + nx * w, b[1] - uy * k + ny * w], p2 = [b[0] - ux * k - nx * w, b[1] - uy * k - ny * w];
@@ -234,6 +252,9 @@ var PF = (function () {
     if (m) for (const k of m.t === 'text' ? [] : ['a', 'b']) { const q = m[k]; hnd += '<circle class="fhd" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(7 / s) + '"/><circle class="fhh" data-r="h|' + m.id + '|' + k + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(20 / s) + '"/>'; }
     if (st.pend) hnd += '<circle class="fpd" cx="' + n1(st.pend[0]) + '" cy="' + n1(st.pend[1]) + '" r="' + n1(6 / s) + '"/>';
     if (st.drag && st.drag.mode === 'new' && st.drag.b) { const d = st.drag; mk += markSvg({ id: '_', t: st.tool, a: d.a, b: d.b, v: null, col: st.col }, true); }
+    if (ph.ref) { const q = ph.ref.q, pts = q.map((p) => n1(p[0]) + ',' + n1(p[1])).join(' '), top = [(q[0][0] + q[1][0]) / 2, (q[0][1] + q[1][1]) / 2];
+      mk = '<polygon class="frf" points="' + pts + '"' + (st.tool === 'ref' ? ' data-r="em"' : '') + '/>' + txt(top[0], top[1] + 18 / s, 'эталон ' + (ph.ref.w > 0 ? G.nf(ph.ref.w / 1000, 2) : '?') + ' × ' + (ph.ref.h > 0 ? G.nf(ph.ref.h / 1000, 2) : '?'), 12, '#062A33', '#7FDCF0', false) + mk;
+      if (st.tool === 'ref') hnd += q.map((p, i) => '<circle class="fhd frh" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(8 / s) + '"/><circle class="fhh" data-r="e|' + i + '" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(22 / s) + '"/>').join(''); }
     if (st.tool === 'poly' && st.poly && st.poly.length) { const P2 = st.poly; hnd += '<polyline class="fpl" points="' + P2.map((q) => n1(q[0]) + ',' + n1(q[1])).join(' ') + '"/>' + P2.map((q, i) => '<circle class="fpp' + (i === 0 ? ' first' : '') + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1((i === 0 ? 9 : 6) / s) + '"/>').join(''); }
     if (fitOn(ph)) { refreshCut(); if (st.tool === 'fit') { const q = ph.fit.q, pts = q.map((p) => n1(p[0]) + ',' + n1(p[1])).join(' ');
       hnd += '<polygon class="ffq" data-r="qm" points="' + pts + '"/>' + q.map((p, i) => '<circle class="fhd fqd" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(8 / s) + '"/><circle class="fhh" data-r="q|' + i + '" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(22 / s) + '"/>').join(''); } }
@@ -246,6 +267,8 @@ var PF = (function () {
     let t = '';
     if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'fit') t = '<span>Примерка: тяните углы</span>' + U.help('Нижние углы — на пол, где будет стоять фотозона, верхние — на её высоту. Внутри рамки — сдвиг целиком.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'ref') t = '<span>Эталон: поставьте 4 угла на предмет известного размера</span>' + U.help('Например, на дверь: левый верхний, правый верхний, правый нижний, левый нижний угол. Справа впишите его ширину и высоту — или выберите готовый размер.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'fit2') t = '<span>' + (st.f2 && st.f2.length ? 'Теперь правый край на полу' : 'Коснитесь пола там, где будет левый край фотозоны') + '</span><button type="button" class="btn sm" data-fact="tool" data-v="fit">Отмена</button>';
     else if (cur() && st.tool === 'poly') t = '<span>Контур: коснитесь углов по очереди' + (st.poly && st.poly.length ? ' · углов ' + st.poly.length : '') + '</span>' + U.help('Каждая сторона станет размером. Замкните — коснитесь первого угла или «Замкнуть»; затем впишите длины сторон по очереди, и справа появятся периметр и площадь.') + (st.poly && st.poly.length ? '<button type="button" class="btn sm" data-fact="poly-back">Убрать угол</button>' : '') + (st.poly && st.poly.length >= 3 ? '<button type="button" class="btn sm pri" data-fact="poly-close">Замкнуть</button>' : '') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Отмена</button>';
     else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
@@ -278,6 +301,8 @@ var PF = (function () {
     if (st.tool === 'poly') { d.mode = 'poly'; return true; }
     if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = st.pend || (st.tool === 'dim' ? snapEnd(clampPt(p), null) : clampPt(p)); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
     if (st.tool === 'text') { d.mode = 'newtext'; return true; }
+    if (st.tool === 'ref' && ref && (ref[0] === 'e' || ref[0] === 'em') && cur().ref) { d.mode = ref[0] === 'e' ? 'ec' : 'em'; d.k = +ref[1]; d.rsnap = JSON.stringify(cur().ref); if (d.mode === 'ec') loupe(ev, cur().ref.q[d.k]); return true; }
+    if (st.tool === 'fit2') { d.mode = 'fit2'; return true; }
     if (st.tool === 'fit' && ref && (ref[0] === 'q' || ref[0] === 'qm') && cur().fit) { d.mode = ref[0] === 'q' ? 'qc' : 'qm'; d.k = +ref[1]; d.fsnap = JSON.stringify(cur().fit); if (d.mode === 'qc') loupe(ev, cur().fit.q[d.k]); return true; }
     if (ref && ref[0] === 'h') { d.mode = 'end'; d.k = ref[2]; d.snap = JSON.stringify(mark(ref[1])); loupe(ev, mark(ref[1])[d.k]); return true; }
     if (ref && ref[0] === 'm') { d.mode = 'move'; d.snap = JSON.stringify(mark(ref[1])); return true; }
@@ -295,6 +320,11 @@ var PF = (function () {
     if (d.mode === 'pan') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; applyView(); return true; }
     if (d.mode === 'new') { d.b = st.tool === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), null) : clampPt(p); loupe(ev, d.b); paint(); return true; }
     if (d.mode === 'end') { const m = mark(d.ref[1]); Object.assign(m, JSON.parse(d.snap)); m[d.k] = m.t === 'dim' && !ev.shiftKey ? snapEnd(clampPt(p), m.id) : clampPt(p); loupe(ev, m[d.k]); paint(); return true; }
+    if (d.mode === 'ec' || d.mode === 'em') {
+      const ph = cur(), o = JSON.parse(d.rsnap), lim = (v, a) => G.clamp(Math.round(v * 10) / 10, 0, a);
+      const q = d.mode === 'ec' ? o.q.map((x, i) => i === d.k ? [lim(p[0], ph.w), lim(p[1], ph.h)] : x) : o.q.map((x) => [lim(x[0] + p[0] - d.p0[0], ph.w), lim(x[1] + p[1] - d.p0[1], ph.h)]);
+      if (G.quadOk(q, 8 / st.v.s)) ph.ref.q = q; if (d.mode === 'ec') loupe(ev, ph.ref.q[d.k]); paint(); return true;
+    }
     if (d.mode === 'qc' || d.mode === 'qm') {
       const ph = cur(), o = JSON.parse(d.fsnap), lim = (v, a) => G.clamp(Math.round(v * 10) / 10, -a * 0.5, a * 1.5);
       const q = d.mode === 'qc' ? o.q.map((x, i) => i === d.k ? [lim(p[0], ph.w), lim(p[1], ph.h)] : x) : o.q.map((x) => [lim(x[0] + p[0] - d.p0[0], ph.w), lim(x[1] + p[1] - d.p0[1], ph.h)]);
@@ -310,6 +340,18 @@ var PF = (function () {
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
     st.drag = null; loupe(null);
     if (cancel && d.fsnap) { cur().fit = JSON.parse(d.fsnap); paint(); return true; }
+    if (cancel && d.rsnap) { cur().ref = JSON.parse(d.rsnap); paint(); return true; }
+    if (d.mode === 'ec' || d.mode === 'em') { if (d.moved) label(d.mode === 'ec' ? 'эталон: угол' : 'эталон: сдвиг'); else paint(); return true; }
+    if (d.mode === 'fit2') {   // two points on the floor: the scene stands on them, its height from its own proportions
+      if (d.moved) { paint(); return true; }
+      const ph = cur(), q0 = clampPt(toImg(ev)); st.f2 = (st.f2 || []).concat([q0]);
+      if (st.f2.length < 2) { paint(); banner(); return true; }
+      let [a, b] = st.f2; if (a[0] > b[0]) [a, b] = [b, a]; st.f2 = null;
+      const r = cut && cut.wmm > 0 ? cut.hmm / cut.wmm : 0.75, Lp = Math.hypot(b[0] - a[0], b[1] - a[1]), hgt = Lp * r, R0 = (v) => Math.round(v * 10) / 10;
+      const q = [[R0(a[0]), R0(a[1] - hgt)], [R0(b[0]), R0(b[1] - hgt)], [R0(b[0]), R0(b[1])], [R0(a[0]), R0(a[1])]];
+      if (G.quadOk(q)) { ph.fit = ph.fit || { op: 1, on: true }; ph.fit.q = q; ph.fit.on = true; ph.fit.op = ph.fit.op || 1; st.tool = 'fit'; label('примерка по линии пола'); } else { st.tool = 'fit'; toast('Точки слишком близко — коснитесь левого и правого края на полу.'); render(); }
+      return true;
+    }
     if (d.mode === 'qc' || d.mode === 'qm') { if (d.moved) label(d.mode === 'qc' ? 'примерка: угол' : 'примерка: сдвиг'); else paint(); return true; }
     if (cancel) { if (d.snap) { const o = JSON.parse(d.snap), m = mark(o.id); if (m) Object.assign(m, o); } paint(); return true; }
     const p = clampPt(toImg(ev)), ph = cur();
@@ -380,7 +422,7 @@ var PF = (function () {
         const b = [m.b[0] * K, m.b[1] * K], dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = px * 0.6, wd = Math.max(2, px / 7);
         line(a, b, m.col, wd);
         const head = (q, dir, k, w) => { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; c.fillStyle = m.col; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = K; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(bx + nx * w, by + ny * w); c.lineTo(bx - nx * w, by - ny * w); c.closePath(); c.stroke(); c.fill(); };
-        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (m.text ? m.text + ' · ' : '') + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab()), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
+        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (m.text ? m.text + ' · ' : '') + (m.v > 0 ? (m.est ? '≈' : '') + fl(m.v) + ' ' + uLab() : estOf(m, ph) ? '≈' + fl(estOf(m, ph)) + ' ' + uLab() : '? ' + uLab()), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
       figures(ph).forEach((f) => { if (f.area > 0) pill(f.c[0] * K, f.c[1] * K, 'S ' + (f.exact ? '' : '≈') + fArea(f.area).replace(/ \(.*\)$/, '') + ' · P ' + fl(f.P) + ' ' + uLab(), px * 0.9, '#111', 'rgba(255,255,255,.93)'); });
@@ -393,7 +435,7 @@ var PF = (function () {
     switch (name) {
       case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
       case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
-      case 'tool': st.tool = v || ''; st.pend = null; st.poly = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } if (st.tool === 'fit' && ph) { st.sel = null; fitStart(ph); return; } render(); return;
+      case 'tool': st.tool = v || ''; st.pend = null; st.poly = null; st.f2 = null; if (st.tool === 'ref' && ph) { st.sel = null; refStart(ph); return; } if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } if (st.tool === 'fit' && ph) { st.sel = null; fitStart(ph); return; } render(); return;
       case 'fit-op': if (ph && ph.fit) { ph.fit.op = G.clamp(+v || 1, 0.2, 1); label('примерка: видно ' + Math.round(ph.fit.op * 100) + ' %'); } return;
       case 'fit-on': if (ph && ph.fit) { ph.fit.on = !ph.fit.on; if (!ph.fit.on && st.tool === 'fit') st.tool = ''; label(ph.fit.on ? 'примерка показана' : 'примерка скрыта'); } return;
       case 'fit-rect': if (ph && ph.fit) { const q = fitRect(ph); if (G.quadOk(q)) { ph.fit.q = q; label('примерка выпрямлена'); } } return;
@@ -403,6 +445,12 @@ var PF = (function () {
       case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
       case 'sel': st.sel = v; st.kpOpen = null; render(); return;
+      case 'est-take': if (m) { const e = estOf(m, ph); if (e) { m.v = Math.round(e); m.est = true; label('размер по эталону ≈' + fl(m.v)); } } return;
+      case 'ref-edit': st.refEdit = v === 'h' ? 'h' : 'w'; render(); return;
+      case 'refnext': if (ph && ph.ref) { if (st.refEdit !== 'h' && !(ph.ref.h > 0)) { st.refEdit = 'h'; render(); setTimeout(() => { const n = document.getElementById('pf-ref'); if (n) n.focus(); }, 40); } else render(); } return;
+      case 'ref-pre': if (ph && ph.ref) { const [w, h] = String(v).split('|').map(Number); ph.ref.w = w; ph.ref.h = h; label('эталон ' + fl(w) + ' × ' + fl(h)); } return;
+      case 'ref-del': if (ph && ph.ref) { delete ph.ref; if (st.tool === 'ref') st.tool = ''; label('эталон убран'); } return;
+      case 'fit-floor': if (ph) { refreshCut(true).then((r) => { if (!r) { toast('Сцена пуста — соберите фотозону в режиме «Сцена».'); return; } st.tool = 'fit2'; st.f2 = null; render(); }); } return;
       case 'poly-close': closePoly(); return;
       case 'poly-back': if (st.poly) { st.poly.pop(); paint(); banner(); } return;
       case 'mnext': { const nx = m && nextSide(m); st.sel = nx ? nx.id : null; st.kpOpen = null; render(); if (nx) focusVal(); return; }
@@ -424,7 +472,8 @@ var PF = (function () {
     const ph = cur(), m = mark(st.sel);
     switch (path) {
       case 'p.name': if (ph) { ph.name = String(raw).trim().slice(0, 80) || 'Фото'; label('название'); } return;
-      case 'm.v': if (m) { if (String(raw).trim() === '') { m.v = null; label('размер без числа'); return; } const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Размер в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return; } m.v = v; label('размер ' + fl(v)); } return;
+      case 'm.v': if (m) { if (String(raw).trim() === '') { m.v = null; label('размер без числа'); return; } const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Размер в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return; } m.v = v; delete m.est; label('размер ' + fl(v)); } return;
+      case 'r.w': case 'r.h': if (ph && ph.ref) { const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '».'); render(); return; } ph.ref[path.slice(2)] = v; label('эталон: ' + (path === 'r.w' ? 'ширина ' : 'высота ') + fl(v)); } return;
       case 'm.wpick': if (m) { st.pick[m.id] = String(raw); render(); } return;
       case 'm.text': if (m) { m.text = String(raw).trim().slice(0, m.t === 'dim' ? 60 : 200); if (m.t === 'dim' && !m.text) delete m.text; label(m.t === 'text' ? 'заметка' : m.t === 'dim' ? 'название размера' : 'подпись стрелки'); } return;
     }
@@ -474,6 +523,7 @@ var PF = (function () {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
         return '<div class="phead"><h3>' + nm + '</h3></div>' +
           grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: m.poly && nextSide(m) ? 'mnext' : 'mdone', cls: m.v > 0 ? '' : 'bad', folded: m.v > 0 && st.kpOpen !== m.id, mid: m.id, help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+            (m.t === 'dim' && !(m.v > 0) && estOf(m, ph) ? '<div class="pchip ok full"><i class="cdot ok"></i><span>По эталону ≈ ' + fl(estOf(m, ph)) + ' ' + uLab() + '</span>' + btn('est-take', 'Принять') + '</div>' : '') + (m.t === 'dim' && m.est ? '<div class="pchip warn full"><i class="cdot warn"></i><span>Число взято по эталону (≈). Впишите замер рулеткой — будет точнее.</span></div>' : '') +
             (m.t === 'dim' ? fld('m.text', 'Название', m.text || '', { cls: 'full', ph: 'например: ширина сцены' }) + (m.poly ? '<p class="small full">Сторона ' + (polySides(m).indexOf(m) + 1) + ' из ' + polySides(m).length + ' контура' + (nextSide(m) ? ' — после ✓ откроется следующая без числа' : '') + '.</p>' : '') : '') +
             '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' + (m.t === 'dim' ? toPlanHtml(m, ph) : '') + (function () { const fs2 = figures(ph), k = fs2.findIndex((f) => f.ids.indexOf(m.id) >= 0 || f.diag === m.id); return k >= 0 ? figHtml(fs2[k], k) : ''; })() +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
@@ -482,7 +532,7 @@ var PF = (function () {
       const pin = pinOf(ph.id), dims = ph.marks.filter((x) => x.t === 'dim'), bad = dims.filter((x) => !(x.v > 0)).length;
       return '<div class="phead"><h3>' + esc(ph.name) + '</h3></div>' + (bad ? '<div class="pchip warn"><i class="cdot warn"></i><span>без числа: ' + bad + '</span>' + U.help('У этих размеров не вписан замер — на фото они стоят как «?». Коснитесь линии и впишите число.') + '</div>' : '') +
         grp('Фото', fld('p.name', 'Название', ph.name, { cls: 'full', ph: 'например: стена у сцены' }) + '<div class="kv2 full"><span>Размеров</span><b>' + dims.length + '</b><span>Заметок и стрелок</span><b>' + (ph.marks.length - dims.length) + '</b><span>Снимок</span><b>' + ph.w + ' × ' + ph.h + '</b></div>') +
-        fitHtml(ph) + (!ph.fit ? grp('Примерка сцены', '<p class="muted small full">Покажите клиенту фотозону прямо на фото зала: сцена из режима «Сцена» ставится на снимок и подгоняется по четырём углам в перспективе.</p><div class="pacts full">' + btn('tool', 'Примерить сцену', { v: 'fit', cls: 'pnext' }) + '</div>') : '') +
+        refHtml(ph) + fitHtml(ph) + (!ph.fit ? grp('Примерка сцены', '<p class="muted small full">Покажите клиенту фотозону прямо на фото зала: сцена из режима «Сцена» ставится на снимок и подгоняется по четырём углам в перспективе.</p><div class="pacts full">' + btn('tool', 'Примерить сцену', { v: 'fit', cls: 'pnext' }) + '</div>') : '') +
         (figures(ph).length ? grp('Площадь и периметр', figures(ph).map(figHtml).join('')) : '') +
         grp('Место на плане', (pin ? '<p class="small full">Отмечено: ' + esc(pinWhere(pin)) + '.</p><div class="pacts full">' + btn('pin', 'Показать на плане') + btn('unpin', 'Убрать отметку', { cls: 'dng' }) + '</div>' : '<p class="muted small full">Отметьте, откуда снято: на плане появится значок камеры с направлением съёмки, по касанию он открывает это фото.</p><div class="pacts full">' + btn('pin', 'Отметить на плане', { cls: 'pnext' }) + '</div>')) +
         grp('Разметка', '<p class="muted small full">Инструменты слева: «Размер» — проведите от точки к точке и впишите замер; «Заметка»; «Стрелка». Цвет выбирается внизу панели. Два пальца — масштаб.</p>') +

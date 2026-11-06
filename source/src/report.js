@@ -122,7 +122,7 @@ var RP = (function () {
           if (d.need(30)) { c = d.c; txt(c, rp.name + ' (продолжение)', MX, d.y, '600 18px ' + body, em); d.y += 32; }
           c = d.c;
           [rp.dims[r0], rp.dims[r0 + half]].forEach((dm, col) => { if (!dm) return; const x0 = MX + col * (CW / 2);
-            c.font = '400 17px ' + body; txt(c, fit(c, dm.name || 'Размер ' + dm.n, 104), x0, d.y, '400 17px ' + body, mu); txt(c, dm.v ? fl(dm.v, u) + ' ' + uLab(u) : '? — нет числа', x0 + 110, d.y, '600 17px ' + body, dm.v ? ink : warn);
+            c.font = '400 17px ' + body; txt(c, fit(c, dm.name || 'Размер ' + dm.n, 104), x0, d.y, '400 17px ' + body, mu); txt(c, dm.v ? (dm.est ? '≈' : '') + fl(dm.v, u) + ' ' + uLab(u) : '? — нет числа', x0 + 110, d.y, '600 17px ' + body, dm.v ? ink : warn);
             if (dm.wall) { c.font = '400 15px ' + body; txt(c, fit(c, '→ ' + dm.wall, CW / 2 - 260), x0 + 240, d.y, '400 15px ' + body, mu); } });
           d.y += 30;
         }

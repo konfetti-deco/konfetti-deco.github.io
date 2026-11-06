@@ -18,7 +18,7 @@ var KP = (function () {
     const inp = document.getElementById(btn.dataset.for); if (!inp) return;
     const k = btn.dataset.kp, fresh = inp.dataset.fresh === '1';
     let b = fresh ? '' : inp.value;
-    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); else if (af === 'mnext' && window.PF) PF.act('mnext'); }, 0); return; }
+    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); else if (af === 'mnext' && window.PF) PF.act('mnext'); else if (af === 'refnext' && window.PF) PF.act('refnext'); }, 0); return; }
     if (k === 'C') b = '';
     else if (k === 'bs') b = fresh ? '' : b.slice(0, -1);
     else if (k === ',') { const last = b.split('+').pop(); if (last.indexOf(',') >= 0) return; b += last === '' ? '0,' : ','; }

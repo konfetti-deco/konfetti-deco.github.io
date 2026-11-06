@@ -207,5 +207,22 @@ for (let k = 0; k < 400; k++) {
   const s = PG.alignSnap({ rooms: [], items: [A, B, O] }, M, 3000, 7000 + 40, 80, 0, { space: 'center' }); near(s.y, 7000, 1e-6, 'a column by centres'); ok(s.spacing.length === 2 && s.spacing.every((m) => m.vert), 'vertical marks');
   ok(PG.normalize({}).space === 'edge' && PG.normalize({ space: 'center' }).space === 'center' && PG.normalize({ space: 'x' }).space === 'edge', 'setting saved, edge by default'); }
 
+/* 30. measuring by a reference rectangle: the way back from the photo to the plane is exact for points of that plane */
+for (let k = 0; k < 300; k++) {
+  // a wall plane in mm, seen through a random perspective (the quad), a door 900 × 2100 on it
+  const cx = rnd(300, 900), cy = rnd(300, 700), J = () => rnd(150, 300), Q = [[cx - J(), cy - J()], [cx + J(), cy - J()], [cx + J(), cy + J()], [cx - J(), cy + J()]];
+  const W = 900, H = 2100, F = PG.sq2quad(Q), ref = { q: Q, w: W, h: H };
+  const B = PG.quad2sq(Q); [[0, 0], [1, 0], [1, 1], [0, 1], [0.3, 0.7]].forEach((uv) => { const p = F(uv[0], uv[1]), r = B(p[0], p[1]); near(r[0], uv[0], 1e-7, 'there and back u'); near(r[1], uv[1], 1e-7, 'there and back v'); });
+  // two points of the same plane: a length known in mm
+  const u1 = Math.random() * 2 - 0.5, v1 = Math.random() * 2 - 0.5, u2 = Math.random() * 2 - 0.5, v2 = Math.random() * 2 - 0.5;
+  const want = Math.hypot((u1 - u2) * W, (v1 - v2) * H), L = PG.refLen(ref, F(u1, v1), F(u2, v2));
+  if (isFinite(L)) near(L, want, Math.max(1e-6, want * 1e-7), 'length on the reference plane');
+  near(PG.refLen(ref, Q[0], Q[1]), W, 1e-6, 'its top side = its width'); near(PG.refLen(ref, Q[1], Q[2]), H, 1e-6, 'its side = its height');
+}
+ok(PG.refLen({ q: [[0, 0], [10, 0], [10, 10], [0, 10]], w: null, h: 2100 }, [0, 0], [5, 0]) === null, 'no width: no length');
+ok(PG.refLen({ q: [[0, 0], [10, 10], [10, 0], [0, 10]], w: 900, h: 2100 }, [0, 0], [5, 0]) === null, 'a folded reference: no length');
+{ const n = PG.normPhotos([{ im: 'i', w: 100, h: 100, marks: [{ t: 'dim', a: [0, 0], b: [1, 1], v: 2350, est: true }, { t: 'dim', a: [0, 0], b: [1, 1], v: null, est: true }], ref: { q: [[10, 10], [60, 10], [60, 90], [10, 90]], w: 900, h: '2100' } }]);
+  ok(n[0].ref && n[0].ref.w === 900 && n[0].ref.h === 2100, 'reference kept with the photo'); ok(n[0].marks[0].est === true && !n[0].marks[1].est, 'an estimate is marked only with a number'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

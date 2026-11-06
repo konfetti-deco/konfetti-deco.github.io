@@ -1109,3 +1109,8 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 #fsvg .fpl{fill:rgba(255,255,255,.08);stroke:#fff;stroke-width:2;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
 #fsvg .fpp{fill:var(--accent,#5fd3a6);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:none}
 #fsvg .fpp.first{fill:#fff;stroke:var(--accent,#5fd3a6);stroke-width:2.5}
+
+/* v50: the reference rectangle */
+#fsvg .frf{fill:rgba(127,220,240,.12);stroke:#7FDCF0;stroke-width:2;stroke-dasharray:7 5;vector-effect:non-scaling-stroke}
+#fsvg .frf[data-r]{cursor:move;pointer-events:all}
+#fsvg .frh{fill:#7FDCF0}
