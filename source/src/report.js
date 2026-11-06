@@ -145,5 +145,24 @@ var RP = (function () {
       return IO.save(IO.fname('pdf', 'Обмер'), doc.output('blob'), 'bin');
     }).catch(() => toast('Отчёт собрать не удалось: для PDF нужен интернет (загружается модуль). Попробуйте ещё раз при подключении.'));
   }
-  return { build, pdf };
+  /* the plan alone: an A4 landscape sheet with the name, the date and the totals — to send to the venue */
+  function planCanvas(k) {
+    const PW = 1754, PH = 1240, M0 = 70, R = G.reportData(S.plan, S.photos || []), plan = S.plan || G.newPlan(), cv = document.createElement('canvas');
+    cv.width = PW * k; cv.height = PH * k; const c = cv.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, PW, PH);
+    txt(c, String(S.name || 'План зала'), M0, 96, '600 46px ' + disp, em); eyebrow(c, 'План зала', PW - M0, 78, 'right'); txt(c, today(), PW - M0, 104, '400 18px ' + body, mu, 'right');
+    c.fillStyle = line; c.fillRect(M0, 122, PW - 2 * M0, 1);
+    const sm = G.seatingSummary(plan), foot = [R.rooms.length ? 'площадь ' + (R.areaExact ? '' : '≈') + m2(R.area) : '', sm.tables ? 'столов ' + sm.tables + ' · мест ' + sm.seats : '', sm.stand ? 'коктейльных ' + sm.stand : '', 'единицы: ' + uLab(R.unit)].filter(Boolean).join('   ·   ');
+    drawPlan(c, plan, R, M0, 140, PW - 2 * M0, PH - 140 - 110);
+    c.fillStyle = line; c.fillRect(M0, PH - 92, PW - 2 * M0, 1); txt(c, foot, M0, PH - 58, '500 19px ' + body, ink);
+    if (sm.list.length) { c.font = '400 16px ' + body; txt(c, fit(c, sm.list.map((r) => r.label + ' — ' + r.n).join('   ·   '), PW - 2 * M0), M0, PH - 30, '400 16px ' + body, mu); }
+    return cv;
+  }
+  function planPng() { return IO.fonts().then(() => IO.canvasBlob(planCanvas(1.5))).then((bl) => IO.save(IO.fname('png', 'План'), bl, 'img')); }
+  function planPdf() {
+    return IO.script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(() => IO.fonts()).then(() => {
+      const doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'landscape', compress: true });
+      doc.addImage(planCanvas(1.5).toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210); return IO.save(IO.fname('pdf', 'План'), doc.output('blob'), 'bin');
+    }).catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
+  }
+  return { build, pdf, planCanvas, planPng, planPdf };
 })();

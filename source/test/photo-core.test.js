@@ -185,5 +185,27 @@ for (let k = 0; k < 400; k++) {
   ok(S2.list.reduce((x, r) => x + r.seats, 0) === S2.seats, 'rows add up to the total seats');
   ok(S2.list[S2.list.length - 1].stand, 'standing tables listed last'); }
 
+/* 29. equal steps in a row: the third table lands at the same gap (outermost points with chairs) or the same centre distance */
+{ const R = (id, x, y) => Object.assign(PG.makeItem('t_r150', x, y), { id, w: 1500, shape: 'round', seats: 9 });
+  const fb = PG.fullBox(R('q', 0, 0)), W = fb.x1 - fb.x0;   // the table with its chairs
+  for (let k = 0; k < 200; k++) {
+    const gap = rnd(300, 2500), A = R('a', 2000, 3000), B = R('b', 2000 + W + gap, 3000), p = { rooms: [], items: [A, B] }, M = R('m', 0, 0);
+    const off = rnd(-60, 60), want = B.x + (B.x - A.x);   // makeItem rounds positions
+    let s = PG.alignSnap(p, M, want + off, 3000 + rnd(-200, 200), 80, 0, { space: 'edge' });
+    near(s.x, want, 1e-6, 'third at the same gap ' + gap + ' (off ' + off + ')'); ok(s.spacing.length === 2 && s.spacing.every((m) => Math.abs(m.d - gap) < 1.5 && !m.vert), 'two equal-step marks of ' + gap + ': ' + s.spacing.map((m) => m.d.toFixed(1)));
+    s = PG.alignSnap(p, M, A.x - (B.x - A.x) + off, 3000, 80, 0, { space: 'edge' }); near(s.x, A.x - (B.x - A.x), 1e-6, 'also on the left side');
+    // between the two: centred, equal gaps both sides
+    const C = R('c', 2000 + 2 * (W + gap) + W + 600, 3000), p2 = { rooms: [], items: [A, C] }, mid = (A.x + C.x) / 2;
+    s = PG.alignSnap(p2, M, mid + off, 3000, 80, 0, { space: 'edge' }); near(s.x, mid, 1e-6, 'between two: in the middle');
+    // centres
+    const step = rnd(2500, 5000), A2 = R('a', 1000, 6000), B2 = R('b', 1000 + step, 6000);
+    s = PG.alignSnap({ rooms: [], items: [A2, B2] }, M, 1000 + 2 * step + off, 6000, 80, 0, { space: 'center' }); near(s.x, 1000 + 2 * step, 1e-6, 'by centres: step ' + step);
+    s = PG.alignSnap({ rooms: [], items: [A2, B2] }, M, 1000 + 2 * step + off, 6000, 80, 0, { space: 'off' }); ok(s.spacing.length === 0, 'off: no equal steps');
+  }
+  // columns too, and a table in another row does not count
+  const A = R('a', 3000, 1000), B = R('b', 3000, 4000), O = R('o', 9000, 2500), M = R('m', 0, 0);
+  const s = PG.alignSnap({ rooms: [], items: [A, B, O] }, M, 3000, 7000 + 40, 80, 0, { space: 'center' }); near(s.y, 7000, 1e-6, 'a column by centres'); ok(s.spacing.length === 2 && s.spacing.every((m) => m.vert), 'vertical marks');
+  ok(PG.normalize({}).space === 'edge' && PG.normalize({ space: 'center' }).space === 'center' && PG.normalize({ space: 'x' }).space === 'edge', 'setting saved, edge by default'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

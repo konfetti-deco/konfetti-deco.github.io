@@ -902,11 +902,44 @@ var PG = (function () {
     let nx = ux ? x + ux.d : bx ? x + bx.d : x, ny = uy ? y + uy.d : by ? y + by.d : y;
     if (!bx && !ux && grid > 0) nx = snapGrid(x, go[0], grid); if (!by && !uy && grid > 0) ny = snapGrid(y, go[1], grid);
     if (!bx && !ux && !(grid > 0)) nx = Math.round(x / 10) * 10; if (!by && !uy && !(grid > 0)) ny = Math.round(y / 10) * 10;
+    /* equal steps in a row: the same gap as between the neighbours (from the outermost points, chairs included) or the same distance between centres */
+    let spacing = [];
+    if (opt.space !== 'off' && others.length) {
+      const X = eqStep(others, it, x, ny, tol, true, opt.space), Y = eqStep(others, it, nx, y, tol, false, opt.space);
+      if (X && !ux && (!bx || Math.abs(X.shift) < Math.abs(bx.d))) { nx = x + X.shift; bx = null; }
+      if (Y && !uy && (!by || Math.abs(Y.shift) < Math.abs(by.d))) { ny = y + Y.shift; by = null; }
+      if (X && nx === x + X.shift) spacing = spacing.concat(stepMarks(others, it, nx, ny, true, X.g, opt.space));
+      if (Y && ny === y + Y.shift) spacing = spacing.concat(stepMarks(others, it, nx, ny, false, Y.g, opt.space));
+    }
     const mb = itemBBox(Object.assign({}, it, { x: nx, y: ny })), guides = [];
     const on = (vals, L) => vals.some((v) => Math.abs(v - L) < 0.5);
     if (bx) { let a = mb.y0, c = mb.y1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.x, b.x0, b.x1], bx.L)) { a = Math.min(a, b.y0); c = Math.max(c, b.y1); n++; } }); guides.push({ vert: true, at: bx.L, a: a - 250, b: c + 250, n }); }
     if (by) { let a = mb.x0, c = mb.x1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.y, b.y0, b.y1], by.L)) { a = Math.min(a, b.x0); c = Math.max(c, b.x1); n++; } }); guides.push({ vert: false, at: by.L, a: a - 250, b: c + 250, n }); }
-    return { x: nx, y: ny, guides, onGuide: { x: ux ? ux.L : null, y: uy ? uy.L : null } };
+    return { x: nx, y: ny, guides, spacing, onGuide: { x: ux ? ux.L : null, y: uy ? uy.L : null } };
+  }
+  /* the objects of the row (along x) or column (along y) the dragged one is in: their extents overlap it across */
+  function stepRow(others, it, x, y, X, by) {
+    const box = (o) => by === 'center' ? itemBBox(o) : fullBox(o), me = box(Object.assign({}, it, { x, y }));
+    const lo = X ? 'x0' : 'y0', hi = X ? 'x1' : 'y1', plo = X ? 'y0' : 'x0', phi = X ? 'y1' : 'x1';
+    const row = others.map((o) => ({ o, b: box(o), c: X ? o.x : o.y })).filter((q) => q.b[plo] < me[phi] && q.b[phi] > me[plo]).sort((a, b) => a.c - b.c);
+    return { me, row, lo, hi, plo, phi, c: X ? x : y };
+  }
+  function eqStep(others, it, x, y, tol, X, by) {
+    const R = stepRow(others, it, x, y, X, by), row = R.row; if (!row.length) return null;
+    const cen = by === 'center', w = R.me[R.hi] - R.me[R.lo], gaps = [];
+    for (let i = 0; i + 1 < row.length; i++) { const g = cen ? row[i + 1].c - row[i].c : row[i + 1].b[R.lo] - row[i].b[R.hi]; if (g > 1) gaps.push(g); }
+    const left = row.filter((q) => q.c < R.c), right = row.filter((q) => q.c >= R.c), L = left[left.length - 1], Rt = right[0], cand = [];
+    if (L && Rt) { if (cen) cand.push({ shift: (L.c + Rt.c) / 2 - R.c, g: (Rt.c - L.c) / 2 }); else { const x0 = (L.b[R.hi] + Rt.b[R.lo] - w) / 2; cand.push({ shift: x0 - R.me[R.lo], g: (Rt.b[R.lo] - L.b[R.hi] - w) / 2 }); } }
+    gaps.forEach((g) => { if (L) cand.push({ shift: cen ? L.c + g - R.c : L.b[R.hi] + g - R.me[R.lo], g }); if (Rt) cand.push({ shift: cen ? Rt.c - g - R.c : Rt.b[R.lo] - g - R.me[R.hi], g }); });
+    let best = null; cand.forEach((q) => { if (q.g > 1 && Math.abs(q.shift) <= tol && (!best || Math.abs(q.shift) < Math.abs(best.shift))) best = q; });
+    return best;
+  }
+  /* the equal steps to show: every neighbouring pair of the row (with the dragged one) whose step equals g */
+  function stepMarks(others, it, x, y, X, g, by) {
+    const meIt = Object.assign({}, it, { x, y }), R = stepRow(others.concat([meIt]), it, x, y, X, by), row = R.row, cen = by === 'center', out = [];
+    for (let i = 0; i + 1 < row.length; i++) { const a = row[i], b = row[i + 1], d = cen ? b.c - a.c : b.b[R.lo] - a.b[R.hi];
+      if (Math.abs(d - g) < 1.5) { const at = (Math.max(a.b[R.plo], b.b[R.plo]) + Math.min(a.b[R.phi], b.b[R.phi])) / 2; out.push({ vert: !X, from: cen ? a.c : a.b[R.hi], to: cen ? b.c : b.b[R.lo], at, d }); } }
+    return out.length >= 2 ? out : [];
   }
   /* a side being pulled (resizing): its line sticks to another object's side or centre line, or to a ruler guide.
      vert: a vertical line at x = val. Returns { v, g } (g: a guide segment to draw) or null */
@@ -987,7 +1020,8 @@ var PG = (function () {
     o.minClear = clamp(Math.round(+o.minClear || 2200), 1000, 6000);
     o.snap = [500, 1000].indexOf(+o.snap) >= 0 ? +o.snap : 0;   // grid with snapping: off, 0.5 m, 1 m
     o.aisle = o.aisle === 0 ? 0 : clamp(Math.round(+o.aisle || 900), 300, 3000);   // narrow passage warning, 0 = off
-    o.smart = o.smart !== false;   // lining up with other objects while dragging
+    o.smart = o.smart !== false;
+    o.space = ['edge', 'center', 'off'].indexOf(o.space) >= 0 ? o.space : 'edge';   // equal steps: by the outermost points / by centres / off   // lining up with other objects while dragging
     o.rulers = o.rulers !== false;
     o.guides = (Array.isArray(o.guides) ? o.guides : []).filter((g) => g && isFinite(+g.at)).slice(0, 60).map((g) => ({ id: String(g.id || uid()), vert: !!g.vert, at: Math.round(+g.at) }));
     o.rooms = (Array.isArray(o.rooms) ? o.rooms : []).filter((r) => r && Array.isArray(r.walls) && r.walls.length >= 3).map((r) => {

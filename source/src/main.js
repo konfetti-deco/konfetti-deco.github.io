@@ -571,6 +571,8 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
+    case 'plan-png':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPng();break;
+    case 'plan-pdf':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPdf();break;
     case 'copy-offer':copyFrom($('#offer-text'));break;
     case 'copy-modal':copyFrom($('#modal-text'));break;
     case 'reset-prices':S.prices={};commit();break;

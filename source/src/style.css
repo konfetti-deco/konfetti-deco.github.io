@@ -1099,3 +1099,5 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .sumt small{color:var(--muted);min-width:56px;text-align:right}
 .sumt .tot{background:var(--chrome);font-weight:600}
 .pad0{padding:0 12px 6px;margin:0}
+#plan .psp{stroke:#E8557A;stroke-width:1.5;pointer-events:none}
+#plan .psp-t{fill:#E8557A}

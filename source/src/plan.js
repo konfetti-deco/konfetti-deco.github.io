@@ -387,6 +387,10 @@ var PL = (function () {
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
     (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize' || st.drag.mode === 'gmove') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     if (st.layer === 'floor') gaps().forEach((q) => { const mx = (q.p[0] + q.q[0]) / 2, my = (q.p[1] + q.q[1]) / 2; over += '<line class="pna" x1="' + n1(q.p[0]) + '" y1="' + n1(q.p[1]) + '" x2="' + n1(q.q[0]) + '" y2="' + n1(q.q[1]) + '"/>'; labels += text(mx, my - 9 / s, fl(q.d), 10.5, 'pna-t'); });
+    if (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'gmove')) (st.spacing || []).forEach((m) => {   // equal steps: a dimension per gap, all at once
+      const tk = 7 / s, A = m.vert ? [m.at, m.from] : [m.from, m.at], B = m.vert ? [m.at, m.to] : [m.to, m.at];
+      over += '<line class="psp" x1="' + n1(A[0]) + '" y1="' + n1(A[1]) + '" x2="' + n1(B[0]) + '" y2="' + n1(B[1]) + '"/>' + (m.vert ? '<line class="psp" x1="' + n1(A[0] - tk) + '" y1="' + n1(A[1]) + '" x2="' + n1(A[0] + tk) + '" y2="' + n1(A[1]) + '"/><line class="psp" x1="' + n1(B[0] - tk) + '" y1="' + n1(B[1]) + '" x2="' + n1(B[0] + tk) + '" y2="' + n1(B[1]) + '"/>' : '<line class="psp" x1="' + n1(A[0]) + '" y1="' + n1(A[1] - tk) + '" x2="' + n1(A[0]) + '" y2="' + n1(A[1] + tk) + '"/><line class="psp" x1="' + n1(B[0]) + '" y1="' + n1(B[1] - tk) + '" x2="' + n1(B[0]) + '" y2="' + n1(B[1] + tk) + '"/>');
+      labels += text((A[0] + B[0]) / 2 + (m.vert ? 14 / s : 0), (A[1] + B[1]) / 2 - (m.vert ? 0 : 10 / s), fl(m.d), 11, 'psp-t'); });
     over += guidesSvg(false);
     if (st.marq) { const m = st.marq, x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1]); over += '<rect class="pmq" x="' + n1(x0) + '" y="' + n1(y0) + '" width="' + n1(Math.abs(m.b[0] - m.a[0])) + '" height="' + n1(Math.abs(m.b[1] - m.a[1])) + '"/>'; }
     if (st.multi.length > 1) { const bs = st.multi.map(item).filter(Boolean).map(G.itemBBox); if (bs.length) { const x0 = Math.min(...bs.map((b) => b.x0)), y0 = Math.min(...bs.map((b) => b.y0)), x1 = Math.max(...bs.map((b) => b.x1)), y1 = Math.max(...bs.map((b) => b.y1)), pd = 8 / s; over += '<rect class="pmb" x="' + n1(x0 - pd) + '" y="' + n1(y0 - pd) + '" width="' + n1(x1 - x0 + 2 * pd) + '" height="' + n1(y1 - y0 + 2 * pd) + '"/>'; } }
@@ -522,8 +526,8 @@ var PL = (function () {
     if (d.mode === 'gmove') {
       const lead = item(d.gid); if (!lead) return true; const o = d.gsnap[d.gid];
       if (st.multi.indexOf(d.gid) < 0) { st.multi = d.ids.slice(); st.sel = null; }
-      const a = free ? { x: r10(o.x + mm[0]), y: r10(o.y + mm[1]), guides: [] } : G.alignSnap(P(), Object.assign({}, lead, { x: o.x, y: o.y }), o.x + mm[0], o.y + mm[1], 9 / s, P().snap || 0, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [], exclude: d.ids });
-      const dx = a.x - o.x, dy = a.y - o.y; st.guides = a.guides;
+      const a = free ? { x: r10(o.x + mm[0]), y: r10(o.y + mm[1]), guides: [] } : G.alignSnap(P(), Object.assign({}, lead, { x: o.x, y: o.y }), o.x + mm[0], o.y + mm[1], 9 / s, P().snap || 0, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [], exclude: d.ids, space: P().space });
+      const dx = a.x - o.x, dy = a.y - o.y; st.guides = a.guides; st.spacing = a.spacing;
       d.ids.forEach((id) => { const it = item(id), q = d.gsnap[id]; if (it && q && !it.lock) { it.x = Math.round((q.x + dx) * 10) / 10; it.y = Math.round((q.y + dy) * 10) / 10; } });
       tip('выделено ' + d.ids.length + ' · сдвиг ' + fl(Math.hypot(dx, dy)) + ' ' + uLab()); paint(); return true;
     }
@@ -536,8 +540,8 @@ var PL = (function () {
     }
     if (d.mode === 'room') { const r = room(d.ref[1]); r.x = r10(d.o.x + mm[0]); r.y = r10(d.o.y + mm[1]); st.sel = { t: 'room', r: r.id }; paint(); return true; }
     if (d.mode === 'item') {
-      const it = item(d.ref[1]), a = free ? { x: r10(d.o.x + mm[0]), y: r10(d.o.y + mm[1]), guides: [] } : G.alignSnap(P(), it, d.o.x + mm[0], d.o.y + mm[1], 9 / s, P().snap || 0, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [] });
-      it.x = a.x; it.y = a.y; st.guides = a.guides; st.sel = { t: 'item', i: it.id };
+      const it = item(d.ref[1]), a = free ? { x: r10(d.o.x + mm[0]), y: r10(d.o.y + mm[1]), guides: [] } : G.alignSnap(P(), it, d.o.x + mm[0], d.o.y + mm[1], 9 / s, P().snap || 0, { objects: P().smart !== false, guides: rulersOn() ? P().guides : [], space: P().space });
+      it.x = a.x; it.y = a.y; st.guides = a.guides; st.spacing = a.spacing; st.sel = { t: 'item', i: it.id };
       const n = document.querySelector('#pitems [data-k="' + it.id + '"]'); if (n) n.setAttribute('transform', 'translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')');
       paint(); return true;
     }
@@ -595,7 +599,7 @@ var PL = (function () {
     const had = !!st.tps[ev.pointerId]; delete st.tps[ev.pointerId];
     if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
-    st.drag = null; st.guides = null; tip(''); clearTimeout(d.lp);
+    st.drag = null; st.guides = null; st.spacing = null; tip(''); clearTimeout(d.lp);
     if (d.ctx) { if (d.mode === 'gmove' && !d.moved) {} return true; }   // the menu is open: releasing the finger does nothing else
     if (d.mode === 'marq') {
       const m = st.marq; st.marq = null;
@@ -733,7 +737,8 @@ var PL = (function () {
     const dims = { rect: [12000, 8000], L: [12000, 9000], U: [15000, 10000] }[shape];
     const r = G.makeRoom(P().rooms.length ? '' : 'Банкетный зал', x, y, G.SHAPES[shape](dims[0], dims[1]).map((s) => [s[0], s[1], false]), null);
     P().rooms.push(r); st.sel = { t: 'wall', r: r.id, w: r.walls[0].id }; st.v = null;
-    label('новое помещение'); toast('Размеры примерные (≈). Впишите замер каждой стены — начните с ' + G.wallName(r, 0) + '.');
+    label('новое помещение'); let seen = 0; try { seen = +localStorage.getItem('kd.hint.approx') || 0; localStorage.setItem('kd.hint.approx', String(seen + 1)); } catch (e) {}
+    if (seen < 2) toast('Размеры примерные (≈). Впишите замер каждой стены — начните с ' + G.wallName(r, 0) + '. Что ещё не измерено — видно внизу, в строке состояния.');
   }
   function act(name, a) {
     const v = a && a.dataset ? a.dataset.v : undefined;
@@ -788,6 +793,7 @@ var PL = (function () {
       case 'g-clear': P().guides = []; if (s.t === 'guide') st.sel = null; label('все направляющие убраны'); return;
       case 'smart': P().smart = P().smart === false; label(P().smart ? 'притяжение к объектам включено' : 'притяжение к объектам выключено'); return;
       case 'rulers': P().rulers = P().rulers === false; label(P().rulers ? 'линейки и направляющие показаны' : 'линейки и направляющие скрыты'); return;
+      case 'space': P().space = v; label(v === 'off' ? 'равный шаг выключен' : 'равный шаг ' + (v === 'center' ? 'по центрам' : 'по краям (со стульями)')); return;
       case 'smart2': P().smart = v === '1'; label(P().smart ? 'притяжение к объектам включено' : 'притяжение к объектам выключено'); return;
       case 'rulers2': P().rulers = v === '1'; label(P().rulers ? 'линейки показаны' : 'линейки скрыты'); return;
       case 'snap': P().snap = +v || 0; label(P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return;
@@ -957,8 +963,9 @@ var PL = (function () {
         return '<div class="phead"><h3>План зала</h3></div>' +
           grp('Помещения', p.rooms.length ? '<div class="plist full">' + p.rooms.map((r, i) => { const g = sm.geoms[i]; return '<button type="button" class="prow" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (g.status === 'ok' ? 'ok' : g.status === 'warn' || g.status === 'partial' ? 'warn' : 'bad') + '"></i><span>' + esc(rname(r)) + '</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b></button>'; }).join('') + '</div>' : '<p class="muted small full">Плана пока нет. Добавьте зал инструментом «Помещение» слева: прямоугольник, Г, П или по углам. Потом впишите замеры стен.</p>') +
           (G.totals(p).tables || G.totals(p).stand ? grp('Сводка рассадки', sumHtml(p)) : '') +
+          (p.rooms.length || p.items.length ? grp('Скачать план', '<div class="pacts full"><button type="button" class="btn sm" data-act="plan-pdf">PDF, лист A4</button><button type="button" class="btn sm" data-act="plan-png">Картинка PNG</button></div><p class="muted small full">Только план с номерами столов, площадью и сводкой — отправить ресторану. С фото и размерами — Файл → «Отчёт обмера».</p>') : '') +
           (G.totals(p).tables ? grp('Столы', '<div class="seatrow full"><span class="fl">Посадка для всех столов</span>' + seatSeg(' data-all="1"', '') + '</div><div class="pacts full">' + btn('renum', 'Пронумеровать по рядам', { v: 'rows' }) + btn('renum', 'по колонкам', { v: 'cols' }) + '</div><p class="muted small full">По рядам — сверху вниз, в ряду слева направо. Несколько столов: инструмент «Несколько» слева — касаниями или рамкой.</p>') : '') +
-          grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + '<div class="fld full"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
+          grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + '<div class="fld full"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' + '<div class="fld full"><span class="fl">Равный шаг</span>' + seg([['edge', 'по краям'], ['center', 'по центрам'], ['off', 'нет']], p.space || 'edge', 'space') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
       }
       const r = selRoom();
@@ -1121,9 +1128,12 @@ var PL = (function () {
       r.walls.forEach((w, i) => (w.ops || []).forEach((o) => { h += '<button type="button" class="prow sub' + (s.o === o.id ? ' on' : '') + '" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">' + G.wallName(r, i) + '</span></button>'; }));
     });
     p.items.slice().sort((a, b) => (a.kind === 'table' ? 0 : 1) - (b.kind === 'table' ? 0 : 1) || (+a.num || 0) - (+b.num || 0)).forEach((it) => {
-      const lab = it.kind === 'photo' ? '📷 ' + (((S.photos || []).find((x) => x.id === it.photo) || {}).name || 'Фото') : it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна Ø' + fs(it.w) : '■ Колонна ' + fs(it.w) + '×' + fs(it.d || it.w)) : it.kind === 'table' ? (it.stand ? '◦ ' + G.itemLabel(it) : '◯ Стол ' + (it.num != null ? '№' + it.num + ' ' : '') + '· ' + G.itemLabel(it)) : '▭ ' + G.itemLabel(it);
+      const m1 = (v) => G.nf(v / 1000, v % 100 ? 2 : v % 1000 ? 1 : 0), size = it.shape === 'round' || G.isRound(it) ? 'Ø' + m1(it.w) : m1(it.w) + '×' + m1(it.d || it.w), ico = it.shape === 'round' ? '◯' : it.shape === 'oval' ? '⬭' : '▭';
+      const lab = it.kind === 'photo' ? '📷 ' + (((S.photos || []).find((x) => x.id === it.photo) || {}).name || 'Фото') : it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна ' : '■ Колонна ') + size
+        : it.kind === 'table' ? ico + ' ' + (it.stand ? (it.name || 'Коктейльный') + ' · ' + size : (it.num != null ? '№' + it.num + ' · ' : '') + (it.name ? it.name + ' · ' : '') + size) : ico + ' ' + G.itemLabel(it) + ' · ' + size;
+      const glab = it.grp ? ' ⧉' : '';
       const on = s.i === it.id || st.multi.indexOf(it.id) >= 0;
-      h += '<div class="prw' + (on ? ' on' : '') + '"><button type="button" class="prow' + (on ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>' + rowBtns('i', it.id, it.lock, lab) + '</div>';
+      h += '<div class="prw' + (on ? ' on' : '') + '"><button type="button" class="prow' + (on ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab + glab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>' + rowBtns('i', it.id, it.lock, lab) + '</div>';
     });
     return h + '</div>';
   }
@@ -1142,6 +1152,7 @@ var PL = (function () {
   }
   function vSettings() { const p = P(); U.inDock = true; try { return '<div class="pad">' + '<div class="fld"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h)) +
     '<div class="fld"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' +
+    '<div class="fld"><span class="fl">Равный шаг</span>' + seg([['edge', 'по краям'], ['center', 'по центрам'], ['off', 'нет']], p.space || 'edge', 'space') + '</div>' +
     '<div class="fld"><span class="fl">К объектам</span>' + seg([['1', 'притягивать'], ['0', 'нет']], p.smart === false ? '0' : '1', 'smart2') + '</div>' +
     '<div class="fld"><span class="fl">Линейки</span>' + seg([['1', 'показаны'], ['0', 'скрыты']], p.rulers === false ? '0' : '1', 'rulers2') + '</div>' + ((p.guides || []).length ? '<div class="pacts">' + btn('g-clear', 'Убрать все направляющие (' + p.guides.length + ')') + '</div>' : '') +
     fld('p.aisle', 'Мин. проход, ' + uLab(), p.aisle ? fs(p.aisle) : '0', { ph: '0 — не проверять' }) +
