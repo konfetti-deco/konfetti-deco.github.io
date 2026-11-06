@@ -67,5 +67,33 @@ for (let k = 0; k < 400; k++) {
   ok(R.photos[0].figs.length === F.length && F.length === 1 && R.photos[0].figs[0].P === F[0].P && R.photos[0].figs[0].P === 22000, 'figure perimeter = photo figure (22 m)');
   near(R.photos[0].figs[0].area, 24e6, 1, 'figure area 8×3 = 24 m² (right angles)');
   const E = PG.reportData(null, null); ok(E.rooms.length === 0 && E.photos.length === 0 && E.area === 0 && !E.areaExact, 'empty project: empty report'); }
+/* 24. lining up: guides to other objects' centres and edges, the grid from corner A, a free spot for a new object */
+{ const r = PG.makeRoom('Зал', 0, 0, PG.SHAPES.rect(12000, 8000).map((x) => [x[0], x[1], true])), p = PG.normalize({ rooms: [r], items: [] });
+  const a = PG.makeItem('t_q180', 3000, 2000), b = PG.makeItem('t_q180', 7000, 5000), m = PG.makeItem('t_q180', 0, 0); p.items.push(a, b);
+  for (let k = 0; k < 300; k++) {
+    const dx = rnd(-79, 79), dy = rnd(-79, 79);
+    let s = PG.alignSnap(p, m, 3000 + dx, 4000, 80, 0); near(s.x, 3000, 1e-9, 'centre x snaps to table A centre (off by ' + dx + ')'); ok(s.guides.some((g) => g.vert && g.at === 3000), 'vertical guide at x=3000');
+    s = PG.alignSnap(p, m, 5000, 5000 + dy, 80, 0); near(s.y, 5000, 1e-9, 'centre y snaps to table B centre'); ok(s.guides.some((g) => !g.vert && g.at === 5000), 'horizontal guide at y=5000');
+  }
+  const ab = PG.itemBBox(a); let s = PG.alignSnap(p, m, 1500, ab.y0 + 30 + (PG.itemBBox(m).y1 - PG.itemBBox(m).y0) / 2, 80, 0); near(PG.itemBBox(Object.assign({}, m, { x: s.x, y: s.y })).y0, ab.y0, 1e-6, 'top edge snaps to top edge');
+  s = PG.alignSnap(p, m, 5000, 6500, 80, 0); ok(s.guides.length === 0 && s.x === 5000 && s.y === 6500, 'far from every line: no snap, no guide');
+  const g = PG.alignSnap(p, m, 3000 + 40, 6500, 80, 0).guides.find((q) => q.vert); ok(g && g.a <= ab.y0 - 250 && g.b >= 6500, 'the guide reaches from table A to the dragged one');
+  const top = PG.makeItem('u_spot', 3000, 2000); p.items.push(top); s = PG.alignSnap(p, Object.assign(PG.makeItem('t_q180', 0, 0), { id: 'zz' }), 3000 + 40, 7000, 80, 0); near(s.x, 3000, 1e-9, 'floor table lines up with floor tables');
+  const sp = PG.makeItem('u_spot', 0, 0); s = PG.alignSnap({ rooms: p.rooms, items: [a, b] }, sp, 3040, 7000, 80, 0); near(s.x, 3040, 1e-9, 'an upper-layer object ignores floor tables');
+  // grid from corner A
+  p.rooms[0].x = 250; p.rooms[0].y = 130; const go = PG.gridOrigin(p); ok(go[0] === 250 && go[1] === 130, 'grid starts at corner A: ' + go);
+  s = PG.alignSnap({ rooms: p.rooms, items: [] }, m, 1730, 2390, 80, 1000); ok(s.x === 1250 && s.y === 2130, 'grid 1 m snaps the centre (from corner A at 250,130): ' + s.x + ',' + s.y);
+  s = PG.alignSnap({ rooms: p.rooms, items: [] }, m, 1730, 2390, 80, 500); ok(s.x === 1750 && s.y === 2630, 'grid 0.5 m: ' + s.x + ',' + s.y);
+  s = PG.alignSnap({ rooms: p.rooms, items: [a] }, m, a.x + 30, 2390, 80, 1000); ok(s.x === a.x, 'a guide wins over the grid');
+  ok(PG.normalize({ snap: 1000 }).snap === 1000 && PG.normalize({ snap: 7 }).snap === 0 && PG.normalize({}).snap === 0, 'grid setting saved, bad values off');
+  p.rooms[0].x = 0; p.rooms[0].y = 0;
+  // a free spot: not over another table with its chairs, inside the room
+  const q = PG.makeItem('t_q180', 0, 0), fsp = PG.freeSpot(p, q, 3000, 2000), fb = PG.fullBox(Object.assign({}, q, { x: fsp[0], y: fsp[1] }));
+  ok(!p.items.filter((o) => !o.top && o.kind !== 'photo').some((o) => { const b2 = PG.fullBox(o); return b2.x0 < fb.x1 && b2.x1 > fb.x0 && b2.y0 < fb.y1 && b2.y1 > fb.y0; }), 'free spot touches no table: ' + fsp);
+  ok(fb.x0 >= 0 && fb.y0 >= 0 && fb.x1 <= 12000 && fb.y1 <= 8000, 'free spot inside the room');
+  ok(PG.freeSpot({ rooms: p.rooms, items: [] }, q, 6000, 4000).join() === '6000,4000', 'empty room: right at the centre');
+  const full = { rooms: p.rooms, items: [] }; for (let i = 0; i < 400; i++) full.items.push(Object.assign(PG.makeItem('t_q180', 300 + (i % 20) * 600, 300 + Math.floor(i / 20) * 400), { id: 'f' + i }));
+  ok(PG.freeSpot(full, q, 6000, 4000).join() === '6000,4000', 'no room left: the centre anyway'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

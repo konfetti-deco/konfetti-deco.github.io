@@ -131,7 +131,10 @@ var PL = (function () {
     if ((x1 - x0) / minor > 600 || (y1 - y0) / minor > 600) return '';
     for (let x = x0; x <= x1; x += minor) { const l = '<line x1="' + x + '" y1="' + y0 + '" x2="' + x + '" y2="' + y1 + '"/>'; if (Math.round(x) % major === 0) b += l; else a += l; }
     for (let y = y0; y <= y1; y += minor) { const l = '<line x1="' + x0 + '" y1="' + y + '" x2="' + x1 + '" y2="' + y + '"/>'; if (Math.round(y) % major === 0) b += l; else a += l; }
-    return '<g class="pg1">' + a + '</g><g class="pg2">' + b + '</g>';
+    let c = ''; const sn = P().snap || 0;
+    if (sn > 0 && sn * v.s >= 6) { const o = G.gridOrigin(P()), gx0 = G.snapGrid(v.x - W, o[0], sn), gy0 = G.snapGrid(v.y - H, o[1], sn);
+      if ((x1 - gx0) / sn < 600 && (y1 - gy0) / sn < 600) { for (let x = gx0; x <= x1; x += sn) c += '<line x1="' + x + '" y1="' + y0 + '" x2="' + x + '" y2="' + y1 + '"/>'; for (let y = gy0; y <= y1; y += sn) c += '<line x1="' + x0 + '" y1="' + y + '" x2="' + x1 + '" y2="' + y + '"/>'; } }
+    return '<g class="pg1">' + (sn ? '' : a) + '</g><g class="pg2">' + (sn ? '' : b) + '</g>' + (c ? '<g class="pg3">' + c + '</g>' : '');
   }
   function opSvg(A, u, nO, op, L, cls) {
     const nI = [-nO[0], -nO[1]], s = st.v.s, j = 9 / s, t0 = G.clamp(op.off, 0, L), t1 = G.clamp(op.off + op.w, 0, L);
@@ -327,6 +330,7 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
+    (st.drag && st.drag.mode === 'item' && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     set('pgrid', gridSvg()); set('pbody', fill + walls); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
     const em = document.getElementById('pempty'); if (em) em.hidden = p.rooms.length > 0 || !!st.draw || p.items.length > 0;
@@ -434,7 +438,8 @@ var PL = (function () {
     if (d.mode === 'ruler') { st.ruler.b = free ? p.map(Math.round) : snapPoint(p); paint(); return true; }
     if (d.mode === 'room') { const r = room(d.ref[1]); r.x = r10(d.o.x + mm[0]); r.y = r10(d.o.y + mm[1]); st.sel = { t: 'room', r: r.id }; paint(); return true; }
     if (d.mode === 'item') {
-      const it = item(d.ref[1]); it.x = r10(d.o.x + mm[0]); it.y = r10(d.o.y + mm[1]); st.sel = { t: 'item', i: it.id };
+      const it = item(d.ref[1]), a = free ? { x: r10(d.o.x + mm[0]), y: r10(d.o.y + mm[1]), guides: [] } : G.alignSnap(P(), it, d.o.x + mm[0], d.o.y + mm[1], 9 / s, P().snap || 0);
+      it.x = a.x; it.y = a.y; st.guides = a.guides; st.sel = { t: 'item', i: it.id };
       const n = document.querySelector('#pitems [data-k="' + it.id + '"]'); if (n) n.setAttribute('transform', 'translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')');
       paint(); return true;
     }
@@ -477,7 +482,7 @@ var PL = (function () {
     const had = !!st.tps[ev.pointerId]; delete st.tps[ev.pointerId];
     if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
-    st.drag = null; tip('');
+    st.drag = null; st.guides = null; tip('');
     if (cancel) { if (d.moved) restoreSnap(d); if (d.moved && (d.mode === 'room' || d.mode === 'item' || d.mode === 'op' || d.mode === 'opend')) restore(UI.hi); paint(); return true; }
     const p = toMM(ev);
     if (d.mode === 'pan') { if (d.moved) paint(); else { if (st.sel) { st.sel = null; render(); } } return true; }
@@ -519,10 +524,33 @@ var PL = (function () {
     else out = [T(x, y, 0, [4, 0, 0, 0]), T(x, y + 400 + 1100, 90, [4, 4, 0, 0]), T(x, y + 400 + 3300, 90, [4, 4, 0, 1])];
     return out;
   }
-  function place(p) {
+  /* ---------- a picked object appears at once in the middle of the view (a free spot, inside the room), selected; then it is dragged ---------- */
+  function viewCenter() { if (!st.v) return null; const z = hsize(); return z.w > 0 ? [st.v.x + z.w / 2 / st.v.s, st.v.y + z.h / 2 / st.v.s] : null; }
+  function dropPoint() {
+    const c = viewCenter(), gs = P().rooms.map(G.roomGeom);
+    if (!gs.length) { const bb = G.planBBox(P()); return c || (bb ? [(bb.x0 + bb.x1) / 2, (bb.y0 + bb.y1) / 2] : [3000, 3000]); }
+    if (c && gs.some((g) => G.pointInPoly(c, g.pts))) return c;
+    const g = c ? gs.slice().sort((a, b) => G.hyp(a.center[0] - c[0], a.center[1] - c[1]) - G.hyp(b.center[0] - c[0], b.center[1] - c[1]))[0] : gs[0];
+    return [g.center[0], g.center[1]];
+  }
+  function drop(tool) {
+    ensureView(); if (!st.v) { st.tool = tool; render(); return; }
+    st.placed = 0; st.draw = null; st.ruler = null;
+    const c = dropPoint(); let q = c;
+    if (tool.indexOf('it:') === 0) q = G.freeSpot(P(), G.makeItem(tool.slice(3), 0, 0), c[0], c[1]);
+    else if (tool.indexOf('col:') === 0) q = G.freeSpot(P(), { id: '_', kind: 'column', shape: tool.slice(4), x: 0, y: 0, w: 400, d: 400, rot: 0 }, c[0], c[1]);
+    else if (tool.indexOf('op:') === 0) {
+      const nw = nearestWall(c, 1e9); if (!nw) { toast('Сначала добавьте помещение.'); render(); return; }
+      const g = G.roomGeom(nw.r), A = g.raw[nw.i], u = G.unitVec(g.dirs[nw.i]); q = [A[0] + u[0] * nw.t, A[1] + u[1] * nw.t];
+    }
+    st.tool = tool; place(q, true); st.tool = null;
+    if (st.sel && st.sel.t === 'item') { const it = item(st.sel.i); if (it && !!it.top !== (st.layer === 'top')) st.layer = it.top ? 'top' : 'floor'; }
+    render();
+  }
+  function place(p, once) {
     const tool = st.tool;
     if (tool.indexOf('op:') === 0) {
-      const nw = nearestWall(p, 26); if (!nw) { toast('Коснитесь стены — проём ставится на стену.'); return; }
+      const nw = nearestWall(p, once ? 1e9 : 26); if (!nw) { toast('Коснитесь стены — проём ставится на стену.'); return; }
       const kind = tool.slice(3), w = nw.r.walls[nw.i];
       if (nw.L < 400) { toast('Стена слишком короткая для проёма.'); return; }
       const op = G.addOpening(w, kind, nw.L, nw.t); st.tool = null; st.sel = { t: 'op', r: nw.r.id, w: w.id, o: op.id };
@@ -531,7 +559,7 @@ var PL = (function () {
       const shape = tool.slice(4), it = { id: G.uid(), kind: 'column', shape, x: r10(p[0]), y: r10(p[1]), w: 400, d: 400, rot: 0 };
       P().items.push(it); st.tool = null; st.sel = { t: 'item', i: it.id }; label('колонна');
     } else if (tool.indexOf('it:') === 0) {
-      const it = addTable(G.makeItem(tool.slice(3), r10(p[0]), r10(p[1]))); st.placed = (st.placed || 0) + 1; st.sel = { t: 'item', i: it.id };
+      const it = addTable(G.makeItem(tool.slice(3), r10(p[0]), r10(p[1]))); st.placed = (st.placed || 0) + 1; st.sel = { t: 'item', i: it.id }; if (once) st.tool = null;
       if (it.kind === 'ceil') it.h = G.ceilingAt(P(), [it.x, it.y]);
       label(G.CAT[it.ref].label + (it.num != null ? ' №' + it.num : ''));   // the tool stays on: tap again for one more
     } else if (tool.indexOf('pin:') === 0) {
@@ -584,10 +612,10 @@ var PL = (function () {
         if (g === 'open') {
           if ((s.t === 'wall' || s.t === 'op') && r) { const i = wallIx(r, s.w), L = G.roomGeom(r).L[i]; if (L < 400) { toast('Стена слишком короткая для проёма.'); return; } const op = G.addOpening(r.walls[i], v, L); st.sel = { t: 'op', r: r.id, w: r.walls[i].id, o: op.id }; label(G.OPENINGS[v].label + ' на стене ' + G.wallName(r, i)); return; }
           if (!P().rooms.length) { toast('Сначала добавьте помещение.'); render(); return; }
-          st.tool = 'op:' + v; render(); return;
+          drop('op:' + v); return;
         }
-        if (g === 'col') { st.tool = 'col:' + v; render(); return; }
-        if (g === 'tables' || g === 'zones' || g === 'ceil' || g === 'rig' || g === 'light' || g === 'cdeco') { st.placed = 0; st.tool = (v === 'P' || v === 'T') ? 'combo:' + v : 'it:' + v; render(); return; }
+        if (g === 'col') { drop('col:' + v); return; }
+        if (g === 'tables' || g === 'zones' || g === 'ceil' || g === 'rig' || g === 'light' || g === 'cdeco') { drop((v === 'P' || v === 'T') ? 'combo:' + v : 'it:' + v); return; }
         return;
       }
       case 'draw-done': finishDraw(); return;
@@ -597,6 +625,8 @@ var PL = (function () {
       case 'zout': zoomBy(1 / 1.4); return;
       case 'zfit': st.v = null; fit(); paint(); return;
       case 'unit': P().unit = v; label('единицы: ' + G.UNIT[v].ru); return;
+      case 'snap': P().snap = +v || 0; label(P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return;
+      case 'snapcyc': { const nx = { 0: 1000, 1000: 500, 500: 0 }[P().snap || 0]; P().snap = nx; label(nx ? 'сетка ' + G.nf(nx / 1000, nx % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return; }
       case 'sel': { const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; st.split = null; render(); return; }
       case 'clear': st.sel = null; render(); return;
       case 'r-name': if (r) { r.name = v; label('название — ' + v); } return;
@@ -756,7 +786,7 @@ var PL = (function () {
         const sm = G.summary(p);
         return '<div class="phead"><h3>План зала</h3></div>' +
           grp('Помещения', p.rooms.length ? '<div class="plist full">' + p.rooms.map((r, i) => { const g = sm.geoms[i]; return '<button type="button" class="prow" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (g.status === 'ok' ? 'ok' : g.status === 'warn' || g.status === 'partial' ? 'warn' : 'bad') + '"></i><span>' + esc(rname(r)) + '</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b></button>'; }).join('') + '</div>' : '<p class="muted small full">Плана пока нет. Добавьте зал инструментом «Помещение» слева: прямоугольник, Г, П или по углам. Потом впишите замеры стен.</p>') +
-          grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
+          grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + '<div class="fld full"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
       }
       const r = selRoom();
@@ -876,6 +906,7 @@ var PL = (function () {
     return h + '</div>';
   }
   function vSettings() { const p = P(); U.inDock = true; try { return '<div class="pad">' + '<div class="fld"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h)) +
+    '<div class="fld"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' +
     '<div class="fld"><span class="fl">Столкновения</span>' + seg([['1', 'да'], ['0', 'нет']], p.warn === false ? '0' : '1', 'warn') + '</div>' + fld('p.minClear', 'Мин. над гостями, ' + uLab(), fs(p.minClear || 2200)) +
     '<div class="fld"><span class="fl">Верхний слой</span>' + seg([['1', 'показан'], ['0', 'скрыт']], p.showTop === false ? '0' : '1', 'showtop') + '</div><p class="muted small">«Мин. над гостями» — ниже этой высоты декор и свет над столами, танцполом и сценой подсвечиваются. Цифра ваша: 2,2 м стоит по умолчанию.</p></div>'; } finally { U.inDock = false; } }
   function vOptbar() {
@@ -903,7 +934,7 @@ var PL = (function () {
     const sm = G.summary(P()), bad = sm.cnt.bad, warn = sm.cnt.warn + sm.cnt.partial, tt = G.totals(P()), cf = conflicts().list.length + topChecks().list.length;
     return '<span class="zm"><button type="button" class="ib s" data-pact="zout" title="Отдалить" aria-label="Отдалить">' + U.ico.zout + '</button><button type="button" class="zl" id="pzlbl" data-pact="zfit" title="Вписать план">' + zoomText() + '</button><button type="button" class="ib s" data-pact="zin" title="Приблизить" aria-label="Приблизить">' + U.ico.zin + '</button><button type="button" class="ib s" data-pact="zfit" title="Вписать план" aria-label="Вписать план">' + U.ico.fit + '</button></span>' +
       (sm.rooms ? '<span>площадь ' + (warn || bad ? '≈' : '') + m2(sm.area) + ' м²</span>' : '<span>помещений 0</span>') + (tt.tables || tt.stand ? '<span><b>столов ' + tt.tables + ' · мест ' + tt.seats + '</b>' + (tt.stand ? ' · коктейльных ' + tt.stand : '') + '</span>' : '') +
-      (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'замечаний: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><span>единицы: ' + uLab() + '</span>';
+      (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'замечаний: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><button type="button" class="sck" data-pact="snapcyc" title="Сетка с привязкой: нет → 1 м → 0,5 м" aria-pressed="' + !!P().snap + '">' + (P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка: нет') + '</button><span>единицы: ' + uLab() + '</span>';
   }
   const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="ptop"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g></svg>' +
     '<div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
@@ -914,7 +945,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, validate, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { st, validate, drop, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */

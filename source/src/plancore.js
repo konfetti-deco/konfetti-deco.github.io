@@ -786,6 +786,47 @@ var PG = (function () {
     if (q.some((p) => !p) || !quadOk(q)) return null;
     return { q, op: clamp(+f.op || 1, 0.2, 1), on: f.on !== false };
   }
+  /* ---------- lining things up: guides to other objects, an optional grid, a free spot for a new object ---------- */
+  /* the grid starts at the first room's corner A, so its lines run along the walls */
+  function gridOrigin(p) { if (!p.rooms.length) return [0, 0]; const g = roomGeom(p.rooms[0]); return g.raw[0] ? [g.raw[0][0], g.raw[0][1]] : [0, 0]; }
+  function snapGrid(v, o, step) { return o + Math.round((v - o) / step) * step; }
+  /* where an object dragged to (x, y) lands: its centre or an edge on the line of another object's centre or edge
+     (on the same layer), within tol mm; with no such line and a grid on, its centre on the grid. guides: lines to draw */
+  function alignSnap(p, it, x, y, tol, grid) {
+    const others = p.items.filter((o) => o.id !== it.id && o.kind !== 'photo' && !!o.top === !!it.top);
+    const me = itemBBox(Object.assign({}, it, { x, y })), offX = [0, me.x0 - x, me.x1 - x], offY = [0, me.y0 - y, me.y1 - y];
+    let bx = null, by = null;
+    others.forEach((o) => {
+      const b = itemBBox(o), lx = [o.x, b.x0, b.x1], ly = [o.y, b.y0, b.y1];
+      lx.forEach((L, li) => offX.forEach((off, mi) => { if ((li === 0) !== (mi === 0)) return; const dd = L - (x + off); if (Math.abs(dd) <= tol && (!bx || Math.abs(dd) < Math.abs(bx.d) - 1e-9)) bx = { d: dd, L }; }));
+      ly.forEach((L, li) => offY.forEach((off, mi) => { if ((li === 0) !== (mi === 0)) return; const dd = L - (y + off); if (Math.abs(dd) <= tol && (!by || Math.abs(dd) < Math.abs(by.d) - 1e-9)) by = { d: dd, L }; }));
+    });
+    const go = gridOrigin(p);
+    let nx = bx ? x + bx.d : x, ny = by ? y + by.d : y;
+    if (!bx && grid > 0) nx = snapGrid(x, go[0], grid); if (!by && grid > 0) ny = snapGrid(y, go[1], grid);
+    if (!bx && !(grid > 0)) nx = Math.round(x / 10) * 10; if (!by && !(grid > 0)) ny = Math.round(y / 10) * 10;
+    const mb = itemBBox(Object.assign({}, it, { x: nx, y: ny })), guides = [];
+    const on = (vals, L) => vals.some((v) => Math.abs(v - L) < 0.5);
+    if (bx) { let a = mb.y0, c = mb.y1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.x, b.x0, b.x1], bx.L)) { a = Math.min(a, b.y0); c = Math.max(c, b.y1); n++; } }); guides.push({ vert: true, at: bx.L, a: a - 250, b: c + 250, n }); }
+    if (by) { let a = mb.x0, c = mb.x1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.y, b.y0, b.y1], by.L)) { a = Math.min(a, b.x0); c = Math.max(c, b.x1); n++; } }); guides.push({ vert: false, at: by.L, a: a - 250, b: c + 250, n }); }
+    return { x: nx, y: ny, guides };
+  }
+  function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
+  /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
+  function freeSpot(p, it, cx, cy) {
+    const others = p.items.filter((o) => o.kind !== 'photo' && o.id !== it.id && !!o.top === !!it.top).map(fullBox);
+    const me = fullBox(Object.assign({}, it, { x: 0, y: 0 })), sx = me.x1 - me.x0 + 300, sy = me.y1 - me.y0 + 300, geoms = p.rooms.map(roomGeom);
+    const fits = (x, y) => {
+      const b = { x0: me.x0 + x, x1: me.x1 + x, y0: me.y0 + y, y1: me.y1 + y };
+      if (geoms.length && !geoms.some((g) => [[b.x0, b.y0], [b.x1, b.y0], [b.x1, b.y1], [b.x0, b.y1]].every((q) => pointInPoly(q, g.pts)))) return false;
+      return !others.some((o) => o.x0 < b.x1 && o.x1 > b.x0 && o.y0 < b.y1 && o.y1 > b.y0);
+    };
+    const cand = [];
+    for (let ring = 0; ring <= 6; ring++) for (let j = -ring; j <= ring; j++) for (let i = -ring; i <= ring; i++) if (Math.max(Math.abs(i), Math.abs(j)) === ring) cand.push([i, j, ring]);
+    cand.sort((a, b) => a[2] - b[2] || Math.abs(a[1]) - Math.abs(b[1]) || Math.abs(a[0]) - Math.abs(b[0]) || b[0] - a[0]);
+    for (const [i, j] of cand) { const x = cx + i * sx, y = cy + j * sy; if (fits(x, y)) return [Math.round(x / 10) * 10, Math.round(y / 10) * 10]; }
+    return [Math.round(cx / 10) * 10, Math.round(cy / 10) * 10];
+  }
   /* ---------- the measurement report: one set of numbers, the same functions as on screen ---------- */
   function figTol(ph) { return Math.max(4, 0.012 * Math.max(ph.w, ph.h)); }
   function reportData(plan, photos) {
@@ -818,6 +859,7 @@ var PG = (function () {
     if (!UNIT[o.unit]) o.unit = 'm';
     o.h = clamp(Math.round(+o.h || 3000), 1800, 20000);
     o.minClear = clamp(Math.round(+o.minClear || 2200), 1000, 6000);
+    o.snap = [500, 1000].indexOf(+o.snap) >= 0 ? +o.snap : 0;   // grid with snapping: off, 0.5 m, 1 m
     o.rooms = (Array.isArray(o.rooms) ? o.rooms : []).filter((r) => r && Array.isArray(r.walls) && r.walls.length >= 3).map((r) => {
       r.id = r.id || uid(); r.name = String(r.name || '').slice(0, 60); r.x = +r.x || 0; r.y = +r.y || 0; r.h = r.h ? clamp(Math.round(+r.h), 1800, 20000) : null;
       r.diag = r.diag && typeof r.diag === 'object' ? { p: +r.diag.p || null, q: +r.diag.q || null } : { p: null, q: null };
@@ -848,7 +890,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

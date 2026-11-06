@@ -104,7 +104,15 @@ function renderNow(){
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
   $$('[data-act=undo]').forEach(function(b){b.disabled=UI.hi<=0});$$('[data-act=redo]').forEach(function(b){b.disabled=UI.hi>=UI.hist.length-1});
   renderModal();
+  showSelRow();
 }
+/* the selected object's row is brought into view in the layers list (no scrolling to find it); only when the selection changes */
+var selRowKey='';
+function showSelRow(){var k=UI.mode+'|'+JSON.stringify(PL.st.sel)+'|'+UI.sel+'|'+PF.st.sel;if(k===selRowKey)return;selRowKey=k;
+  var n=document.querySelector('#dock .lyrp .prow.on, #dock .lyr.on');if(!n||!n.offsetParent)return;
+  var b=n.parentNode;while(b&&b!==document.body&&!(b.scrollHeight>b.clientHeight+2&&/(auto|scroll)/.test(getComputedStyle(b).overflowY)))b=b.parentNode;
+  if(!b||b===document.body)return;var r=n.getBoundingClientRect(),c=b.getBoundingClientRect();
+  if(r.top<c.top+4)b.scrollTop+=r.top-c.top-8;else if(r.bottom>c.bottom-4)b.scrollTop+=r.bottom-c.bottom+8}
 /* the scene keeps the room's proportions and fits the canvas: as large as the space between the panels allows */
 function fitStage(){var c=$('#canvas'),w=$('#stagewrap');if(!c||!w)return;var cw=c.clientWidth-24,ch=c.clientHeight-24;if(cw<50||ch<50)return;
   var ar=S.room.w/(S.room.h+SC.FLOOR),ww=Math.floor(Math.min(cw,ch*ar));if(w._fw!==ww){w._fw=ww;w.style.width=ww+'px';zoomApply();placeOv()}}

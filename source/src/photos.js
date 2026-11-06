@@ -391,7 +391,7 @@ var PF = (function () {
       case 'm-del': if (ph && m) { ph.marks = ph.marks.filter((x) => x.id !== m.id); st.sel = null; label('удалено: ' + markName(m).toLowerCase()); } return;
       case 'p-del': if (ph) { const i = L().indexOf(ph); L().splice(i, 1); if (S.plan) S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); st.open = null; st.sel = null; label('фото удалено'); } return;
       case 'png': exportPng(); return;
-      case 'pin': if (ph) { const ex = pinOf(ph.id); PL.setMode('plan'); if (ex) { PL.st.sel = { t: 'item', i: ex.id }; render(); toast('Фото уже отмечено на плане — тяните отметку, кружок поворачивает направление съёмки.'); } else { PL.st.layer = 'floor'; PL.st.tool = 'pin:' + ph.id; render(); } } return;
+      case 'pin': if (ph) { const ex = pinOf(ph.id); PL.setMode('plan'); if (ex) { PL.st.sel = { t: 'item', i: ex.id }; render(); toast('Фото уже отмечено на плане — тяните отметку, кружок поворачивает направление съёмки.'); } else { PL.st.layer = 'floor'; render(); PL.drop('pin:' + ph.id); toast('Фото отмечено в середине плана — перетащите отметку туда, откуда снимали; кружок над ней поворачивает направление.'); } } return;
       case 'unpin': if (ph && S.plan) { S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); label('отметка на плане убрана'); } return;
       case 'zin': zoomBy(1.4); return;
       case 'zout': zoomBy(1 / 1.4); return;
