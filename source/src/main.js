@@ -361,6 +361,10 @@ function renderModal(){
         '<p class="muted small full">Остался кусок фона, например между рукой и телом? Коснитесь его на картинке, и он исчезнет. Белые кружки по углам двигают рамку обрезки.</p>'+
         '<div class="fld full"><div class="row"><button type="button" class="btn sm" data-act="imp-undo"'+((ip.taps||[]).length?'':' disabled')+'>Отменить касание</button><button type="button" class="btn sm" data-act="imp-reset">Сбросить всё</button></div></div></div>'+
         '<div class="row" style="margin-top:6px"><button type="button" class="btn pri" data-act="imp-ok">'+(ip.mode==='edit'?'Готово':'Добавить на сцену')+'</button><button type="button" class="btn" data-act="close">Отмена</button></div>'}
+    else if(m.type==='save'){var known=!!S.pid&&!m.asNew;
+      body='<div class="fld"><label class="fl" for="save-name">Название</label><input type="text" id="save-name" maxlength="80" value="'+U.esc(S.name)+'" autocomplete="off" enterkeyhint="done" placeholder="Например: Зал 1 — ресторан «Альпы»"></div>'+
+        '<p class="muted small">'+(m.asNew?'Текущий проект останется как есть, а копия сохранится под этим названием.':known?'«Сохранить» обновит этот проект в «Моих проектах»; «Как новый» оставит его как есть и сохранит копию под новым названием.':'Проект появится в «Моих проектах» под этим названием.')+'</p>'+
+        '<div class="row" style="margin-top:10px"><button type="button" class="btn pri" data-act="save-go" data-id="'+(m.asNew?'new':'over')+'">'+U.ico.save+(m.asNew?' Сохранить как новый':' Сохранить')+'</button>'+(known?'<button type="button" class="btn" data-act="save-go" data-id="new">Как новый</button>':'')+'<button type="button" class="btn" data-act="close">Отмена</button></div>'}
     else if(m.type==='newproj'){var has=S.els.length||(S.plan&&(S.plan.rooms.length||S.plan.items.length))||(S.photos&&S.photos.length);
       body='<p class="muted">Чистый проект: пустая сцена, пустой план, без фото. Можно заполнить только то, что нужно, — например, одни фото с размерами. Цены и данные для клиента останутся.</p>'+
         (has?'<p class="pherr">Текущий проект «'+U.esc(S.name)+'» закроется. Если вы его ещё не сохранили (Файл → Сохранить или «Скачать проект файлом»), вернуть его можно только кнопкой «Отменить» до перезагрузки.</p>':'')+
@@ -461,7 +465,10 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
   switch(name){
     case 'tab':UI.tab=V[id]?id:'con';render();var cv=$('#calcview');if(cv)cv.scrollTop=0;var tb=$('.ctabs .tab[data-id="'+id+'"]');if(tb&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'center'});break;
     case 'mopen':menuOpen(id,a);return;
-    case 'save':if(IO.db)act('cloud-save',a);else act('menu',a);break;
+    case 'save':if(IO.db){openModal({type:'save',title:'Сохранить проект'});setTimeout(function(){var f=$('#save-name');if(f){f.focus();if(GENERIC_NAMES.indexOf(S.name)>=0)f.select();else{var n=f.value.length;f.setSelectionRange(n,n)}}},30)}else act('menu',a);break;
+    case 'save-as':if(IO.db){openModal({type:'save',title:'Сохранить как новый',asNew:true});setTimeout(function(){var f=$('#save-name');if(f){f.focus();f.select()}},30)}else act('menu',a);break;
+    case 'save-go':{var sn=$('#save-name'),nv=sn?String(sn.value).trim():S.name;if(!nv){toast('Впишите название.');if(sn)sn.focus();break}
+      setName(nv);var asNew=id==='new';UI.modal=null;renderModal();if(asNew)S.pid=null;IO.saveProject().then(function(ok){if(ok){pushHist();refreshProjects()}});render();break}
     case 'new-proj':openModal({type:'newproj',title:'Новый проект'});break;
     case 'new-go':{var nm=a&&a.dataset&&a.dataset.id||'scene',o=M.defaults();o.name=nm==='photo'?'Фото с размерами':nm==='plan'?'План зала':'Новая фотозона';o.pid=null;
       PL.st.sel=null;PL.st.tool=null;PF.st.open=null;PF.st.sel=null;PF.st.tool='';PF.st.pend=null;UI.fly=false;
@@ -999,6 +1006,7 @@ function dspUp(ev){if(!dsp||ev.pointerId!==dsp.pid)return false;dsp=null;wsSave(
 function setTheme(t){document.documentElement.setAttribute('data-theme',t);try{localStorage.setItem('fotozona.theme.v1',t)}catch(e){}themeBtn();if(UI.tab==='client')IO.drawOffer($('#offer'));V._timg={};V._tiles={};render()}
 function themeBtn(){var b=$('#thm');if(!b)return;var d=themeNow()==='dark';b.innerHTML=d?U.ico.sun:U.ico.moon;b.setAttribute('aria-pressed',d);b.title=b.ariaLabel=d?'Светлая тема':'Тёмная тема';b.setAttribute('aria-label',b.title)}
 /* the project name from the field in the «Проект» window: no redraw while typing, the header follows */
+var GENERIC_NAMES=['План зала','Новая фотозона','Фото с размерами','Фотозона','Три арки'];   // a fresh project's name: selected in the save box so typing replaces it
 function setName(v){v=String(v||'').trim().slice(0,80)||'Фотозона';if(v===S.name)return;S.name=v;var pn=$('#pname');if(pn&&document.activeElement!==pn)pn.value=v;IO.autosave(JSON.stringify(S))}
 function setMv(m){UI.mv=m==='floor'?'floor':'wall';try{localStorage.setItem('fotozona.move.v1',UI.mv)}catch(e){}mvBtns()}
 function mvBtns(){$$('[data-act="mv"]').forEach(function(b){b.setAttribute('aria-pressed',b.dataset.id===(UI.mv||'wall'))})}   // only shows the choice; never writes it
@@ -1099,6 +1107,7 @@ function init(){
     if(ev.key==='Escape'&&UI.modal){if(UI.modal.type==='imp')UI.imp=null;UI.modal=null;renderModal();return}
     if(ev.key==='Escape'){var mp=$('#mpop');if(mp&&!mp.hidden){menuClose();return}if(UI.fly){UI.fly=false;render();return}if(UI.tab!=='con'){act('tab',{dataset:{id:'con'}});return}}
     if(ev.key==='Enter'&&t&&t.tagName==='INPUT'&&t.closest&&t.closest('#optbar')){t.blur();return}
+    if(ev.key==='Enter'&&t&&t.id==='save-name'){ev.preventDefault();act('save-go',{dataset:{id:UI.modal&&UI.modal.asNew?'new':'over'}});return}
     if(ev.key===' '&&!typing&&UI.tab==='con'&&!UI.modal&&(UI.mode!=='plan'||!PL.st.draw)){ev.preventDefault();if(!UI.spaceHand){UI.spaceHand=true;var wsm=$('#wsm');if(wsm)wsm.classList.add('hand')}return}   // Enter takes the value and gives the keys back to the scene
     if((ev.ctrlKey||ev.metaKey)&&(ev.key==='s'||ev.key==='S'||ev.key==='ы'||ev.key==='Ы')){ev.preventDefault();act('save');return}
     if(UI.mode==='plan'&&UI.tab==='con'&&!UI.modal&&PL.key(ev,typing))return;
