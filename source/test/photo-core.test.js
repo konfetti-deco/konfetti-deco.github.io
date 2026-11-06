@@ -95,5 +95,21 @@ for (let k = 0; k < 400; k++) {
   const full = { rooms: p.rooms, items: [] }; for (let i = 0; i < 400; i++) full.items.push(Object.assign(PG.makeItem('t_q180', 300 + (i % 20) * 600, 300 + Math.floor(i / 20) * 400), { id: 'f' + i }));
   ok(PG.freeSpot(full, q, 6000, 4000).join() === '6000,4000', 'no room left: the centre anyway'); }
 
+/* 25. chairs: no more than at the densest seating (50 cm per person along the edge) */
+{ const T = (w, d) => Object.assign(PG.makeItem('t_q180', 0, 0), { w, d, shape: 'rect' });
+  const want = { 1200: [2, 2, 1, 1], 1500: [3, 2, 2, 1], 1800: [3, 3, 2, 2], 2000: [4, 3, 2, 2], 2400: [4, 4, 3, 3], 3000: [6, 5, 4, 3] };
+  Object.keys(want).forEach((L) => { const l = PG.seatLimits(T(+L, 800)).per[0]; ok([l.dense, l.normal, l.comfort, l.free].join() === want[L].join(), 'side ' + L + ' mm: ' + [l.dense, l.normal, l.comfort, l.free].join('/') + ' (want ' + want[L].join('/') + ')'); });
+  ok(PG.seatLimits(T(2000, 800)).per[2].dense === 1, 'end of a 0,8 m deep table: 1 chair');
+  const R = (d) => Object.assign(PG.makeItem('t_r150', 0, 0), { w: d, shape: 'round' }), wr = { 1200: [7, 6, 5, 4], 1500: [9, 7, 6, 5], 1800: [11, 9, 8, 7] };
+  Object.keys(wr).forEach((D) => { const l = PG.seatLimits(R(+D)).per[0]; ok([l.dense, l.normal, l.comfort, l.free].join() === wr[D].join(), 'round Ø' + D + ': ' + [l.dense, l.normal, l.comfort, l.free].join('/')); });
+  for (let k = 0; k < 500; k++) { const w = rnd(600, 6000), d = rnd(500, 1500), t = T(w, d), lim = PG.seatLimits(t);
+    ok(lim.max[0] === Math.floor(w / 500 + 1e-9) && lim.max[2] === Math.floor(d / 500 + 1e-9), 'max per side = length / 50 cm');
+    ok(lim.tot.dense >= lim.tot.normal && lim.tot.normal >= lim.tot.comfort && lim.tot.comfort >= lim.tot.free, 'denser never seats fewer');
+    t.sides = [99, 0, 5, 1]; PG.fitSeats(t); ok(t.sides[0] === lim.max[0] && t.sides[2] === Math.min(5, lim.max[2]) && t.sides[3] === Math.min(1, lim.max[3]), 'fitSeats cuts each side to its limit');
+    ok(PG.seatCount(t) <= lim.tot.dense, 'seat count within the densest total'); }
+  const o = Object.assign(PG.makeItem('t_r150', 0, 0), { w: 2400, d: 1200, shape: 'oval' }), lo = PG.seatLimits(o).per[0].dense; ok(lo === Math.floor(PG.edgeLens(o)[0] / 500), 'oval by its perimeter: ' + lo);
+  near(PG.edgeLens(Object.assign({}, o, { d: 2400 }))[0], Math.PI * 2400, 1e-6, 'an oval with equal sides is a circle');
+  const r = R(1500); r.seats = 30; ok(PG.fitSeats(r) && r.seats === 9, 'round Ø1,5: 30 → 9'); ok(!PG.fitSeats(r), 'nothing to cut the second time'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

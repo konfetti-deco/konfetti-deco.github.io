@@ -1084,6 +1084,12 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .prw .ib:hover,.prw.on .ib,.prw .prlk[aria-pressed=true]{opacity:1}
 .prw .prlk[aria-pressed=true]{color:var(--brass)}
 .prw.on{background:var(--sel,rgba(46,125,91,.12))}
+/* chairs: what each seating density gives */
+.seatn{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:2px}
+.seatn span{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border:1px solid var(--wline);border-radius:8px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.15}
+.seatn b{font:600 16px var(--f-mono,ui-monospace,monospace);color:var(--ink)}
+.seatn small{font-size:10px;opacity:.8}
+.stp .sb:disabled{opacity:.35;cursor:not-allowed}
 
 </style>
 </head>
@@ -1097,7 +1103,7 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 41</span>
+  <span class="ver" id="ver">версия 42</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -2946,6 +2952,27 @@ var PG = (function () {
     return Math.max(0, Math.round(+it.seats || 0));
   }
   /* chair centres in the table's own axes, with the angle each chair faces away from the table */
+  /* ---------- how many people sit at a table: width along the edge per person (Vienna §15 minimum 50 cm; 60 normal, 70 comfortable; 80 free) ---------- */
+  const SEAT = [{ id: 'dense', w: 500, ru: 'плотно' }, { id: 'normal', w: 600, ru: 'обычно' }, { id: 'comfort', w: 700, ru: 'комфортно' }, { id: 'free', w: 800, ru: 'свободно' }];
+  function edgeLens(it) {
+    if (it.shape === 'round') return [Math.PI * it.w];
+    if (it.shape === 'oval') { const a = it.w / 2, b = it.d / 2, h = Math.pow(a - b, 2) / Math.pow(a + b, 2); return [Math.PI * (a + b) * (1 + 3 * h / (10 + Math.sqrt(4 - 3 * h)))]; }   // Ramanujan
+    return [it.w, it.w, it.d, it.d];
+  }
+  /* per side (or around a round table): the most chairs at each density; max = the densest */
+  function seatLimits(it) {
+    const L = edgeLens(it), per = L.map((l) => { const o = {}; SEAT.forEach((d) => { o[d.id] = Math.floor(l / d.w + 1e-9); }); return o; });
+    const tot = {}; SEAT.forEach((d) => { tot[d.id] = per.reduce((a, o) => a + o[d.id], 0); });
+    return { per, tot, max: per.map((o) => o.dense) };
+  }
+  /* chairs cut down to what fits at the densest seating; returns true when something changed */
+  function fitSeats(it) {
+    if (it.kind !== 'table' || it.stand) return false;
+    const lim = seatLimits(it); let ch = false;
+    if (it.shape === 'rect') { const s = (it.sides || [0, 0, 0, 0]).slice(); s.forEach((v, k) => { if ((+v || 0) > lim.max[k]) { s[k] = lim.max[k]; ch = true; } }); if (ch) it.sides = s; }
+    else if ((+it.seats || 0) > lim.max[0]) { it.seats = lim.max[0]; ch = true; }
+    return ch;
+  }
   function chairsLocal(it) {
     const out = [], gap = CHAIR.gap;
     if (it.kind !== 'table' || it.stand) return out;
@@ -3310,7 +3337,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;
@@ -5527,7 +5554,7 @@ var PL = (function () {
     if (d.mode === 'ruler') { paint(); return true; }
     if (d.mode === 'place') { if (!d.moved) place(p); else paint(); return true; }
     if (d.moved) {
-      const labs = { room: () => 'перемещение — ' + rname(room(d.ref[1])), item: () => 'перемещение — ' + G.itemLabel(item(d.ref[1])), op: () => 'проём сдвинут', opend: () => 'ширина проёма', corner: () => 'угол ' + G.cornerName(d.o.k) + ' перенесён', wallmove: () => 'стена сдвинута', isize: () => 'размер — ' + G.itemLabel(item(d.ref[1])), irot: () => 'поворот — ' + G.itemLabel(item(d.ref[1])) };
+      const labs = { room: () => 'перемещение — ' + rname(room(d.ref[1])), item: () => 'перемещение — ' + G.itemLabel(item(d.ref[1])), op: () => 'проём сдвинут', opend: () => 'ширина проёма', corner: () => 'угол ' + G.cornerName(d.o.k) + ' перенесён', wallmove: () => 'стена сдвинута', isize: () => { const it = item(d.ref[1]); if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); return 'размер — ' + G.itemLabel(it); }, irot: () => 'поворот — ' + G.itemLabel(item(d.ref[1])) };
       if (labs[d.mode]) label(labs[d.mode]()); else paint();
       return true;
     }
@@ -5690,8 +5717,8 @@ var PL = (function () {
       case 'it-del': if (s.t === 'item') { const it = item(s.i); P().items = P().items.filter((x) => x.id !== s.i); st.sel = null; label('удалено — ' + G.itemLabel(it)); } return;
       case 'it-dup': if (s.t === 'item') { const it = item(s.i), c = JSON.parse(JSON.stringify(it)), bb = G.bboxOf(hullish(G.footprint(it))); c.id = G.uid(); c.x = Math.round((it.x + bb.w + 600) / 10) * 10; if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); st.sel = { t: 'item', i: c.id }; label('копия — ' + G.itemLabel(c)); } return;
       case 'it-rot90': if (s.t === 'item') { const it = item(s.i); it.rot = G.normDeg((it.rot || 0) + 90); label('поворот — ' + G.itemLabel(it)); } return;
-      case 'it-seats': if (s.t === 'item') { const it = item(s.i); it.seats = G.clamp((it.seats || 0) + (+v), 0, 40); label('мест за столом: ' + it.seats); } return;
-      case 'it-side': if (s.t === 'item') { const it = item(s.i), k = +a.dataset.k; it.sides = (it.sides || [0, 0, 0, 0]).slice(); it.sides[k] = G.clamp((it.sides[k] || 0) + (+v), 0, 60); label('мест за столом: ' + G.seatCount(it)); } return;
+      case 'it-seats': if (s.t === 'item') { const it = item(s.i), mx = G.seatLimits(it).max[0], want = (it.seats || 0) + (+v); if (want > mx) { toast(denseMsg(it, 0, mx)); render(); return; } it.seats = G.clamp(want, 0, mx); label('мест за столом: ' + it.seats); } return;
+      case 'it-side': if (s.t === 'item') { const it = item(s.i), k = +a.dataset.k, mx = G.seatLimits(it).max[k]; it.sides = (it.sides || [0, 0, 0, 0]).slice(); const want = (it.sides[k] || 0) + (+v); if (want > mx) { toast(denseMsg(it, k, mx)); render(); return; } it.sides[k] = G.clamp(want, 0, mx); label('мест за столом: ' + G.seatCount(it)); } return;
       case 'it-grid': if (s.t === 'item') { const it = item(s.i), g2 = st.grid, bb = G.bboxOf(hullish(G.footprint(it))), sx = g2.sx || Math.ceil((bb.w + 1200) / 100) * 100, sy = g2.sy || Math.ceil((bb.h + 1200) / 100) * 100, a0 = (it.rot || 0) * G.DEG;
         let n = 0; for (let rr = 0; rr < g2.rows; rr++) for (let cc = 0; cc < g2.cols; cc++) { if (!rr && !cc) continue; const c = JSON.parse(JSON.stringify(it)); c.id = G.uid(); c.x = Math.round(it.x + cc * sx); c.y = Math.round(it.y + rr * sy); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); n++; }
         void a0; label('сетка ' + g2.rows + ' × ' + g2.cols); toast('Добавлено ' + n + ' шт. Всего мест: ' + G.totals(P()).seats + '.'); } return;
@@ -5727,7 +5754,7 @@ var PL = (function () {
         const i = wallIx(r, s.w), L = G.roomGeom(r).L[i];
         if (path === 'op.w') op.w = v; else if (path === 'op.h') op.h = v; else if (path === 'op.off') op.off = v; else if (path === 'op.end') op.off = L - op.w - v; else op.sill = v;
         G.clampOpening(op, L); label('проём: размеры'); return; }
-      case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; it[path.slice(3)] = G.clamp(v, 50, 60000); if (it.shape === 'round') it.d = it.w; label('размер — ' + G.itemLabel(it)); return; }
+      case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; it[path.slice(3)] = G.clamp(v, 50, 60000); if (it.shape === 'round') it.d = it.w; if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); label('размер — ' + G.itemLabel(it)); return; }
       case 'it.rot': { const it = item(s.i); if (!it) return; const a = parseFloat(String(raw).replace(',', '.')); if (!isFinite(a)) { render(); return; } it.rot = G.normDeg(a); label('поворот — ' + G.itemLabel(it)); return; }
       case 'it.h': { const it = item(s.i); if (!it) return; if (String(raw).trim() === '') { it.h = null; label('высота — от потолка'); return; } const v = len(); if (v === null) return; if (v < 100 || v > 30000) { toast('Высота — от 0,1 до 30 м.'); render(); return; } it.h = v; label('высота — ' + G.itemLabel(it)); return; }
       case 'it.sh': { const it = item(s.i); if (!it) return; const v = String(raw).trim() === '0' ? 0 : len(); if (v === null) return; it.h = G.clamp(v, 0, 3000); label('высота сцены'); return; }
@@ -5736,8 +5763,8 @@ var PL = (function () {
       case 'it.num': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10); if (String(raw).trim() === '') { delete it.num; label('номер стола убран'); return; } if (!(v >= 1 && v <= 999)) { toast('Номер стола — от 1 до 999.'); render(); return; }
         const dup = P().items.find((o) => o !== it && o.kind === 'table' && +o.num === v); it.num = v; label('номер стола ' + v); if (dup) toast('Номер ' + v + ' уже есть у другого стола — проверьте.'); return; }
       case 'it.name': { const it = item(s.i); if (!it) return; it.name = String(raw).trim().slice(0, 60); label('подпись'); return; }
-      case 'it.seats': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10); if (!(v >= 0 && v <= 40)) { toast('Мест — от 0 до 40.'); render(); return; } it.seats = v; label('мест за столом: ' + v); return; }
-      case 'it.side0': case 'it.side1': case 'it.side2': case 'it.side3': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10); if (!(v >= 0 && v <= 60)) { toast('Мест на стороне — от 0 до 60.'); render(); return; } it.sides = (it.sides || [0, 0, 0, 0]).slice(); it.sides[+path.slice(-1)] = v; label('мест за столом: ' + G.seatCount(it)); return; }
+      case 'it.seats': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10), mx = G.seatLimits(it).max[0]; if (!(v >= 0)) { toast('Мест — целое число от 0.'); render(); return; } if (v > mx) toast(denseMsg(it, 0, mx)); it.seats = Math.min(v, mx); label('мест за столом: ' + it.seats); return; }
+      case 'it.side0': case 'it.side1': case 'it.side2': case 'it.side3': { const it = item(s.i); if (!it) return; const v = parseInt(raw, 10), k = +path.slice(-1), mx = G.seatLimits(it).max[k]; if (!(v >= 0)) { toast('Мест на стороне — целое число от 0.'); render(); return; } if (v > mx) toast(denseMsg(it, k, mx)); it.sides = (it.sides || [0, 0, 0, 0]).slice(); it.sides[k] = Math.min(v, mx); label('мест за столом: ' + G.seatCount(it)); return; }
       case 'grid.rows': case 'grid.cols': { const v = parseInt(raw, 10); if (!(v >= 1 && v <= 30)) { toast('От 1 до 30.'); render(); return; } st.grid[path.slice(5)] = v; render(); return; }
       case 'grid.sx': case 'grid.sy': { const v = len(); if (v === null) return; st.grid[path.slice(5)] = v; render(); return; }
     }
@@ -5868,9 +5895,7 @@ var PL = (function () {
           body += grp(isT ? 'Стол' : 'Объект', (isT && !it.stand ? fld('it.num', 'Номер стола', it.num != null ? it.num : '') : '') + fld('it.name', 'Подпись', it.name, { cls: isT && !it.stand ? '' : 'full', ph: G.itemLabel(Object.assign({}, it, { name: '' })) }) +
             fld('it.w', (round ? 'Диаметр' : it.shape === 'oval' ? 'Длина' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', (it.shape === 'oval' ? 'Ширина' : 'Глубина') + ', ' + uLab(), fs(it.d))) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)) + ((G.CAT[it.ref] || {}).sub === 'stage' ? fld('it.sh', 'Высота сцены, ' + uLab(), fs(+it.h || 0)) : '') +
             '<p class="muted small full">Размер — тянуть за квадратики по углам, поворот — за кружок сверху.</p>');
-          if (isT && !it.stand) body += grp('Стулья — ' + G.seatCount(it) + ' мест', it.shape === 'rect'
-            ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => '<label class="fld"><span class="fl">' + nm + '</span><span class="stp"><button type="button" class="sb" data-pact="it-side" data-k="' + k + '" data-v="-1" aria-label="Меньше">−</button><input type="text" inputmode="numeric" data-pbind="it.side' + k + '" value="' + ((it.sides || [])[k] || 0) + '"><button type="button" class="sb" data-pact="it-side" data-k="' + k + '" data-v="1" aria-label="Больше">+</button></span></label>').join('') + '<p class="muted small full">«Сверху» и «снизу» — длинные стороны стола (до поворота).</p>'
-            : '<label class="fld full"><span class="fl">Мест за столом</span><span class="stp"><button type="button" class="sb" data-pact="it-seats" data-v="-1" aria-label="Меньше">−</button><input type="text" inputmode="numeric" data-pbind="it.seats" value="' + (it.seats || 0) + '"><button type="button" class="sb" data-pact="it-seats" data-v="1" aria-label="Больше">+</button></span></label>');
+          if (isT && !it.stand) body += grp('Стулья — ' + G.seatCount(it) + ' мест', seatHtml(it));
           body += grp('Размножить сеткой', fld('grid.rows', 'Рядов', G2.rows) + fld('grid.cols', 'В ряду', G2.cols) + fld('grid.sx', 'Шаг вдоль ряда, ' + uLab(), fl(sx)) + fld('grid.sy', 'Шаг между рядами, ' + uLab(), fl(sy)) +
             '<p class="muted small full">Шаг — от центра до центра; сейчас он равен размеру со стульями + 1,2 м прохода. Получится ' + (G2.rows * G2.cols) + ' шт.' + (isT && !it.stand ? ', мест ' + G2.rows * G2.cols * G.seatCount(it) : '') + '.</p>' +
             '<div class="pacts full">' + btn('it-grid', 'Расставить ' + G2.rows + ' × ' + G2.cols) + '</div>');
@@ -5926,6 +5951,16 @@ var PL = (function () {
           '<div class="pacts full">' + btn('w-jog', 'Ниша (наружу)', { v: 'out' }) + btn('w-jog', 'Выступ (внутрь)', { v: 'in' }) + btn('w-uncorner', 'Убрать угол ' + G.cornerName((i + 1) % n), { dis: n <= 3, t: 'Эта стена и следующая станут одной прямой' }) + '</div>' +
           '<p class="muted small full">Выступ подойдёт и для пилона у стены. Отдельно стоящую колонну ставьте инструментом «Колонна».</p>');
     } finally { U.inDock = false; }
+  }
+  function denseMsg(it, k, mx) { const L = G.edgeLens(it)[k]; return 'Плотнее не сядут: ' + (it.shape === 'rect' ? 'на стороне ' + fl(L) + ' ' + uLab() : 'вокруг стола ' + fl(L) + ' ' + uLab()) + ' — не больше ' + mx + ' (по 50 см на человека).'; }
+  /* the chair rows: the densest seating is the limit; what normal, comfortable and free seating would give */
+  function seatHtml(it) {
+    const lim = G.seatLimits(it), T = lim.tot, over = it.shape === 'rect' ? (it.sides || []).some((v, k) => (+v || 0) > lim.max[k]) : (+it.seats || 0) > lim.max[0];
+    const norms = '<div class="seatn full">' + G.SEAT.map((d) => '<span><b>' + T[d.id] + '</b> ' + d.ru + ' <small>' + d.w / 10 + ' см</small></span>').join('') + '</div>';
+    const row = (nm, k, val, act, bind) => '<label class="fld"><span class="fl">' + nm + ' <small class="muted">до ' + lim.max[k] + '</small></span><span class="stp"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="-1" aria-label="Меньше"' + (val <= 0 ? ' disabled' : '') + '>−</button><input type="text" inputmode="numeric" data-pbind="' + bind + '" value="' + val + '"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="1" aria-label="Больше"' + (val >= lim.max[k] ? ' disabled' : '') + '>+</button></span></label>';
+    return (over ? note('bad', 'Стульев больше, чем помещается даже при плотной посадке (50 см на человека). Уменьшите число или увеличьте стол.') : '') +
+      (it.shape === 'rect' ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => row(nm, k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k)).join('') : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
+      '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' «Сверху» и «снизу» — длинные стороны (до поворота).' : '') + '</p>' + norms;
   }
   function rowBtns(k, id, lk, name) {
     return '<button type="button" class="ib s prlk" data-pact="lyr-lock" data-v="' + k + '|' + id + '" aria-pressed="' + !!lk + '" title="' + (lk ? 'Открепить' : 'Закрепить') + '" aria-label="' + (lk ? 'Открепить' : 'Закрепить') + ' «' + esc(name) + '»">' + U.ico[lk ? 'lock' : 'unlock'] + '</button>' +

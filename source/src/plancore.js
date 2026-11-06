@@ -533,6 +533,27 @@ var PG = (function () {
     return Math.max(0, Math.round(+it.seats || 0));
   }
   /* chair centres in the table's own axes, with the angle each chair faces away from the table */
+  /* ---------- how many people sit at a table: width along the edge per person (Vienna §15 minimum 50 cm; 60 normal, 70 comfortable; 80 free) ---------- */
+  const SEAT = [{ id: 'dense', w: 500, ru: 'плотно' }, { id: 'normal', w: 600, ru: 'обычно' }, { id: 'comfort', w: 700, ru: 'комфортно' }, { id: 'free', w: 800, ru: 'свободно' }];
+  function edgeLens(it) {
+    if (it.shape === 'round') return [Math.PI * it.w];
+    if (it.shape === 'oval') { const a = it.w / 2, b = it.d / 2, h = Math.pow(a - b, 2) / Math.pow(a + b, 2); return [Math.PI * (a + b) * (1 + 3 * h / (10 + Math.sqrt(4 - 3 * h)))]; }   // Ramanujan
+    return [it.w, it.w, it.d, it.d];
+  }
+  /* per side (or around a round table): the most chairs at each density; max = the densest */
+  function seatLimits(it) {
+    const L = edgeLens(it), per = L.map((l) => { const o = {}; SEAT.forEach((d) => { o[d.id] = Math.floor(l / d.w + 1e-9); }); return o; });
+    const tot = {}; SEAT.forEach((d) => { tot[d.id] = per.reduce((a, o) => a + o[d.id], 0); });
+    return { per, tot, max: per.map((o) => o.dense) };
+  }
+  /* chairs cut down to what fits at the densest seating; returns true when something changed */
+  function fitSeats(it) {
+    if (it.kind !== 'table' || it.stand) return false;
+    const lim = seatLimits(it); let ch = false;
+    if (it.shape === 'rect') { const s = (it.sides || [0, 0, 0, 0]).slice(); s.forEach((v, k) => { if ((+v || 0) > lim.max[k]) { s[k] = lim.max[k]; ch = true; } }); if (ch) it.sides = s; }
+    else if ((+it.seats || 0) > lim.max[0]) { it.seats = lim.max[0]; ch = true; }
+    return ch;
+  }
   function chairsLocal(it) {
     const out = [], gap = CHAIR.gap;
     if (it.kind !== 'table' || it.stand) return out;
@@ -897,7 +918,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, gridOrigin, snapGrid, alignSnap, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

@@ -1065,3 +1065,9 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .prw .ib:hover,.prw.on .ib,.prw .prlk[aria-pressed=true]{opacity:1}
 .prw .prlk[aria-pressed=true]{color:var(--brass)}
 .prw.on{background:var(--sel,rgba(46,125,91,.12))}
+/* chairs: what each seating density gives */
+.seatn{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:2px}
+.seatn span{display:flex;flex-direction:column;align-items:center;gap:1px;padding:6px 2px;border:1px solid var(--wline);border-radius:8px;font-size:11.5px;color:var(--muted);text-align:center;line-height:1.15}
+.seatn b{font:600 16px var(--f-mono,ui-monospace,monospace);color:var(--ink)}
+.seatn small{font-size:10px;opacity:.8}
+.stp .sb:disabled{opacity:.35;cursor:not-allowed}
