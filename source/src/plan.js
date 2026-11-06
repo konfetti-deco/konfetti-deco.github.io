@@ -10,11 +10,14 @@ var KP = (function () {
   function html(o) {   // o: {id, bind:'data-pbind="w.len"', act:'data-pact'|'data-fact', label, val, unit, ph, after, help, cls}
     const units = [['m', 'м'], ['cm', 'см'], ['mm', 'мм']];
     return '<div class="kp full' + (o.cls ? ' ' + o.cls : '') + (o.folded ? ' kpc' : '') + '"><div class="kpr"' + (o.folded ? ' data-kp="open"' + (o.mid ? ' data-mid="' + o.mid + '"' : '') : '') + '><span class="kpl">' + o.label + (o.help ? U.help(o.help) : '') + '</span><input id="' + o.id + '" class="kpv" type="text" inputmode="none" autocomplete="off" spellcheck="false" ' + o.bind + (o.folded ? ' data-kp="open"' + (o.mid ? ' data-mid="' + o.mid + '"' : '') : '') + ' data-fresh="1" value="' + String(o.val == null ? '' : o.val).replace(/"/g, '&quot;') + '" placeholder="' + (o.ph || '—') + '"><span class="kpun">' + o.unitLab + '</span>' + (o.folded ? '<span class="kpe" aria-hidden="true">✎</span>' : '') + '</div>' +
-      '<div class="kpu" role="group" aria-label="Единицы">' + units.map((u) => '<button type="button" ' + o.act + '="unit" data-v="' + u[0] + '" aria-pressed="' + (o.unit === u[0]) + '">' + u[1] + '</button>').join('') + '</div>' +
+      '<div class="kpu" role="group" aria-label="Единицы">' + units.map((u) => '<button type="button" ' + o.act + '="unit" data-v="' + u[0] + '" aria-pressed="' + (o.unit === u[0]) + '">' + u[1] + '</button>').join('') +
+        (VC.can ? '<button type="button" class="kmic" data-kp="mic" data-for="' + o.id + '" aria-pressed="' + (VC.on() === o.id) + '" aria-label="Голосовой ввод" title="Голосовой ввод: назовите размер с дальномера">' + VC.ICO + '</button>' : '') + '</div>' +
+      (VC.can ? '<div class="kvs' + (VC.on() === o.id && VC.cls() ? ' ' + VC.cls() : '') + '" id="kvs-' + o.id + '" aria-live="polite"' + (VC.on() === o.id ? '' : ' hidden') + '>' + U.esc(VC.on() === o.id ? VC.msg() : '') + '</div>' : '') +
       '<div class="kpk">' + KEYS.map((k) => '<button type="button" class="kk' + (k[2] ? ' ' + k[2] : '') + '" data-kp="' + k[0] + '" data-for="' + o.id + '"' + (o.after ? ' data-after="' + o.after + '"' : '') + ' aria-label="' + (k[0] === 'bs' ? 'Стереть' : k[0] === 'ok' ? 'Готово' : k[0] === 'C' ? 'Очистить' : k[0]) + '">' + (k[1] || k[0]) + '</button>').join('') + '</div></div>';
   }
   function key(btn) {
     if (btn.dataset.kp === 'open') { const box = btn.closest('.kp'); if (box) box.classList.remove('kpc'); if (window.PF && btn.dataset.mid) PF.st.kpOpen = btn.dataset.mid; const f = box && box.querySelector('.kpv'); if (f) f.removeAttribute('data-kp'); return; }
+    if (btn.dataset.kp === 'mic') { VC.toggle(btn.dataset.for); return; }
     const inp = document.getElementById(btn.dataset.for); if (!inp) return;
     const k = btn.dataset.kp, fresh = inp.dataset.fresh === '1';
     let b = fresh ? '' : inp.value;
@@ -27,6 +30,92 @@ var KP = (function () {
     inp.value = b; inp.dataset.fresh = '0';
   }
   return { html, key };
+})();
+
+/* ===== voice input for the keypad: the size read off the rangefinder is said aloud and lands in the field.
+   Chrome's speech recognition (Google, needs the internet and the microphone). One phrase per listening round; the round
+   restarts by itself until «стоп», the mic button again, 2 minutes of silence, or the field going away.
+   A value whose comma is certain is entered at once (✓ is pressed for you, so a wall moves on to the next one);
+   a guessable one waits in the field for «да» or ✓. ===== */
+var VC = (function () {
+  'use strict';
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  const ICO = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>';
+  const ULAB = { m: 'м', cm: 'см', mm: 'мм' };
+  const st = { on: null, rec: null, msg: '', cls: '', idle: null, quick: 0, t0: 0 };
+  const HELP = 'Назовите размер: «три запятая четыре пять семь», «3 метра 45». Команды: «да», «дальше», «назад», «стереть», «стоп».';
+  function box() { const inp = st.on && document.getElementById(st.on); return inp ? inp.closest('.kp') : null; }
+  function unitOf(b) { const u = b && b.querySelector('.kpu [aria-pressed="true"][data-v]'); return u ? u.dataset.v : 'm'; }
+  function where(b) { const l = b && b.querySelector('.kpl'); return l ? l.textContent.replace(/\?$/, '').trim() : ''; }
+  function fmt(mm, u) { const v = u === 'mm' ? mm : u === 'cm' ? mm / 10 : mm / 1000; return String(Math.round(v * 1000) / 1000).replace('.', ','); }
+  function say(msg, cls) {
+    st.msg = msg; st.cls = cls || '';
+    const el = st.on && document.getElementById('kvs-' + st.on); if (el) { el.textContent = msg; el.className = 'kvs' + (st.cls ? ' ' + st.cls : ''); el.hidden = false; }
+  }
+  function mark() { document.querySelectorAll('[data-kp="mic"]').forEach((b) => { b.setAttribute('aria-pressed', String(b.dataset.for === st.on)); const k = document.getElementById('kvs-' + b.dataset.for); if (k && b.dataset.for !== st.on) k.hidden = true; }); }
+  function idle() { clearTimeout(st.idle); st.idle = setTimeout(() => { if (st.on) { stop(); UI_toast('Голосовой ввод выключен: 2 минуты тишины.'); } }, 120000); }
+  function UI_toast(m) { if (typeof toast === 'function') toast(m); }
+  function stop() { const r = st.rec; st.on = null; st.rec = null; clearTimeout(st.idle); if (r) { try { r.abort(); } catch (e) {} } mark(); }
+  function round(rec) { st.t0 = Date.now(); try { rec.start(); } catch (e) {} }
+  function start(id) {
+    stop(); if (!SR) { UI_toast('Этот браузер не умеет распознавать речь. Нужен Chrome.'); return; }
+    st.on = id; st.quick = 0;
+    const rec = new SR(); rec.lang = 'ru-RU'; rec.continuous = false; rec.interimResults = true; rec.maxAlternatives = 4;
+    rec.onresult = (e) => {
+      if (st.rec !== rec) return;
+      let fin = null, mid = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin = r; else mid += r[0].transcript; }
+      if (!fin) { if (mid) say('… ' + mid); return; }
+      idle(); st.quick = 0; heard(fin);
+    };
+    rec.onerror = (e) => {
+      if (st.rec !== rec) return;
+      const er = e && e.error;
+      if (er === 'not-allowed' || er === 'service-not-allowed') { stop(); UI_toast('Нет доступа к микрофону. Разрешите микрофон для сайта в Chrome (значок слева от адреса). Внутри приложения claude.ai микрофон может быть закрыт — откройте konfetti-deco.github.io.'); }
+      else if (er === 'network') { stop(); UI_toast('Для распознавания речи нужен интернет: Chrome отправляет голос в Google.'); }
+      else if (er === 'audio-capture') { stop(); UI_toast('Микрофон не найден или занят другим приложением.'); }
+    };
+    rec.onend = () => {
+      if (st.rec !== rec || !st.on) return;
+      if (!box()) { stop(); return; }   // the field went away (another mode, the size is done)
+      if (Date.now() - st.t0 < 400 && ++st.quick > 5) { stop(); UI_toast('Распознавание речи не запускается — проверьте микрофон и интернет.'); return; }
+      setTimeout(() => { if (st.rec === rec && st.on) round(rec); }, 150);
+    };
+    st.rec = rec; round(rec); idle(); mark();
+    say('Слушаю · ' + where(box()) + '. ' + HELP);
+  }
+  function toggle(id) { if (st.on === id) { stop(); return; } start(id); }
+  function next(b, dir) {
+    if (st.on === 'pl-wlen' && window.PL) { PL.act('w-step', { dataset: { v: String(dir) } }); later(() => say('Слушаю · ' + where(box()))); return; }
+    const ok = b.querySelector('[data-kp="ok"]');
+    if (dir > 0 && ok && ok.dataset.after === 'mnext' && window.PF) { PF.act('mnext'); later(() => say('Слушаю · ' + where(box()))); return; }
+    say(dir > 0 ? 'Дальше некуда — это последний размер.' : 'Назад здесь нельзя.', 'warn');
+  }
+  function later(f) { setTimeout(() => { if (!st.on) return; if (!box()) { stop(); UI_toast('Голосовой ввод выключен: размеры введены.'); return; } mark(); f(); }, 90); }
+  function commit(b, u) {
+    const inp = document.getElementById(st.on), ok = b.querySelector('[data-kp="ok"]'), v = inp ? inp.value : '';
+    if (!inp || !ok || !v) { say('Сначала назовите размер.', 'warn'); return; }
+    const was = where(b); KP.key(ok); try { navigator.vibrate && navigator.vibrate(25); } catch (e) {}
+    later(() => { const nb = box(), nw = where(nb); say('✓ ' + was + ': ' + v + ' ' + ULAB[u] + (nw && nw !== was ? ' · теперь ' + nw : ''), 'ok'); });
+  }
+  function heard(fin) {
+    const b = box(); if (!b) { stop(); return; }
+    const u = unitOf(b), inp = document.getElementById(st.on);
+    let res = null, txt = fin[0] ? fin[0].transcript : '';
+    for (let k = 0; k < fin.length; k++) { const q = PG.parseSpoken(fin[k].transcript, u); if (q) { res = q; txt = fin[k].transcript; break; } }
+    if (!res) { say('Не понял «' + txt.trim() + '». ' + (/\d{3,}/.test(txt) && u === 'm' ? 'Где запятая? Скажите «три запятая четыре пять».' : HELP), 'warn'); return; }
+    if (res.cmd === 'stop') { stop(); return; }
+    if (res.cmd === 'clear') { if (inp) { inp.value = ''; inp.dataset.fresh = '0'; } say('Стёрто. Назовите размер.'); return; }
+    if (res.cmd === 'yes') { commit(b, u); return; }
+    if (res.cmd === 'next') { next(b, 1); return; }
+    if (res.cmd === 'prev') { next(b, -1); return; }
+    if (!inp) return;
+    inp.value = fmt(res.mm, u); inp.dataset.fresh = '0';
+    if (res.sure) commit(b, u);
+    else say('Проверьте: ' + inp.value + ' ' + ULAB[u] + ' («' + txt.trim() + '»). Скажите «да» или нажмите ✓.', 'ask');
+  }
+  document.addEventListener('visibilitychange', () => { if (document.hidden && st.on) stop(); });
+  return { can: !!SR, ICO, on: () => st.on, msg: () => st.msg, cls: () => st.cls, toggle, stop };
 })();
 
 var PL = (function () {
@@ -244,8 +333,10 @@ var PL = (function () {
     else h += '<rect class="pib" x="' + n1(-it.w / 2) + '" y="' + n1(-it.d / 2) + '" width="' + n1(it.w) + '" height="' + n1(it.d) + '" rx="' + (sub === 'tab' ? 30 : 10) + '"/>';
     const small = Math.min(it.w, it.d) * s, back = -(it.rot || 0);
     if (it.kind === 'table' && !it.stand && small >= 22) {
-      h += text(0, -(small >= 40 ? 6 : 0) / s, (it.num != null ? it.num : ''), 13, 'ptn', back);
-      if (small >= 40) h += text(0, 9 / s, G.seatCount(it) + ' м.', 9.5, 'pts', back);
+      // the two lines stack on the SCREEN, whatever the table's turn: the offset is turned back into the table's own frame
+      const th = (it.rot || 0) * G.DEG, at = (dy) => [dy * Math.sin(th), dy * Math.cos(th)], a1 = at(-(small >= 40 ? 6 : 0) / s), a2 = at(9 / s);
+      h += text(a1[0], a1[1], (it.num != null ? it.num : ''), 13, 'ptn', back);
+      if (small >= 40) h += text(a2[0], a2[1], G.seatCount(it) + ' м.', 9.5, 'pts', back);
     } else if (it.kind === 'zone' && small >= 14) {
       const lab = G.itemLabel(it), fit = Math.max(3, Math.floor(Math.max(it.w, it.d) * s / 7));
       h += text(0, 0, lab.length > fit ? lab.slice(0, fit - 1) + '…' : lab, 10.5, 'pzn', it.w >= it.d ? back : back + ((it.rot || 0) % 180 === 0 ? -90 : 0));
@@ -1092,10 +1183,10 @@ var PL = (function () {
     const ab = (v, t) => '<button type="button" class="ib alb" data-pact="m-align" data-v="' + v + '" title="' + t + '" aria-label="' + t + '">' + alIco(v) + '</button>';
     const isG = L.every((it) => it.grp && it.grp === L[0].grp);
     return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') +
-      grp('Выровнять', '<div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
-        '<p class="muted small full">Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>') +
-      grp('Распределить', '<div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
-        fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
+      grp('Выровнять и распределить', '<div class="fl full">Поставить в одну линию</div><div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
+        '<p class="muted small full">Поставить в одну линию — если выделенные столы стоят «лесенкой», они встают ровно по одному краю или по центру. Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>' +
+        '<div class="fl full">Равные промежутки</div><div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
+        fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Равные промежутки — например, 10 столов в ряд через 1,5 м одним нажатием. Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
       (T.length ? grp('Столы: ' + T.length, '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
       '<div class="pacts">' + btn('m-dup', 'Дублировать ' + L.length) + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }

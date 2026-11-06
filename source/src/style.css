@@ -1114,3 +1114,14 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 #fsvg .frf{fill:rgba(127,220,240,.12);stroke:#7FDCF0;stroke-width:2;stroke-dasharray:7 5;vector-effect:non-scaling-stroke}
 #fsvg .frf[data-r]{cursor:move;pointer-events:all}
 #fsvg .frh{fill:#7FDCF0}
+/* v52: voice input on the keypad */
+.kpu .kmic{flex:0 0 46px;display:grid;place-items:center;color:var(--accent);margin-left:4px;background:var(--surface);border:1px solid var(--wline)}
+.kpu .kmic svg{display:block}
+html .kpu button.kmic[aria-pressed=true],html.glass .kpu button.kmic[aria-pressed=true]{background:#d9534f;color:#fff;border-color:transparent;box-shadow:0 0 0 0 rgba(217,83,79,.6);animation:kmicp 1.4s ease-out infinite}
+@keyframes kmicp{0%{box-shadow:0 0 0 0 rgba(217,83,79,.55)}100%{box-shadow:0 0 0 9px rgba(217,83,79,0)}}
+@media (prefers-reduced-motion:reduce){.kpu .kmic[aria-pressed=true]{animation:none}}
+.kvs{font-size:12.5px;line-height:1.35;padding:7px 9px;border-radius:8px;background:var(--chip);color:var(--ink);margin:2px 0}
+.kvs.ok{background:color-mix(in srgb,var(--accent) 18%,var(--chip))}
+.kvs.ask{background:color-mix(in srgb,#e0a030 22%,var(--chip))}
+.kvs.warn{background:color-mix(in srgb,var(--bad) 18%,var(--chip))}
+.kp.kpc .kvs[hidden]{display:none}

@@ -224,5 +224,19 @@ ok(PG.refLen({ q: [[0, 0], [10, 10], [10, 0], [0, 10]], w: 900, h: 2100 }, [0, 0
 { const n = PG.normPhotos([{ im: 'i', w: 100, h: 100, marks: [{ t: 'dim', a: [0, 0], b: [1, 1], v: 2350, est: true }, { t: 'dim', a: [0, 0], b: [1, 1], v: null, est: true }], ref: { q: [[10, 10], [60, 10], [60, 90], [10, 90]], w: 900, h: '2100' } }]);
   ok(n[0].ref && n[0].ref.w === 900 && n[0].ref.h === 2100, 'reference kept with the photo'); ok(n[0].marks[0].est === true && !n[0].marks[1].est, 'an estimate is marked only with a number'); }
 
+/* 31. a size said aloud: the comma must be certain, or the value waits for «да»; no guess for a bare «345» in metres */
+{ const T = (t, u, mm, sure, m) => { const r = PG.parseSpoken(t, u); ok(r && r.mm === mm && r.sure === sure, m + ': «' + t + '» → ' + JSON.stringify(r)); };
+  T('три запятая четыреста пятьдесят семь', 'm', 3457, true, 'words with a comma'); T('3,457', 'm', 3457, true, 'digits, comma'); T('3.457 м', 'm', 3457, true, 'digits, point, unit');
+  T('3 457', 'm', 3457, true, 'two groups'); T('три сорок пять', 'm', 3450, true, 'metres and centimetres without words'); T('3 метра 45', 'm', 3450, true, 'metres + tail');
+  T('три метра сорок пять сантиметров', 'm', 3450, true, 'both units in words'); T('345 сантиметров', 'm', 3450, true, 'cm said in a metre field'); T('2 метра 345 миллиметров', 'm', 2345, true, 'm + mm');
+  T('пять метров', 'm', 5000, true, 'unit said'); T('пять', 'm', 5000, false, 'bare small number: confirm'); T('3 метра 5', 'm', 3500, false, 'one digit after metres: confirm');
+  T('три ноль пять', 'm', 3050, true, 'zero kept'); T('два двадцать', 'm', 2200, true, 'tens'); T('полтора метра', 'm', 1500, true, 'полтора'); T('3,45 метра.', 'm', 3450, true, 'sentence dot');
+  T('триста сорок пять', 'cm', 3450, true, 'cm field'); T('12,5', 'cm', 125, true, 'cm with a comma'); T('4,5 метра', 'cm', 4500, true, 'metres said in a cm field'); T('две тысячи триста', 'mm', 2300, true, 'thousands');
+  T('3 м 45 см', 'm', 3450, true, 'short units'); T('стена три метра', 'm', 3000, true, 'other words ignored');
+  ok(PG.parseSpoken('345', 'm') === null, 'bare 345 in metres: refused'); ok(PG.parseSpoken('привет', 'm') === null, 'no number'); ok(PG.parseSpoken('0,001', 'm') === null, 'below 1 cm: refused'); ok(PG.parseSpoken('', 'm') === null, 'empty');
+  [['да', 'yes'], ['готово', 'yes'], ['дальше', 'next'], ['следующая', 'next'], ['назад', 'prev'], ['стоп', 'stop'], ['выключи', 'stop'], ['сотри', 'clear'], ['нет', 'clear']].forEach((c) => { const r = PG.parseSpoken(c[0], 'm'); ok(r && r.cmd === c[1], 'command «' + c[0] + '»'); });
+  // any metre reading said as digits with a comma comes back exactly
+  for (let k = 0; k < 500; k++) { const mm = Math.round(rnd(10, 60000)), t = String(mm / 1000).replace('.', ','), r = PG.parseSpoken(t, 'm'); ok(r && r.mm === mm && r.sure === (t.indexOf(',') >= 0 ? true : false) || (t.indexOf(',') < 0 && mm >= 100000), 'reading ' + t + ' → ' + JSON.stringify(r)); } }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

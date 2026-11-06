@@ -15,7 +15,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  const q=await sc('b');await p.mouse.click(q[0],q[1]);await p.waitForTimeout(80);ok(await ev(()=>PL.st.multi.slice().sort().join())==='a,c','a second tap takes one away');
  await p.mouse.click(q[0],q[1]);await p.waitForTimeout(80);
  // line up by the top
- await p.click('#dock [data-pact=m-align][data-v=top]');await p.waitForTimeout(100);
+ await p.click('#dock .igl.sh:has-text("Выровнять и распределить")');await p.waitForTimeout(80);await p.click('#dock [data-pact=m-align][data-v=top]');await p.waitForTimeout(100);
  ok(await ev(()=>{const t=['a','b','c'].map(id=>PG.itemBBox(S.plan.items.find(i=>i.id===id)).y0);return Math.max(...t)-Math.min(...t)<0.2}),'tops on one line');ok(await ev(()=>S.plan.items.find(i=>i.id==='d').y)===o[1]+6000,'the unchosen table untouched');
  ok((await ev(()=>UI.histL[UI.hi])).includes('по верху'),'history: выровнено по верху');
  // spread evenly, then with a 1 m gap

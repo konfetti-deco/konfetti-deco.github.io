@@ -1077,13 +1077,89 @@ var PG = (function () {
   /* room names in one tap */
   const NAMES = ['Банкетный зал', 'Зал', 'Холл', 'Фойе', 'Терраса', 'Веранда', 'Гардероб', 'Коридор', 'Кухня', 'Сцена'];
 
+  /* ===== a size said aloud (the rangefinder read out): «три запятая четыре пять семь», «3,457», «3 метра 45», «три сорок пять»,
+     «345 сантиметров». Returns {mm, sure} — sure=false when the words leave the comma to a guess (a bare «пять» in metres) and the
+     value must be confirmed; {cmd} for «да / дальше / назад / стоп / стереть»; null when nothing usable was heard.
+     A bare whole number ≥ 100 in metres is refused: «345» may be 3,45 or 34,5 — guessing would put a wrong wall in the plan. ===== */
+  const SP_U = { 'ноль': 0, 'нуль': 0, 'один': 1, 'одна': 1, 'одно': 1, 'два': 2, 'две': 2, 'три': 3, 'четыре': 4, 'пять': 5, 'шесть': 6, 'семь': 7, 'восемь': 8, 'девять': 9,
+    'десять': 10, 'одиннадцать': 11, 'двенадцать': 12, 'тринадцать': 13, 'четырнадцать': 14, 'пятнадцать': 15, 'шестнадцать': 16, 'семнадцать': 17, 'восемнадцать': 18, 'девятнадцать': 19 };
+  const SP_T = { 'двадцать': 20, 'тридцать': 30, 'сорок': 40, 'пятьдесят': 50, 'шестьдесят': 60, 'семьдесят': 70, 'восемьдесят': 80, 'девяносто': 90 };
+  const SP_H = { 'сто': 100, 'двести': 200, 'триста': 300, 'четыреста': 400, 'пятьсот': 500, 'шестьсот': 600, 'семьсот': 700, 'восемьсот': 800, 'девятьсот': 900 };
+  const SP_F = { m: 1000, cm: 10, mm: 1 };
+  function parseSpoken(text, unit) {
+    unit = SP_F[unit] ? unit : 'm';
+    let t = String(text || '').toLowerCase().replace(/ё/g, 'е').replace(/[   ]/g, ' ');
+    t = t.replace(/(\d)\s*[.,]\s*(\d)/g, '$1.$2').replace(/(\d)([a-zа-я])/g, '$1 $2').replace(/([a-zа-я])(\d)/g, '$1 $2').replace(/[^\d.a-zа-я ]+/g, ' ').replace(/\.(?!\d)|(^|[^\d])\./g, '$1 ');
+    const words = t.split(/\s+/).filter(Boolean), items = [];
+    let g = null;   // a number being said in words: {v, last: 'k'|'h'|'t'|'u'}
+    const flush = () => { if (g) { items.push({ n: String(g.v) }); g = null; } };
+    words.forEach((w) => {
+      if (/^\d+(\.\d+)?$/.test(w)) { flush(); items.push({ n: w }); return; }
+      if (w in SP_H) { if (g && g.last === 'k') { g.v += SP_H[w]; g.last = 'h'; } else { flush(); g = { v: SP_H[w], last: 'h' }; } return; }
+      if (w in SP_T) { if (g && (g.last === 'h' || g.last === 'k')) { g.v += SP_T[w]; g.last = 't'; } else { flush(); g = { v: SP_T[w], last: 't' }; } return; }
+      if (w in SP_U) { const v = SP_U[w];
+        if (g && v > 0 && ((v < 10 && (g.last === 'h' || g.last === 't' || g.last === 'k')) || (v >= 10 && (g.last === 'h' || g.last === 'k')))) { g.v += v; g.last = 'u'; }
+        else { flush(); g = { v, last: 'u' }; if (v === 0) flush(); }
+        return; }
+      if (/^тысяч/.test(w)) { if (g && g.last !== 'k') { g.v *= 1000; g.last = 'k'; } else { flush(); g = { v: 1000, last: 'k' }; } return; }
+      flush();
+      if (/^полтор/.test(w)) items.push({ n: '1.5' });
+      else if (/^(запят|точк|цел)/.test(w)) items.push({ sep: 1 });
+      else if (/^(м|метр[а-я]*)$/.test(w)) items.push({ u: 'm' });
+      else if (/^(см|сантиметр[а-я]*|сантим[а-я]*)$/.test(w)) items.push({ u: 'cm' });
+      else if (/^(мм|милл?иметр[а-я]*)$/.test(w)) items.push({ u: 'mm' });
+      else items.push({ w });
+    });
+    flush();
+    if (!items.some((x) => x.n != null)) {
+      const all = ' ' + words.join(' ') + ' ';
+      if (/ (стоп|хватит|выключ[а-я]*|законч[а-я]*|конец) /.test(all)) return { cmd: 'stop' };
+      if (/ (отмена|отмени[а-я]*|стер[а-я]*|сотри|неправильно|нет|ошибка|заново) /.test(all)) return { cmd: 'clear' };
+      if (/ (назад|предыдущ[а-я]*|вернись) /.test(all)) return { cmd: 'prev' };
+      if (/ (дальше|далее|следующ[а-я]*|пропуст[а-я]*) /.test(all)) return { cmd: 'next' };
+      if (/ (да|верно|правильно|готово|ок|окей|ok|подтверждаю|принять) /.test(all)) return { cmd: 'yes' };
+      return null;
+    }
+    // number runs: [n n …] with an optional comma inside, closed by a unit word or by the end
+    const val = (nums, sep) => {
+      if (nums.length === 1) return { v: parseFloat(nums[0]), fr: (nums[0].split('.')[1] || '').length, sep: sep != null };
+      if (nums.slice(1).some((x) => x.indexOf('.') >= 0) || nums[0].indexOf('.') >= 0) return null;
+      const cut = sep != null ? sep : 1; if (cut < 1) return null;
+      const a = nums.slice(0, cut).join(''), f = nums.slice(cut).join('');
+      return { v: parseFloat(a + (f ? '.' + f : '')), fr: f.length, sep: sep != null };
+    };
+    const parts = []; let run = [], sep = null;
+    for (const x of items) {
+      if (x.n != null) run.push(x.n);
+      else if (x.sep) { if (run.length && sep == null) sep = run.length; }
+      else if (x.u) { if (run.length) { const q = val(run, sep); if (!q) return null; parts.push({ q, u: x.u }); } run = []; sep = null; }
+    }
+    let mm = 0, sure = true;
+    parts.forEach((p) => { mm += p.q.v * SP_F[p.u]; });
+    if (run.length) {
+      const q = val(run, sep); if (!q) return null;
+      if (parts.length) {   // «3 метра 45»: the tail is the rest of the last unit
+        const last = parts[parts.length - 1].u;
+        if (last === 'm' && !q.sep && q.fr === 0) { const d = run.join(''); mm += parseFloat('0.' + d) * 1000; sure = d.length >= 2; }
+        else if (last === 'cm' && !q.sep && q.fr === 0) { mm += q.v; sure = false; }
+        else return null;
+      } else if (q.sep || q.fr > 0) { mm = q.v * SP_F[unit]; sure = q.fr > 0 && (q.sep || run.length === 1 || q.fr >= 2); }
+      else if (run.length > 1) { mm = q.v * SP_F[unit]; sure = false; }
+      else if (unit === 'm') { if (!(q.v < 100)) return null; mm = q.v * 1000; sure = false; }
+      else { mm = q.v * SP_F[unit]; sure = true; }
+    }
+    mm = Math.round(mm * 10) / 10;
+    if (!(mm >= 10 && mm <= 100000)) return null;
+    return { mm, sure };
+  }
+
   return {
     DEG, TOL_OK, TOL_WARN, UNIT, uid, clamp, hyp, nf, fmtLen, parseNum, parseSum, parseLen,
     unitVec, normDeg, signedArea, selfIntersects, triArea, pointInPoly, distSeg, bboxOf, labelPoint, labelAvoid,
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES,
+    newPlan, normalize, summary, NAMES, parseSpoken,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();

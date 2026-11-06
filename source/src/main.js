@@ -481,7 +481,7 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
     case 'hgo':{var hi=+id;if(hi>=0&&hi<UI.hist.length&&hi!==UI.hi)restore(hi);break}
     case 'vt':S.show[id]=!S.show[id];commit();break;
     case 'people':{var pl=S.els.filter(function(e){return e.type==='person'}),vis=pl.some(function(e){return !e.hide});pl.forEach(function(e){if(vis)e.hide=true;else delete e.hide});if(vis&&UI.sel&&pl.some(function(e){return e.id===UI.sel}))UI.sel=null;UI.nextLabel=vis?'Люди скрыты':'Люди показаны';commit();break}
-    case 'isec':{UI.isec[id]=!UI.isec[id];wsSave();var g=a.closest('.sec');if(g)g.classList.toggle('open',!UI.isec[id]);var is=a.closest('[data-sec]');if(is)is._h=V.con.secs.insp();break}
+    case 'isec':{UI.isec[id]=!V.isShut(id);wsSave();var g=a.closest('.sec');if(g)g.classList.toggle('open',!UI.isec[id]);var is=a.closest('[data-sec]');if(is)is._h=V.con.secs.insp();break}
     case 'undo':if(UI.hi>0)restore(UI.hi-1);break;
     case 'redo':if(UI.hi<UI.hist.length-1)restore(UI.hi+1);break;
     case 'add':{var it=D.GROUPS[+a.dataset.g].items[+a.dataset.i];addEl(M.make(S,it.t,JSON.parse(JSON.stringify(it.d))));break}

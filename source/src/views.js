@@ -644,9 +644,11 @@ V.con.secs.hist = function(){
     '<div class="pfoot"><span>'+(UI.hi+1)+' из '+L+' · до 80 шагов</span>'+U.help('Касание строки возвращает сцену к этому шагу. Шаги ниже серой линии можно вернуть, пока вы не сделали новое изменение: тогда они исчезнут, как в Photoshop.')+'</div>'};
 /* the moved numbers: size and place live in the options bar, so the properties do not repeat them */
 V.MOVED = /<label class="fld(?: [^"]*)?"><span class="fl">[^<]*<\/span><span class="stp"><button type="button" class="sb" data-step="[^"]*" aria-label="Меньше">−<\/button><input [^>]*data-bind="e\.(?:w|h|x|y|z|rot|size)"[^>]*><button type="button" class="sb" data-step="[^"]*" aria-label="Больше">\+<\/button><\/span><\/label>/g;
+V.SHUT0={'Выровнять и распределить':1};   // sections that start closed until opened once
+V.isShut=function(t){var v=UI.isec&&UI.isec[t];return v==null?!!V.SHUT0[t]:!!v};
 V.group = function(title,html){var notes=[];html=html.replace(V.NOTE,function(m,t){notes.push(t);return ''}).replace(V.MOVED,'');
   if(!/<(input|button|select|textarea|label|svg|canvas)|class="(pherr|stat|chips|sws|fpick)/.test(html)&&!notes.length)return '';   // nothing left to set here
-  var shut=UI.isec&&UI.isec[title];
+  var shut=V.isShut(title);
   return '<div class="igrp sec'+(shut?'':' open')+'"><div class="igl sh" data-act="isec" data-id="'+U.esc(title)+'"><i class="car" aria-hidden="true"></i><span>'+title+'</span>'+(notes.length?U.help(notes.join('<br><br>')):'')+'</div><div class="insp-grid sbody">'+html+'</div></div>'};
 (function(){var inner=V.con.secs.insp;V.con.secs.insp=function(){U.inDock=true;var h;try{h=inner()}finally{U.inDock=false}
   if(!h){return '<div class="pempty"><b>Ничего не выбрано</b><span>Коснитесь элемента на сцене или добавьте его инструментами слева.</span></div>'}
