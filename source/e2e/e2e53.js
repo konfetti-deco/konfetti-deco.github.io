@@ -6,18 +6,19 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.goto('file://'+path.resolve('dist/konstruktor-fotozon.html'));await p.waitForSelector('#canvas');await p.waitForTimeout(300);
  const ev=(f,a)=>p.evaluate(f,a);
  await p.click('#modesw [data-v=plan]');await p.click('[data-pact=fly-pick][data-g=room][data-v=rect]');await p.waitForTimeout(200);
- const pick=async(g,v)=>{await ev(([g,v])=>PL.act('fly-pick',{dataset:{g,v}}),[g,v]);await p.waitForTimeout(150)};
- const h0=await ev(()=>UI.hi);await pick('tables','t_q180');
+ const pick=async(g,v,at)=>{await ev(([g,v])=>PL.act('fly-pick',{dataset:{g,v}}),[g,v]);await p.waitForTimeout(100);const xy=await ev((at)=>{const r=document.getElementById('plan').getBoundingClientRect(),v=PL.st.v,o=PG.gridOrigin(S.plan);return [r.left+(o[0]+at[0]-v.x)*v.s,r.top+(o[1]+at[1]-v.y)*v.s]},at||[6000,4000]);await p.mouse.click(xy[0],xy[1]);await p.waitForTimeout(150)};
+ const h0=await ev(()=>UI.hi);await ev(()=>PL.act('fly-pick',{dataset:{g:'tables',v:'t_q180'}}));await p.waitForTimeout(100);
+ ok(await ev(()=>!document.getElementById('pbanner').hidden&&document.getElementById('pbanner').textContent.includes('Коснитесь места')&&!document.getElementById('pbanner').textContent.includes('Готово')),'banner «Коснитесь места…» without «Готово»');
+ await ev(()=>PL.st.tool=null);await pick('tables','t_q180',[3000,2000]);
  let st=await ev(()=>({n:S.plan.items.length,tool:PL.st.tool,sel:PL.st.sel&&PL.st.sel.t,ban:document.getElementById('pbanner').hidden,it:S.plan.items[0]}));
- ok(st.n===1&&st.sel==='item'&&!st.tool,'table appears at once and is selected: '+JSON.stringify({n:st.n,tool:st.tool,sel:st.sel}));ok(st.ban,'no «Коснитесь, чтобы поставить» banner');
+ ok(st.n===1&&st.sel==='item'&&!st.tool,'one tap places the table, selected, tool ended: '+JSON.stringify({n:st.n,tool:st.tool,sel:st.sel}));ok(st.ban,'banner gone after the tap');
  ok(await ev(()=>UI.hi)===h0+1&&(await ev(()=>UI.histL[UI.hi])).includes('Прямоугольный'),'one history step');
- const inView=await ev(()=>{const it=S.plan.items[0],v=PL.st.v,r=document.getElementById('plan').getBoundingClientRect(),x=(it.x-v.x)*v.s,y=(it.y-v.y)*v.s;return x>0&&x<r.width&&y>0&&y<r.height&&PG.pointInPoly([it.x,it.y],PG.roomGeom(S.plan.rooms[0]).pts)});ok(inView,'in the middle of the view, inside the room');
- await pick('tables','t_q180');await pick('tables','t_r150');
- ok(await ev(()=>{const L=S.plan.items.map(PG.fullBox);for(let i=0;i<L.length;i++)for(let j=i+1;j<L.length;j++){const a=L[i],b=L[j];if(a.x0<b.x1&&a.x1>b.x0&&a.y0<b.y1&&a.y1>b.y0)return false}return true}),'next ones placed beside, chairs not overlapping');
+ const inView=await ev(()=>{const it=S.plan.items[0],v=PL.st.v,r=document.getElementById('plan').getBoundingClientRect(),x=(it.x-v.x)*v.s,y=(it.y-v.y)*v.s;return x>0&&x<r.width&&y>0&&y<r.height&&PG.pointInPoly([it.x,it.y],PG.roomGeom(S.plan.rooms[0]).pts)});ok(await ev(()=>{const it=S.plan.items[0],o=PG.gridOrigin(S.plan);return Math.abs(it.x-(o[0]+3000))<=10&&Math.abs(it.y-(o[1]+2000))<=10}),'placed where tapped');
+ await pick('tables','t_q180',[6000,2000]);await pick('tables','t_r150',[9000,5000]);
  ok(await ev(()=>S.plan.items.filter(i=>i.kind==='table').map(i=>i.num).join())==='1,2,3','numbered 1, 2, 3');
- await pick('open','door');ok(await ev(()=>S.plan.rooms[0].walls.some(w=>(w.ops||[]).some(o=>o.type==='door'))&&PL.st.sel.t==='op'),'door put on the nearest wall at once');
- await pick('col','sq');ok(await ev(()=>S.plan.items.some(i=>i.kind==='column')),'column at once');
- await pick('tables','P');ok(await ev(()=>S.plan.items.filter(i=>i.ref==='t_q220').length)>=3,'П-образный at once');
+ await pick('open','door',[12000,4000]);ok(await ev(()=>S.plan.rooms[0].walls.some(w=>(w.ops||[]).some(o=>o.type==='door'))&&PL.st.sel.t==='op'&&S.plan.rooms[0].walls[1].ops.length===1),'door: one tap on wall B–C puts it there');
+ await pick('col','sq',[1000,7000]);ok(await ev(()=>S.plan.items.some(i=>i.kind==='column')&&!PL.st.tool),'column: one tap');
+ await pick('tables','P',[6000,6000]);ok(await ev(()=>S.plan.items.filter(i=>i.ref==='t_q220').length)>=3,'П-образный: one tap');
  // dragging: line up with another table
  await ev(()=>{S.plan.items=S.plan.items.filter(i=>i.kind==='table'&&i.ref!=='t_q220').slice(0,2);S.plan.items[0].x=3000;S.plan.items[0].y=2500;S.plan.items[1].x=7000;S.plan.items[1].y=5500;PL.st.sel=null;commit()});await p.waitForTimeout(150);
  const scr=(x,y)=>ev(([x,y])=>{const r=document.getElementById('plan').getBoundingClientRect(),v=PL.st.v;return [r.left+(x-v.x)*v.s,r.top+(y-v.y)*v.s]},[x,y]);
@@ -40,6 +41,6 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.click('#statbar [data-pact=snapcyc]');await p.waitForTimeout(80);ok(await ev(()=>S.plan.snap)===500,'then 0,5 м');await p.click('#statbar [data-pact=snapcyc]');await p.waitForTimeout(80);ok(await ev(()=>S.plan.snap)===0,'then off');
  // a photo marked on the plan at once
  await p.click('#modesw [data-v=photo]');await p.setInputFiles('.fadd input >> nth=0','tmp/hall_test.jpg');await p.waitForFunction(()=>(S.photos||[]).length===1);await p.waitForTimeout(150);
- await ev(()=>PF.act('pin',{dataset:{}}));await p.waitForTimeout(200);ok(await ev(()=>UI.mode==='plan'&&S.plan.items.some(i=>i.kind==='photo')&&!PL.st.tool),'photo pin put on the plan at once');
+ await ev(()=>PF.act('pin',{dataset:{}}));await p.waitForTimeout(200);ok(await ev(()=>UI.mode==='plan'&&PL.st.tool&&PL.st.tool.indexOf('pin:')===0),'photo: tap-to-mark tool');const pp=await ev(()=>{const r=document.getElementById('plan').getBoundingClientRect(),v=PL.st.v,o=PG.gridOrigin(S.plan);return [r.left+(o[0]+2000-v.x)*v.s,r.top+(o[1]+6000-v.y)*v.s]});await p.mouse.click(pp[0],pp[1]);await p.waitForTimeout(150);ok(await ev(()=>S.plan.items.some(i=>i.kind==='photo')&&!PL.st.tool),'one tap marks the photo');
  ok(!errs.length,'no page errors: '+errs.slice(0,3).join(' | '));
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();

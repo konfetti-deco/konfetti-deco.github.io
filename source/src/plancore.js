@@ -792,8 +792,9 @@ var PG = (function () {
   function snapGrid(v, o, step) { return o + Math.round((v - o) / step) * step; }
   /* where an object dragged to (x, y) lands: its centre or an edge on the line of another object's centre or edge
      (on the same layer), within tol mm; with no such line and a grid on, its centre on the grid. guides: lines to draw */
-  function alignSnap(p, it, x, y, tol, grid) {
-    const others = p.items.filter((o) => o.id !== it.id && o.kind !== 'photo' && !!o.top === !!it.top);
+  function alignSnap(p, it, x, y, tol, grid, opt) {
+    opt = opt || {};
+    const others = opt.objects === false ? [] : p.items.filter((o) => o.id !== it.id && o.kind !== 'photo' && !!o.top === !!it.top);
     const me = itemBBox(Object.assign({}, it, { x, y })), offX = [0, me.x0 - x, me.x1 - x], offY = [0, me.y0 - y, me.y1 - y];
     let bx = null, by = null;
     others.forEach((o) => {
@@ -801,15 +802,18 @@ var PG = (function () {
       lx.forEach((L, li) => offX.forEach((off, mi) => { if ((li === 0) !== (mi === 0)) return; const dd = L - (x + off); if (Math.abs(dd) <= tol && (!bx || Math.abs(dd) < Math.abs(bx.d) - 1e-9)) bx = { d: dd, L }; }));
       ly.forEach((L, li) => offY.forEach((off, mi) => { if ((li === 0) !== (mi === 0)) return; const dd = L - (y + off); if (Math.abs(dd) <= tol && (!by || Math.abs(dd) < Math.abs(by.d) - 1e-9)) by = { d: dd, L }; }));
     });
+    let ux = null, uy = null;
+    (opt.guides || []).forEach((g) => { (g.vert ? offX : offY).forEach((off) => { const dd = g.at - ((g.vert ? x : y) + off); if (Math.abs(dd) <= tol) { if (g.vert) { if (!ux || Math.abs(dd) < Math.abs(ux.d)) ux = { d: dd, L: g.at }; } else if (!uy || Math.abs(dd) < Math.abs(uy.d)) uy = { d: dd, L: g.at }; } }); });
+    if (ux) bx = null; if (uy) by = null;
     const go = gridOrigin(p);
-    let nx = bx ? x + bx.d : x, ny = by ? y + by.d : y;
-    if (!bx && grid > 0) nx = snapGrid(x, go[0], grid); if (!by && grid > 0) ny = snapGrid(y, go[1], grid);
-    if (!bx && !(grid > 0)) nx = Math.round(x / 10) * 10; if (!by && !(grid > 0)) ny = Math.round(y / 10) * 10;
+    let nx = ux ? x + ux.d : bx ? x + bx.d : x, ny = uy ? y + uy.d : by ? y + by.d : y;
+    if (!bx && !ux && grid > 0) nx = snapGrid(x, go[0], grid); if (!by && !uy && grid > 0) ny = snapGrid(y, go[1], grid);
+    if (!bx && !ux && !(grid > 0)) nx = Math.round(x / 10) * 10; if (!by && !uy && !(grid > 0)) ny = Math.round(y / 10) * 10;
     const mb = itemBBox(Object.assign({}, it, { x: nx, y: ny })), guides = [];
     const on = (vals, L) => vals.some((v) => Math.abs(v - L) < 0.5);
     if (bx) { let a = mb.y0, c = mb.y1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.x, b.x0, b.x1], bx.L)) { a = Math.min(a, b.y0); c = Math.max(c, b.y1); n++; } }); guides.push({ vert: true, at: bx.L, a: a - 250, b: c + 250, n }); }
     if (by) { let a = mb.x0, c = mb.x1, n = 0; others.forEach((o) => { const b = itemBBox(o); if (on([o.y, b.y0, b.y1], by.L)) { a = Math.min(a, b.x0); c = Math.max(c, b.x1); n++; } }); guides.push({ vert: false, at: by.L, a: a - 250, b: c + 250, n }); }
-    return { x: nx, y: ny, guides };
+    return { x: nx, y: ny, guides, onGuide: { x: ux ? ux.L : null, y: uy ? uy.L : null } };
   }
   function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
   /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
@@ -860,6 +864,9 @@ var PG = (function () {
     o.h = clamp(Math.round(+o.h || 3000), 1800, 20000);
     o.minClear = clamp(Math.round(+o.minClear || 2200), 1000, 6000);
     o.snap = [500, 1000].indexOf(+o.snap) >= 0 ? +o.snap : 0;   // grid with snapping: off, 0.5 m, 1 m
+    o.smart = o.smart !== false;   // lining up with other objects while dragging
+    o.rulers = o.rulers !== false;
+    o.guides = (Array.isArray(o.guides) ? o.guides : []).filter((g) => g && isFinite(+g.at)).slice(0, 60).map((g) => ({ id: String(g.id || uid()), vert: !!g.vert, at: Math.round(+g.at) }));
     o.rooms = (Array.isArray(o.rooms) ? o.rooms : []).filter((r) => r && Array.isArray(r.walls) && r.walls.length >= 3).map((r) => {
       r.id = r.id || uid(); r.name = String(r.name || '').slice(0, 60); r.x = +r.x || 0; r.y = +r.y || 0; r.h = r.h ? clamp(Math.round(+r.h), 1800, 20000) : null;
       r.diag = r.diag && typeof r.diag === 'object' ? { p: +r.diag.p || null, q: +r.diag.q || null } : { p: null, q: null };

@@ -7,10 +7,11 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.goto('file://'+path.resolve(FILE));await p.waitForSelector('#canvas');await p.waitForTimeout(300);
  const ev=(f,a)=>p.evaluate(f,a).catch(e=>{errs.push('evaluate: '+e.message.split('\n')[0]);return null});
  await p.click('#modesw [data-v=plan]');await ev(()=>{PL.act('fly-pick',{dataset:{g:'room',v:'rect'}});commit()});await p.waitForTimeout(150);
- for(let i=0;i<4;i++){await ev(()=>{PL.act('fly-pick',{dataset:{g:'tables',v:'t_q180'}})});await p.waitForTimeout(120)}
- ok(await ev(()=>PL.st.tool)===null,'no placing tool left on (objects appear at once)');
+ const box=await ev(()=>{const r=document.getElementById('plan').getBoundingClientRect();return {x:r.left,y:r.top,w:r.width,h:r.height}});
+ for(let i=0;i<4;i++){await ev(()=>{PL.act('fly-pick',{dataset:{g:'tables',v:'t_q180'}})});await p.waitForTimeout(80);await p.touchscreen.tap(box.x+box.w*(0.3+i*0.12),box.y+box.h*0.5);await p.waitForTimeout(120)}
+ ok(await ev(()=>PL.st.tool)===null,'each tap places one table and ends the tool');
  const n=()=>ev(()=>S.plan.items.filter(i=>i.kind==='table').length);
- ok(await n()===4,'4 tables placed by picking: '+await n());
+ ok(await n()===4,'4 tables placed: '+await n());
  const domN=()=>ev(()=>document.querySelectorAll('#pitems [data-id], #pitems > g').length);const d4=await domN();
  await p.click('[data-act=undo] >> nth=0');await p.waitForTimeout(150);ok(await n()===3,'undo button: 3 tables');ok(await domN()<d4,'plan redrawn after undo');
  ok(await ev(()=>{const h=document.querySelector('#dock .phead h3');return h?h.textContent:''})!=='Стол №4','panel title no longer «Стол №4»: '+await ev(()=>{const h=document.querySelector('#dock .phead h3');return h?h.textContent:''}));
