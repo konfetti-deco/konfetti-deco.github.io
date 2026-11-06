@@ -1101,3 +1101,11 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
 .pad0{padding:0 12px 6px;margin:0}
 #plan .psp{stroke:#E8557A;stroke-width:1.5;pointer-events:none}
 #plan .psp-t{fill:#E8557A}
+
+/* v49: folded keypad, contour */
+.kp.kpc .kpu,.kp.kpc .kpk{display:none}
+.kp.kpc .kpr{cursor:pointer}
+.kp .kpe{margin-left:6px;color:var(--accent);font-size:15px}
+#fsvg .fpl{fill:rgba(255,255,255,.08);stroke:#fff;stroke-width:2;stroke-dasharray:6 4;vector-effect:non-scaling-stroke;pointer-events:none}
+#fsvg .fpp{fill:var(--accent,#5fd3a6);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:none}
+#fsvg .fpp.first{fill:#fff;stroke:var(--accent,#5fd3a6);stroke-width:2.5}

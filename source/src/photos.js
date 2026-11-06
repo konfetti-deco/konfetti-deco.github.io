@@ -9,11 +9,12 @@ var PF = (function () {
     ftext: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M8 10h8M8 14h5"/></svg>',
     farrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5"/><path d="M10 5h9v9"/></svg>',
     fgal: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>',
+    fpoly: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M5 18l2-12 11 3 1 10z"/><circle cx="5" cy="18" r="1.6" fill="currentColor"/><circle cx="7" cy="6" r="1.6" fill="currentColor"/><circle cx="18" cy="9" r="1.6" fill="currentColor"/><circle cx="19" cy="19" r="1.6" fill="currentColor"/></svg>',
     ffit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M4 7l14-3 2 15-16 1z"/><path d="M9 16v-5l3-3 3 3v5"/></svg>',
     fpin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-6-5.6-6-11a6 6 0 0 1 12 0c0 5.4-6 11-6 11z"/><circle cx="12" cy="10" r="2.2"/></svg>',
   };
   const COLNAME = { '#FF4D4F': 'красный', '#FFD43B': 'жёлтый', '#FFFFFF': 'белый', '#40C057': 'зелёный', '#4DABF7': 'синий' };
-  const st = { cutFor: '', lay: null, pim: null, pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
+  const st = { poly: null, kpOpen: null, cutFor: '', lay: null, pim: null, pick: {}, open: null, sel: null, tool: '', col: G.MARK_COLS[0], v: null, drag: null, tps: {}, pinch: null, pend: null, lastW: 0, lastH: 0, repaint: 0 };
   function L() { if (!Array.isArray(S.photos)) S.photos = []; return S.photos; }
   function cur() { return L().find((p) => p.id === st.open) || null; }
   function mark(id) { const ph = cur(); return ph ? ph.marks.find((m) => m.id === id) || null : null; }
@@ -141,7 +142,15 @@ var PF = (function () {
   function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
   function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
   function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
-  function markName(m) { return m.t === 'dim' ? 'Размер' + (m.v > 0 ? ' ' + fs(m.v) : ' без числа') : m.t === 'text' ? 'Заметка' + (m.text ? ': ' + m.text : '') : 'Стрелка' + (m.text ? ': ' + m.text : ''); }
+  function polySides(m) { const ph = cur(); return ph && m && m.poly ? ph.marks.filter((x) => x.poly === m.poly) : []; }
+  function nextSide(m) { const L = polySides(m), i = L.indexOf(m); for (let k = 1; k < L.length; k++) { const q = L[(i + k) % L.length]; if (!(q.v > 0)) return q; } return null; }
+  function closePoly() {
+    const ph = cur(), pts = st.poly || []; if (!ph || pts.length < 3) { toast('Нужно хотя бы 3 угла.'); return; }
+    const cid = 'c' + G.uid(), made = pts.map((a, i) => ({ id: G.uid(), t: 'dim', a: a.slice(), b: pts[(i + 1) % pts.length].slice(), v: null, col: st.col, poly: cid }));
+    made.forEach((m) => ph.marks.push(m)); st.poly = null; st.tool = ''; st.sel = made[0].id; st.kpOpen = null;
+    label('контур: ' + made.length + ' сторон' + (made.length < 5 ? 'ы' : '')); focusVal();
+  }
+  function markName(m) { return m.t === 'dim' ? (m.text || 'Размер') + (m.v > 0 ? ' ' + fs(m.v) : ' без числа') : m.t === 'text' ? 'Заметка' + (m.text ? ': ' + m.text : '') : 'Стрелка' + (m.text ? ': ' + m.text : ''); }
   function pinOf(id) { return S.plan && S.plan.items.find((it) => it.kind === 'photo' && it.photo === id) || null; }
   function pinWhere(pin) {
     if (!pin || !S.plan) return '';
@@ -191,7 +200,7 @@ var PF = (function () {
     if (m.t === 'dim') {
       const k = 15 / s, w = 3.6 / s;   // thin sharp arrows pointing at the two ends
       for (const [q, dir] of [[a, -1], [b, 1]]) { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; h += '<polygon class="fah" fill="' + c + '" points="' + n1(q[0]) + ',' + n1(q[1]) + ' ' + n1(bx + nx * w) + ',' + n1(by + ny * w) + ' ' + n1(bx - nx * w) + ',' + n1(by - ny * w) + '"/>'; }
-      const lab = m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab();
+      const lab = (m.text ? m.text + ' · ' : '') + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab());
       h += txt((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, lab, 14, m.v > 0 ? dark : '#fff', m.v > 0 ? c : '#C92A2A', on);
     } else {
       const k = 16 / s, w = 7 / s, p1 = [b[0] - ux * k + nx * w, b[1] - uy * k + ny * w], p2 = [b[0] - ux * k - nx * w, b[1] - uy * k - ny * w];
@@ -225,6 +234,7 @@ var PF = (function () {
     if (m) for (const k of m.t === 'text' ? [] : ['a', 'b']) { const q = m[k]; hnd += '<circle class="fhd" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(7 / s) + '"/><circle class="fhh" data-r="h|' + m.id + '|' + k + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1(20 / s) + '"/>'; }
     if (st.pend) hnd += '<circle class="fpd" cx="' + n1(st.pend[0]) + '" cy="' + n1(st.pend[1]) + '" r="' + n1(6 / s) + '"/>';
     if (st.drag && st.drag.mode === 'new' && st.drag.b) { const d = st.drag; mk += markSvg({ id: '_', t: st.tool, a: d.a, b: d.b, v: null, col: st.col }, true); }
+    if (st.tool === 'poly' && st.poly && st.poly.length) { const P2 = st.poly; hnd += '<polyline class="fpl" points="' + P2.map((q) => n1(q[0]) + ',' + n1(q[1])).join(' ') + '"/>' + P2.map((q, i) => '<circle class="fpp' + (i === 0 ? ' first' : '') + '" cx="' + n1(q[0]) + '" cy="' + n1(q[1]) + '" r="' + n1((i === 0 ? 9 : 6) / s) + '"/>').join(''); }
     if (fitOn(ph)) { refreshCut(); if (st.tool === 'fit') { const q = ph.fit.q, pts = q.map((p) => n1(p[0]) + ',' + n1(p[1])).join(' ');
       hnd += '<polygon class="ffq" data-r="qm" points="' + pts + '"/>' + q.map((p, i) => '<circle class="fhd fqd" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(8 / s) + '"/><circle class="fhh" data-r="q|' + i + '" cx="' + n1(p[0]) + '" cy="' + n1(p[1]) + '" r="' + n1(22 / s) + '"/>').join(''); } }
     const set = (id, x) => { const n = document.getElementById(id); if (n && n._h !== x) { n.innerHTML = x; n._h = x; } };
@@ -236,6 +246,7 @@ var PF = (function () {
     let t = '';
     if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'fit') t = '<span>Примерка: тяните углы</span>' + U.help('Нижние углы — на пол, где будет стоять фотозона, верхние — на её высоту. Внутри рамки — сдвиг целиком.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'poly') t = '<span>Контур: коснитесь углов по очереди' + (st.poly && st.poly.length ? ' · углов ' + st.poly.length : '') + '</span>' + U.help('Каждая сторона станет размером. Замкните — коснитесь первого угла или «Замкнуть»; затем впишите длины сторон по очереди, и справа появятся периметр и площадь.') + (st.poly && st.poly.length ? '<button type="button" class="btn sm" data-fact="poly-back">Убрать угол</button>' : '') + (st.poly && st.poly.length >= 3 ? '<button type="button" class="btn sm pri" data-fact="poly-close">Замкнуть</button>' : '') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Отмена</button>';
     else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
   }
@@ -264,6 +275,7 @@ var PF = (function () {
     const p = toImg(ev), n = ev.target.closest('[data-r]'), ref = n ? n.dataset.r.split('|') : null, hand = st.tool === 'hand' || UI.spaceHand || ev.button === 1;
     const d = st.drag = { pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, p0: p, moved: false, mode: 'pan', v0: Object.assign({}, st.v), ref };
     if (hand) return true;
+    if (st.tool === 'poly') { d.mode = 'poly'; return true; }
     if (st.tool === 'dim' || st.tool === 'arrow') { d.mode = 'new'; d.a = st.pend || (st.tool === 'dim' ? snapEnd(clampPt(p), null) : clampPt(p)); d.b = null; if (!st.pend) loupe(ev, d.a); return true; }
     if (st.tool === 'text') { d.mode = 'newtext'; return true; }
     if (st.tool === 'fit' && ref && (ref[0] === 'q' || ref[0] === 'qm') && cur().fit) { d.mode = ref[0] === 'q' ? 'qc' : 'qm'; d.k = +ref[1]; d.fsnap = JSON.stringify(cur().fit); if (d.mode === 'qc') loupe(ev, cur().fit.q[d.k]); return true; }
@@ -308,6 +320,12 @@ var PF = (function () {
       if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
       const m = { id: G.uid(), t: st.tool, a: d.a, b, col: st.col }; if (m.t === 'dim') m.v = null; else m.text = '';
       ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); return true;
+    }
+    if (d.mode === 'poly') {
+      if (d.moved) { paint(); return true; }
+      const q = snapEnd(p, null), pts = st.poly = st.poly || [];
+      if (pts.length >= 3 && Math.hypot(q[0] - pts[0][0], q[1] - pts[0][1]) * st.v.s < 18) { closePoly(); return true; }   // back on the first corner: closed
+      pts.push(q); paint(); banner(); return true;
     }
     if (d.mode === 'newtext') { if (d.moved) { paint(); return true; } const m = { id: G.uid(), t: 'text', a: p, col: st.col, text: '' }; ph.marks.push(m); st.sel = m.id; st.tool = ''; label('заметка'); focusVal(); return true; }
     if (d.mode === 'end' || d.mode === 'move') { if (d.moved) label(d.mode === 'end' ? 'точка размера' : 'перемещение'); else { st.sel = d.ref[1]; render(); } return true; }
@@ -362,7 +380,7 @@ var PF = (function () {
         const b = [m.b[0] * K, m.b[1] * K], dx = b[0] - a[0], dy = b[1] - a[1], Lp = Math.hypot(dx, dy) || 1, ux = dx / Lp, uy = dy / Lp, nx = -uy, ny = ux, t = px * 0.6, wd = Math.max(2, px / 7);
         line(a, b, m.col, wd);
         const head = (q, dir, k, w) => { const bx = q[0] - ux * dir * k, by = q[1] - uy * dir * k; c.fillStyle = m.col; c.strokeStyle = 'rgba(0,0,0,.5)'; c.lineWidth = K; c.beginPath(); c.moveTo(q[0], q[1]); c.lineTo(bx + nx * w, by + ny * w); c.lineTo(bx - nx * w, by - ny * w); c.closePath(); c.stroke(); c.fill(); };
-        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab(), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
+        if (m.t === 'dim') { void t; head(a, -1, px * 1.05, px * 0.26); head(b, 1, px * 1.05, px * 0.26); pill((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (m.text ? m.text + ' · ' : '') + (m.v > 0 ? fl(m.v) + ' ' + uLab() : '? ' + uLab()), px, m.v > 0 ? dark : '#fff', m.v > 0 ? m.col : '#C92A2A'); }
         else { const k = px * 1.1, w = px * 0.5; c.fillStyle = m.col; c.beginPath(); c.moveTo(b[0], b[1]); c.lineTo(b[0] - ux * k + nx * w, b[1] - uy * k + ny * w); c.lineTo(b[0] - ux * k - nx * w, b[1] - uy * k - ny * w); c.closePath(); c.fill(); if (m.text) pill(a[0] - ux * px * 1.3, a[1] - uy * px * 1.3, m.text, px, dark, m.col); }
       });
       figures(ph).forEach((f) => { if (f.area > 0) pill(f.c[0] * K, f.c[1] * K, 'S ' + (f.exact ? '' : '≈') + fArea(f.area).replace(/ \(.*\)$/, '') + ' · P ' + fl(f.P) + ' ' + uLab(), px * 0.9, '#111', 'rgba(255,255,255,.93)'); });
@@ -375,7 +393,7 @@ var PF = (function () {
     switch (name) {
       case 'open': openPhoto(v); render(); requestAnimationFrame(() => { fit(); paint(); }); return;
       case 'gallery': st.open = null; st.sel = null; st.pend = null; st.tool = ''; render(); return;
-      case 'tool': st.tool = v || ''; st.pend = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } if (st.tool === 'fit' && ph) { st.sel = null; fitStart(ph); return; } render(); return;
+      case 'tool': st.tool = v || ''; st.pend = null; st.poly = null; if (!cur() && st.tool && st.tool !== 'hand') { toast('Сначала откройте фото.'); st.tool = ''; } if (st.tool === 'fit' && ph) { st.sel = null; fitStart(ph); return; } render(); return;
       case 'fit-op': if (ph && ph.fit) { ph.fit.op = G.clamp(+v || 1, 0.2, 1); label('примерка: видно ' + Math.round(ph.fit.op * 100) + ' %'); } return;
       case 'fit-on': if (ph && ph.fit) { ph.fit.on = !ph.fit.on; if (!ph.fit.on && st.tool === 'fit') st.tool = ''; label(ph.fit.on ? 'примерка показана' : 'примерка скрыта'); } return;
       case 'fit-rect': if (ph && ph.fit) { const q = fitRect(ph); if (G.quadOk(q)) { ph.fit.q = q; label('примерка выпрямлена'); } } return;
@@ -384,7 +402,10 @@ var PF = (function () {
       case 'colfly': UI.fly = !UI.fly; render(); return;
       case 'col': st.col = v; UI.fly = false; if (m) { m.col = v; label('цвет: ' + (COLNAME[v] || v)); } else render(); return;
       case 'clear': st.sel = null; render(); return;
-      case 'sel': st.sel = v; render(); return;
+      case 'sel': st.sel = v; st.kpOpen = null; render(); return;
+      case 'poly-close': closePoly(); return;
+      case 'poly-back': if (st.poly) { st.poly.pop(); paint(); banner(); } return;
+      case 'mnext': { const nx = m && nextSide(m); st.sel = nx ? nx.id : null; st.kpOpen = null; render(); if (nx) focusVal(); return; }
       case 'send': { const w = m && wallPick(m, ph); if (!w || !(m.v > 0)) return; if (G.sendToWall(S.plan, m, w.rid, w.wid)) { label('замер ' + fl(m.v) + ' → стена ' + G.wallName(w.r, w.i)); toast('Стена ' + G.wallName(w.r, w.i) + ' в плане = ' + fl(m.v) + ' ' + uLab() + '.'); } return; }
       case 'showwall': if (m && m.wid) { PL.setMode('plan'); PL.st.layer = 'floor'; PL.st.sel = { t: 'wall', r: m.rid, w: m.wid }; render(); } return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
@@ -405,7 +426,7 @@ var PF = (function () {
       case 'p.name': if (ph) { ph.name = String(raw).trim().slice(0, 80) || 'Фото'; label('название'); } return;
       case 'm.v': if (m) { if (String(raw).trim() === '') { m.v = null; label('размер без числа'); return; } const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Размер в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return; } m.v = v; label('размер ' + fl(v)); } return;
       case 'm.wpick': if (m) { st.pick[m.id] = String(raw); render(); } return;
-      case 'm.text': if (m) { m.text = String(raw).trim().slice(0, 200); label(m.t === 'text' ? 'заметка' : 'подпись стрелки'); } return;
+      case 'm.text': if (m) { m.text = String(raw).trim().slice(0, m.t === 'dim' ? 60 : 200); if (m.t === 'dim' && !m.text) delete m.text; label(m.t === 'text' ? 'заметка' : m.t === 'dim' ? 'название размера' : 'подпись стрелки'); } return;
     }
   }
   function key(ev, typing) {
@@ -429,7 +450,7 @@ var PF = (function () {
   function vTools() {
     const has = !!cur();
     return tb('data-fact="gallery"', ICO.fgal, 'Все фото', !has) + '<hr>' + tb('data-fact="tool" data-v=""', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 8-6 1.6L10 19z"/></svg>', 'Выбор (V)', has && !st.tool) + tb('data-fact="tool" data-v="hand"', U.ico.hand, 'Рука (H)', st.tool === 'hand') + '<hr>' +
-      tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + '<hr>' + tb('data-fact="tool" data-v="fit"', ICO.ffit, 'Примерить сцену на фото', st.tool === 'fit') + '<hr>' +
+      tb('data-fact="tool" data-v="dim"', ICO.fdim, 'Размер: от точки к точке (D)', st.tool === 'dim') + tb('data-fact="tool" data-v="text"', ICO.ftext, 'Заметка (T)', st.tool === 'text') + tb('data-fact="tool" data-v="arrow"', ICO.farrow, 'Стрелка (A)', st.tool === 'arrow') + tb('data-fact="tool" data-v="poly"', ICO.fpoly, 'Контур: углы по очереди — стороны станут размерами, посчитаются P и S', st.tool === 'poly') + '<hr>' + tb('data-fact="tool" data-v="fit"', ICO.ffit, 'Примерить сцену на фото', st.tool === 'fit') + '<hr>' +
       '<button type="button" class="tb hasfly" data-fact="colfly" data-tool="fcol" aria-pressed="' + !!UI.fly + '" title="Цвет разметки: ' + COLNAME[st.col] + '" aria-label="Цвет разметки"><i class="fswb" style="--c:' + st.col + '"></i><i class="tri" aria-hidden="true"></i></button>';
   }
   const fld = (bind, lab, val, o) => { o = o || {}; return '<label class="fld' + (o.cls ? ' ' + o.cls : '') + '"><span class="fl">' + lab + '</span><input type="text"' + (o.num ? ' inputmode="decimal"' : '') + ' autocomplete="off" data-fbind="' + bind + '"' + (o.id ? ' id="' + o.id + '"' : '') + ' value="' + esc(val == null ? '' : val) + '"' + (o.ph ? ' placeholder="' + esc(o.ph) + '"' : '') + '></label>'; };
@@ -452,7 +473,8 @@ var PF = (function () {
       if (m) {
         const nm = m.t === 'dim' ? 'Размер' : m.t === 'text' ? 'Заметка' : 'Стрелка';
         return '<div class="phead"><h3>' + nm + '</h3></div>' +
-          grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: 'mdone', cls: m.v > 0 ? '' : 'bad', help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+          grp(nm, (m.t === 'dim' ? KP.html({ id: 'pf-val', bind: 'data-fbind="m.v"', act: 'data-fact', label: 'Размер', val: m.v > 0 ? fl(m.v) : '', ph: '?', unit: unit(), unitLab: uLab(), after: m.poly && nextSide(m) ? 'mnext' : 'mdone', cls: m.v > 0 ? '' : 'bad', folded: m.v > 0 && st.kpOpen !== m.id, mid: m.id, help: 'Впишите размер, который вы намерили рулеткой. Пока числа нет, на фото стоит «?», и размер попадает в проверки. Можно суммой двух замеров: 2+0,8. ✓ — сохранить.' }) : fld('m.text', m.t === 'text' ? 'Текст заметки' : 'Подпись у стрелки', m.text, { id: 'pf-val', cls: 'full', ph: m.t === 'text' ? 'например: розетка, крюк, 2 шт.' : 'необязательно' })) +
+            (m.t === 'dim' ? fld('m.text', 'Название', m.text || '', { cls: 'full', ph: 'например: ширина сцены' }) + (m.poly ? '<p class="small full">Сторона ' + (polySides(m).indexOf(m) + 1) + ' из ' + polySides(m).length + ' контура' + (nextSide(m) ? ' — после ✓ откроется следующая без числа' : '') + '.</p>' : '') : '') +
             '<div class="fld full"><span class="fl">Цвет</span>' + cols(m.col) + '</div>' + (m.t === 'dim' ? toPlanHtml(m, ph) : '') + (function () { const fs2 = figures(ph), k = fs2.findIndex((f) => f.ids.indexOf(m.id) >= 0 || f.diag === m.id); return k >= 0 ? figHtml(fs2[k], k) : ''; })() +
             '<p class="muted small full">' + (m.t === 'text' ? 'Заметку можно перетащить пальцем.' : 'Концы тянутся за кружки — над пальцем появится лупа для точной точки. Линию целиком тоже можно тянуть.') + (m.t === 'dim' ? ' Число — ваш замер: по фото размер не вычисляется (перспектива искажает).' : '') + '</p>') +
           '<div class="pacts">' + btn('m-del', 'Удалить', { cls: 'dng' }) + btn('clear', 'Готово') + '</div>';

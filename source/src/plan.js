@@ -9,15 +9,16 @@ var KP = (function () {
   const KEYS = [['7'], ['8'], ['9'], ['bs', '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" stroke-linecap="round"><path d="M9 5h11v14H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>', 'fn'], ['4'], ['5'], ['6'], ['+', '+', 'fn'], ['1'], ['2'], ['3'], ['C', 'C', 'fn'], [',', ','], ['0'], ['ok', '✓', 'ok']];
   function html(o) {   // o: {id, bind:'data-pbind="w.len"', act:'data-pact'|'data-fact', label, val, unit, ph, after, help, cls}
     const units = [['m', 'м'], ['cm', 'см'], ['mm', 'мм']];
-    return '<div class="kp full' + (o.cls ? ' ' + o.cls : '') + '"><div class="kpr"><span class="kpl">' + o.label + (o.help ? U.help(o.help) : '') + '</span><input id="' + o.id + '" class="kpv" type="text" inputmode="none" autocomplete="off" spellcheck="false" ' + o.bind + ' data-fresh="1" value="' + String(o.val == null ? '' : o.val).replace(/"/g, '&quot;') + '" placeholder="' + (o.ph || '—') + '"><span class="kpun">' + o.unitLab + '</span></div>' +
+    return '<div class="kp full' + (o.cls ? ' ' + o.cls : '') + (o.folded ? ' kpc' : '') + '"><div class="kpr"' + (o.folded ? ' data-kp="open"' + (o.mid ? ' data-mid="' + o.mid + '"' : '') : '') + '><span class="kpl">' + o.label + (o.help ? U.help(o.help) : '') + '</span><input id="' + o.id + '" class="kpv" type="text" inputmode="none" autocomplete="off" spellcheck="false" ' + o.bind + (o.folded ? ' data-kp="open"' + (o.mid ? ' data-mid="' + o.mid + '"' : '') : '') + ' data-fresh="1" value="' + String(o.val == null ? '' : o.val).replace(/"/g, '&quot;') + '" placeholder="' + (o.ph || '—') + '"><span class="kpun">' + o.unitLab + '</span>' + (o.folded ? '<span class="kpe" aria-hidden="true">✎</span>' : '') + '</div>' +
       '<div class="kpu" role="group" aria-label="Единицы">' + units.map((u) => '<button type="button" ' + o.act + '="unit" data-v="' + u[0] + '" aria-pressed="' + (o.unit === u[0]) + '">' + u[1] + '</button>').join('') + '</div>' +
       '<div class="kpk">' + KEYS.map((k) => '<button type="button" class="kk' + (k[2] ? ' ' + k[2] : '') + '" data-kp="' + k[0] + '" data-for="' + o.id + '"' + (o.after ? ' data-after="' + o.after + '"' : '') + ' aria-label="' + (k[0] === 'bs' ? 'Стереть' : k[0] === 'ok' ? 'Готово' : k[0] === 'C' ? 'Очистить' : k[0]) + '">' + (k[1] || k[0]) + '</button>').join('') + '</div></div>';
   }
   function key(btn) {
+    if (btn.dataset.kp === 'open') { const box = btn.closest('.kp'); if (box) box.classList.remove('kpc'); if (window.PF && btn.dataset.mid) PF.st.kpOpen = btn.dataset.mid; const f = box && box.querySelector('.kpv'); if (f) f.removeAttribute('data-kp'); return; }
     const inp = document.getElementById(btn.dataset.for); if (!inp) return;
     const k = btn.dataset.kp, fresh = inp.dataset.fresh === '1';
     let b = fresh ? '' : inp.value;
-    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); }, 0); return; }
+    if (k === 'ok') { inp.dispatchEvent(new Event('change', { bubbles: true })); const af = btn.dataset.after; if (af) setTimeout(() => { if (af === 'wnext') PL.act('w-step', { dataset: { v: '1' } }); else if (af === 'mdone' && window.PF) PF.act('clear'); else if (af === 'mnext' && window.PF) PF.act('mnext'); }, 0); return; }
     if (k === 'C') b = '';
     else if (k === 'bs') b = fresh ? '' : b.slice(0, -1);
     else if (k === ',') { const last = b.split('+').pop(); if (last.indexOf(',') >= 0) return; b += last === '' ? '0,' : ','; }

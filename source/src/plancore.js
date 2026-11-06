@@ -679,6 +679,7 @@ var PG = (function () {
         if (m.t !== 'text') o.b = fin(m.b);
         if (m.t === 'dim') o.v = +m.v > 0 ? Math.round(+m.v) : null;
         if (m.t !== 'dim' || m.text) o.text = String(m.text || '').slice(0, 200);
+        if (m.t === 'dim' && m.poly) o.poly = String(m.poly).slice(0, 24);
         if (m.t === 'dim' && m.wid && m.rid) { o.rid = String(m.rid); o.wid = String(m.wid); }   // the plan wall this size was sent to
         return o;
       }),
@@ -1001,7 +1002,7 @@ var PG = (function () {
     const phs = list.map((ph) => {
       const dims = ph.marks.filter((m) => m.t === 'dim');
       return { id: ph.id, name: ph.name, w: ph.w, h: ph.h,
-        dims: dims.map((m, i) => ({ n: i + 1, v: m.v > 0 ? m.v : null, wall: m.wid && wallOf[m.wid] ? wallOf[m.wid] : '' })),
+        dims: dims.map((m, i) => ({ n: i + 1, name: m.text || '', v: m.v > 0 ? m.v : null, wall: m.wid && wallOf[m.wid] ? wallOf[m.wid] : '' })),
         notes: ph.marks.filter((m) => m.t !== 'dim' && String(m.text || '').trim()).map((m) => String(m.text).trim()),
         figs: photoFigures(ph.marks, figTol(ph)).filter((f) => f.known).map((f) => ({ n: f.n, P: f.P, area: f.area, exact: f.exact, how: f.how, warn: f.warn || '' })),
         fit: !!(ph.fit && ph.fit.on) };
