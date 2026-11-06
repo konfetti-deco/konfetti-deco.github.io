@@ -274,6 +274,12 @@ var PL = (function () {
     const list = G.topChecks(p), ids = {}; list.forEach((q) => { ids[q.a] = 1; });
     st.tc = { key, list, ids }; return st.tc;
   }
+  function gaps() {
+    const p = P(); if (p.warn === false || !(p.aisle > 0)) return [];
+    if (st.drag && st.gp) return st.gp.list;
+    const key = JSON.stringify([p.items, p.aisle]); if (st.gp && st.gp.key === key) return st.gp.list;
+    st.gp = { key, list: G.narrowGaps(p, p.aisle) }; return st.gp.list;
+  }
   function conflicts() {
     const p = P(); if (p.warn === false) return { list: [], ids: {} };
     if (st.drag && st.cf) return st.cf;
@@ -380,12 +386,14 @@ var PL = (function () {
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
     (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize' || st.drag.mode === 'gmove') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
+    if (st.layer === 'floor') gaps().forEach((q) => { const mx = (q.p[0] + q.q[0]) / 2, my = (q.p[1] + q.q[1]) / 2; over += '<line class="pna" x1="' + n1(q.p[0]) + '" y1="' + n1(q.p[1]) + '" x2="' + n1(q.q[0]) + '" y2="' + n1(q.q[1]) + '"/>'; labels += text(mx, my - 9 / s, fl(q.d), 10.5, 'pna-t'); });
     over += guidesSvg(false);
     if (st.marq) { const m = st.marq, x0 = Math.min(m.a[0], m.b[0]), y0 = Math.min(m.a[1], m.b[1]); over += '<rect class="pmq" x="' + n1(x0) + '" y="' + n1(y0) + '" width="' + n1(Math.abs(m.b[0] - m.a[0])) + '" height="' + n1(Math.abs(m.b[1] - m.a[1])) + '"/>'; }
     if (st.multi.length > 1) { const bs = st.multi.map(item).filter(Boolean).map(G.itemBBox); if (bs.length) { const x0 = Math.min(...bs.map((b) => b.x0)), y0 = Math.min(...bs.map((b) => b.y0)), x1 = Math.max(...bs.map((b) => b.x1)), y1 = Math.max(...bs.map((b) => b.y1)), pd = 8 / s; over += '<rect class="pmb" x="' + n1(x0 - pd) + '" y="' + n1(y0 - pd) + '" width="' + n1(x1 - x0 + 2 * pd) + '" height="' + n1(y1 - y0 + 2 * pd) + '"/>'; } }
     set('pgrid', gridSvg()); set('pbody', fill + walls + guidesSvg(true)); syncItems(list); syncItems(listTop, 'ptop'); sv.setAttribute('data-layer', st.layer); set('phit', hit); set('pover', over); set('plab', labels); set('phnd', hnd);
     applyView();
     const em = document.getElementById('pempty'); if (em) em.hidden = p.rooms.length > 0 || !!st.draw || p.items.length > 0;
+    const cx = document.getElementById('pctx'); if (cx) { const ch = ctxHtml(); if (cx._h !== ch) { cx.innerHTML = ch; cx._h = ch; } cx.hidden = !ch; if (ch && st.ctx) { const hb = host(), W = hb.clientWidth, H = hb.clientHeight; cx.style.left = Math.max(8, Math.min(st.ctx.x, W - 230)) + 'px'; cx.style.top = Math.max(8, Math.min(st.ctx.y, H - cx.offsetHeight - 8)) + 'px'; } }
     const bn = document.getElementById('pbanner'); if (bn) { const b = banner(); bn.hidden = !b; if (bn._h !== b) { bn.innerHTML = b; bn._h = b; } }
     const wsm = document.getElementById('wsm'); if (wsm) wsm.classList.toggle('phand', st.tool === 'hand');
   }
@@ -428,6 +436,7 @@ var PL = (function () {
     return best;
   }
   function down(ev) {
+    if (st.ctx && !(ev.target.closest && ev.target.closest('#pctx'))) { st.ctx = null; paint(); }
     if (!within(ev)) return false;
     ev.preventDefault();
     st.tps[ev.pointerId] = [ev.clientX, ev.clientY];
@@ -448,10 +457,17 @@ var PL = (function () {
     /* «Несколько»: a tap adds or removes an object, a drag on an empty spot draws a frame, a drag on a chosen one moves them all */
     const multiOn = st.tool === 'multi' || ev.shiftKey;
     if (st.tool === 'multi' && (!ref || ref[0] === 'r' || ref[0] === 'w' || ref[0] === 'm')) { d.mode = 'marq'; d.m0 = p; return true; }
+    const grpOf = ref && ref[0] === 'i' && item(ref[1]) && item(ref[1]).grp ? P().items.filter((x) => x.grp === item(ref[1]).grp).map((x) => x.id) : null;
+    if (!multiOn && grpOf && grpOf.length > 1 && !(st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0)) { st.multi = grpOf; st.sel = null; }   // one of a group: the whole group
     if (ref && ref[0] === 'i' && item(ref[1]) && (multiOn || (st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0))) {
       d.mode = 'gmove'; d.gid = ref[1]; d.toggle = multiOn; d.gsnap = {};
       const ids = st.multi.indexOf(ref[1]) >= 0 ? st.multi : st.multi.concat([ref[1]]); d.ids = ids;
       ids.forEach((id) => { const it = item(id); if (it) d.gsnap[id] = { x: it.x, y: it.y }; }); return true;
+    }
+    if (ref && (ref[0] === 'i' || ref[0] === 'r') && st.tool !== 'multi') {
+      const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; ctxOpen(rf, cx, cy); };
+      if (ev.button === 2) { open(); return true; }
+      d.lp = setTimeout(open, 550);
     }
     if (!ref) return true;
     const t = ref[0], sel = st.sel || {};
@@ -495,7 +511,8 @@ var PL = (function () {
     if (ev.pointerId !== d.pid) return true;
     const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
     if (!d.moved && G.hyp(dx, dy) < 5) return true;
-    d.moved = true;
+    if (d.ctx) return true;
+    clearTimeout(d.lp); d.moved = true;
     const p = toMM(ev), mm = [p[0] - d.p0[0], p[1] - d.p0[1]], s = st.v.s, free = ev.shiftKey;
     if (d.locked) { if (!d.lockTold) { d.lockTold = true; toast('Объект закреплён — откройте замок в «Слоях», чтобы двигать.'); } return true; }   // neither moves nor pans the view
     if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' ? 'pan' : d.mode; applyView(); return true; }
@@ -578,7 +595,8 @@ var PL = (function () {
     const had = !!st.tps[ev.pointerId]; delete st.tps[ev.pointerId];
     if (st.pinch) { if (Object.keys(st.tps).length < 2) { st.pinch = null; paint(); } return true; }
     const d = st.drag; if (!d || ev.pointerId !== d.pid) return had;
-    st.drag = null; st.guides = null; tip('');
+    st.drag = null; st.guides = null; tip(''); clearTimeout(d.lp);
+    if (d.ctx) { if (d.mode === 'gmove' && !d.moved) {} return true; }   // the menu is open: releasing the finger does nothing else
     if (d.mode === 'marq') {
       const m = st.marq; st.marq = null;
       if (cancel || !d.moved || !m) { if (!d.moved && !ev.shiftKey && st.tool === 'multi') { st.multi = []; st.sel = null; render(); } else paint(); return true; }
@@ -688,7 +706,7 @@ var PL = (function () {
       const it = { id: G.uid(), kind: 'photo', photo: id, x, y, w: 400, d: 400, rot: Math.round(rot) };
       P().items.push(it); st.tool = null; st.sel = { t: 'item', i: it.id }; label('фото отмечено на плане'); toast('Отметка поставлена. Кружок над камерой поворачивает направление съёмки.');
     } else if (tool.indexOf('combo:') === 0) {
-      const out = combo(tool.slice(6), p); st.tool = null; st.sel = { t: 'item', i: out[0].id }; label((tool.slice(6) === 'P' ? 'П' : 'Т') + '-образный стол');
+      const out = combo(tool.slice(6), p); st.tool = null; const gid = 'g' + G.uid(); out.forEach((it) => { it.grp = gid; });   // a П/Т table moves as one st.sel = { t: 'item', i: out[0].id }; label((tool.slice(6) === 'P' ? 'П' : 'Т') + '-образный стол');
     }
   }
   function finishDraw() {
@@ -719,6 +737,7 @@ var PL = (function () {
   }
   function act(name, a) {
     const v = a && a.dataset ? a.dataset.v : undefined;
+    st.ctx = null;   // any action closes the long-press menu
     const r = selRoom(), s = st.sel || {};
     switch (name) {
       case 'mode': setMode(v); return;
@@ -754,6 +773,13 @@ var PL = (function () {
       case 'm-rot': { st.multi.map(item).filter((it) => it && !it.lock).forEach((it) => { it.rot = G.normDeg((it.rot || 0) + 90); }); label('повёрнуто на 90° — ' + st.multi.length); return; }
       case 'm-lock': { const L = st.multi.map(item).filter(Boolean), on = L.some((it) => !it.lock); L.forEach((it) => { if (on) it.lock = true; else delete it.lock; }); label((on ? 'закреплено — ' : 'откреплено — ') + L.length); return; }
       case 'm-del': { const n = st.multi.length; P().items = P().items.filter((it) => st.multi.indexOf(it.id) < 0); st.multi = []; st.sel = null; label('удалено — ' + n + ' объект' + plural(n)); return; }
+      case 'sum-copy': { const t = sumText(P()), done = () => toast('Сводка скопирована — вставьте в сообщение.');
+        try { if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(t).then(done, () => { fallbackCopy(t); done(); }); return; } } catch (e) {}
+        fallbackCopy(t); done(); return; }
+      case 'ctx-props': UI.dtab = 'props'; UI.dock = ''; render(); return;
+      case 'ctx-multi': { const id = s.t === 'item' ? s.i : null; st.tool = 'multi'; st.multi = []; st.sel = id ? { t: 'item', i: id } : null; toast('Касайтесь других объектов — они добавятся к выделению.'); render(); return; }
+      case 'm-group': { const g = 'g' + G.uid(); st.multi.map(item).filter(Boolean).forEach((it) => { it.grp = g; }); label('сгруппировано — ' + st.multi.length); return; }
+      case 'm-ungroup': { st.multi.map(item).filter(Boolean).forEach((it) => { delete it.grp; }); label('группа разобрана'); return; }
       case 'm-none': st.multi = []; st.sel = null; render(); return;
       case 'm-num': { const L = st.multi.map(item).filter(Boolean); G.renumber(P(), v || 'rows', L); label('номера по ' + (v === 'cols' ? 'колонкам' : 'рядам') + ' — выделенные'); return; }
       case 'renum': G.renumber(P(), v || 'rows'); label('столы пронумерованы по ' + (v === 'cols' ? 'колонкам' : 'рядам')); return;
@@ -766,7 +792,7 @@ var PL = (function () {
       case 'rulers2': P().rulers = v === '1'; label(P().rulers ? 'линейки показаны' : 'линейки скрыты'); return;
       case 'snap': P().snap = +v || 0; label(P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return;
       case 'snapcyc': { const nx = { 0: 1000, 1000: 500, 500: 0 }[P().snap || 0]; P().snap = nx; label(nx ? 'сетка ' + G.nf(nx / 1000, nx % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return; }
-      case 'sel': { const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; st.split = null; render(); return; }
+      case 'sel': { st.multi = []; const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; st.split = null; render(); return; }
       case 'clear': st.sel = null; render(); return;
       case 'r-name': if (r) { r.name = v; label('название — ' + v); } return;
       case 'r-rot': if (r) { G.rotateRoom(r, 90); label('поворот на 90° — ' + rname(r)); } return;
@@ -813,6 +839,7 @@ var PL = (function () {
     switch (path) {
       case 'm.gap': { if (String(raw).trim() === '') { st.mgap = null; render(); return; } const v = G.parseLen(raw, unit()); if (v === null || v < 0) { toast('Промежуток — число в ' + uLab() + '.'); render(); return; } st.mgap = v; render(); return; }
       case 'g.at': { const g = (P().guides || []).find((q) => s.t === 'guide' && q.id === s.g); if (!g) return; const v = G.parseLen(raw, unit()); if (v === null) { toast('Не число: «' + raw + '».'); render(); return; } g.at = Math.round(G.gridOrigin(P())[g.vert ? 0 : 1] + v); label('направляющая: ' + fl(v) + ' от угла A'); return; }
+      case 'p.aisle': { const v = String(raw).trim() === '' ? 0 : G.parseLen(raw, unit()); if (v === null || v < 0) { toast('Проход — число в ' + uLab() + ', 0 — не проверять.'); render(); return; } P().aisle = v === 0 ? 0 : G.clamp(Math.round(v), 300, 3000); label(P().aisle ? 'мин. проход ' + fl(P().aisle) + ' ' + uLab() : 'проходы не проверяются'); return; }
       case 'p.h': { const v = len(); if (v === null) return; if (v < 1800 || v > 20000) { toast('Высота потолка — от 1,8 до 20 м.'); render(); return; } P().h = v; label('высота потолка по умолчанию'); return; }
       case 'r.name': if (r) { r.name = String(raw).trim().slice(0, 60); label('название'); } return;
       case 'r.h': if (r) { if (String(raw).trim() === '') { r.h = null; label('высота потолка'); return; } const v = len(); if (v === null) return; if (v < 1800 || v > 20000) { toast('Высота потолка — от 1,8 до 20 м.'); render(); return; } r.h = v; label('высота потолка — ' + rname(r)); } return;
@@ -929,6 +956,7 @@ var PL = (function () {
         const sm = G.summary(p);
         return '<div class="phead"><h3>План зала</h3></div>' +
           grp('Помещения', p.rooms.length ? '<div class="plist full">' + p.rooms.map((r, i) => { const g = sm.geoms[i]; return '<button type="button" class="prow" data-pact="sel" data-sel="r|' + r.id + '"><i class="cdot ' + (g.status === 'ok' ? 'ok' : g.status === 'warn' || g.status === 'partial' ? 'warn' : 'bad') + '"></i><span>' + esc(rname(r)) + '</span><b>' + (g.allM ? '' : '≈') + m2(g.area) + ' м²</b></button>'; }).join('') + '</div>' : '<p class="muted small full">Плана пока нет. Добавьте зал инструментом «Помещение» слева: прямоугольник, Г, П или по углам. Потом впишите замеры стен.</p>') +
+          (G.totals(p).tables || G.totals(p).stand ? grp('Сводка рассадки', sumHtml(p)) : '') +
           (G.totals(p).tables ? grp('Столы', '<div class="seatrow full"><span class="fl">Посадка для всех столов</span>' + seatSeg(' data-all="1"', '') + '</div><div class="pacts full">' + btn('renum', 'Пронумеровать по рядам', { v: 'rows' }) + btn('renum', 'по колонкам', { v: 'cols' }) + '</div><p class="muted small full">По рядам — сверху вниз, в ряду слева направо. Несколько столов: инструмент «Несколько» слева — касаниями или рамкой.</p>') : '') +
           grp('Настройки плана', '<div class="fld full"><span class="fl">Единицы</span>' + seg([['m', 'м'], ['cm', 'см'], ['mm', 'мм']], p.unit, 'unit') + '</div>' + '<div class="fld full"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' + fld('p.h', 'Потолок, ' + uLab(), fs(p.h), { cls: 'full' }) +
             '<p class="muted small full">Замер вписывается в единицах выше, можно суммой двух замеров: «2,35+1,12».</p>');
@@ -1045,13 +1073,40 @@ var PL = (function () {
   function multiHtml() {
     const L = st.multi.map(item).filter(Boolean), T = L.filter((it) => it.kind === 'table' && !it.stand), lk = L.some((it) => !it.lock);
     const ab = (v, t) => '<button type="button" class="ib alb" data-pact="m-align" data-v="' + v + '" title="' + t + '" aria-label="' + t + '">' + alIco(v) + '</button>';
-    return '<div class="phead"><h3>Выделено: ' + L.length + '</h3></div>' +
+    const isG = L.every((it) => it.grp && it.grp === L[0].grp);
+    return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') +
       grp('Выровнять', '<div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
         '<p class="muted small full">Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>') +
       grp('Распределить', '<div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
         fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
       (T.length ? grp('Столы: ' + T.length, '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
-      '<div class="pacts">' + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
+      '<div class="pacts">' + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
+  }
+  function fallbackCopy(t) { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
+  function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + r.n + ' шт.' + (r.stand ? '' : ', мест ' + r.seats)).join('\n') + '\nВсего: столов ' + S2.tables + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', мест ' + S2.seats + ' (стульев ' + S2.chairs + ')'; }
+  function sumHtml(p) {
+    const S2 = G.seatingSummary(p);
+    return '<div class="sumt full">' + S2.list.map((r) => '<div><span>' + esc(r.label) + '</span><b>' + r.n + ' шт.</b><small>' + (r.stand ? 'стоя' : r.seats + ' мест') + '</small></div>').join('') +
+      '<div class="tot"><span>Всего</span><b>' + S2.tables + ' стол.' + (S2.stand ? ' + ' + S2.stand : '') + '</b><small>' + S2.seats + ' мест</small></div></div>' +
+      '<div class="pacts full">' + btn('sum-copy', 'Скопировать списком') + '</div>';
+  }
+  function ctxOpen(ref, cx, cy) {
+    if (ref[0] === 'i') { if (!(st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0)) { st.multi = []; st.sel = { t: 'item', i: ref[1] }; } }
+    else { st.multi = []; st.sel = { t: 'room', r: ref[1] }; }
+    const h = host().getBoundingClientRect(); st.ctx = { ref, x: cx - h.left, y: cy - h.top }; render();
+  }
+  function ctxHtml() {
+    if (!st.ctx) return '';
+    const r = st.ctx.ref, B = (act, t, cls, v) => '<button type="button" class="cxi' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '"' + (v != null ? ' data-v="' + v + '"' : '') + '>' + t + '</button>';
+    let h = '';
+    if (st.multi.length > 1) { const L = st.multi.map(item).filter(Boolean), isG = L.every((it) => it.grp && it.grp === L[0].grp), lk = L.some((it) => !it.lock);
+      h = '<div class="cxh">' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</div>' + B('m-rot', 'Повернуть на 90°') + B('m-lock', lk ? 'Закрепить все' : 'Открепить все') + (isG ? B('m-ungroup', 'Разгруппировать') : B('m-group', 'Сгруппировать')) + B('ctx-props', 'Выровнять, распределить…') + B('m-del', 'Удалить ' + L.length, 'dng'); }
+    else if (r[0] === 'i') { const it = item(r[1]); if (!it) return '';
+      const nm = it.kind === 'table' && !it.stand && it.num != null ? 'Стол №' + it.num : G.itemLabel(it);
+      h = '<div class="cxh">' + esc(nm) + '</div>' + B('lyr-lock', it.lock ? 'Открепить' : 'Закрепить', '', 'i|' + it.id) + (it.kind === 'column' || it.kind === 'photo' ? '' : B('it-dup', 'Дублировать') + B('it-rot90', 'Повернуть на 90°')) + B('ctx-multi', 'Выбрать ещё…') + B('ctx-props', 'Свойства') + B('it-del', 'Удалить', 'dng'); }
+    else { const rm = room(r[1]); if (!rm) return '';
+      h = '<div class="cxh">' + esc(rname(rm)) + '</div>' + B('lyr-lock', rm.lock ? 'Открепить' : 'Закрепить', '', 'r|' + rm.id) + B('r-rot', 'Повернуть на 90°') + B('ctx-props', 'Свойства') + B('r-del', 'Удалить помещение', 'dng'); }
+    return h;
   }
   function rowBtns(k, id, lk, name) {
     return '<button type="button" class="ib s prlk" data-pact="lyr-lock" data-v="' + k + '|' + id + '" aria-pressed="' + !!lk + '" title="' + (lk ? 'Открепить' : 'Закрепить') + '" aria-label="' + (lk ? 'Открепить' : 'Закрепить') + ' «' + esc(name) + '»">' + U.ico[lk ? 'lock' : 'unlock'] + '</button>' +
@@ -1080,6 +1135,7 @@ var PL = (function () {
       h += '<button type="button" class="prow chk" data-pact="sel" data-sel="i|' + q.a + '"><i class="cdot bad"></i><span>' + esc(t) + '</span></button>'; });
     topChecks().list.forEach((q) => { const it = item(q.a), t = q.t === 'above' ? G.itemLabel(it) + ' выше потолка (' + fs(q.h) + ' при потолке ' + fs(q.ceil) + ' ' + uLab() + ').' : G.itemLabel(it) + ': низ ' + fs(q.h) + ' над «' + topName(item(q.b)) + '» — остаётся ' + fs(q.clear) + ', меньше ' + fs(q.min) + ' ' + uLab() + '.';
       h += '<button type="button" class="prow chk" data-pact="sel" data-sel="i|' + q.a + '"><i class="cdot bad"></i><span>' + esc(t) + '</span></button>'; });
+    const gp = gaps(); gp.forEach((q) => { h += '<button type="button" class="prow chk" data-pact="sel" data-sel="i|' + q.a + '"><i class="cdot warn"></i><span>Узкий проход ' + fl(q.d) + ' ' + uLab() + ': ' + esc(nm(q.a)) + ' — ' + esc(nm(q.b)) + '</span></button>'; });
     if (p.warn === false) h += '<p class="muted small pad">Предупреждения о столкновениях выключены в настройках плана.</p>';
     else if (p.items.length && !cf.length && !topChecks().list.length) h += '<p class="muted small pad">Объекты не заходят на стены, не стоят в дверях и не пересекаются; верхний слой не ниже ' + fs(p.minClear || 2200) + ' ' + uLab() + ' над гостями.</p>';
     return h + '</div>';
@@ -1088,6 +1144,7 @@ var PL = (function () {
     '<div class="fld"><span class="fl">Сетка с привязкой</span>' + seg([['0', 'нет'], ['500', '0,5 м'], ['1000', '1 м']], String(p.snap || 0), 'snap') + '</div>' +
     '<div class="fld"><span class="fl">К объектам</span>' + seg([['1', 'притягивать'], ['0', 'нет']], p.smart === false ? '0' : '1', 'smart2') + '</div>' +
     '<div class="fld"><span class="fl">Линейки</span>' + seg([['1', 'показаны'], ['0', 'скрыты']], p.rulers === false ? '0' : '1', 'rulers2') + '</div>' + ((p.guides || []).length ? '<div class="pacts">' + btn('g-clear', 'Убрать все направляющие (' + p.guides.length + ')') + '</div>' : '') +
+    fld('p.aisle', 'Мин. проход, ' + uLab(), p.aisle ? fs(p.aisle) : '0', { ph: '0 — не проверять' }) +
     '<div class="fld"><span class="fl">Столкновения</span>' + seg([['1', 'да'], ['0', 'нет']], p.warn === false ? '0' : '1', 'warn') + '</div>' + fld('p.minClear', 'Мин. над гостями, ' + uLab(), fs(p.minClear || 2200)) +
     '<div class="fld"><span class="fl">Верхний слой</span>' + seg([['1', 'показан'], ['0', 'скрыт']], p.showTop === false ? '0' : '1', 'showtop') + '</div><p class="muted small">«Мин. над гостями» — ниже этой высоты декор и свет над столами, танцполом и сценой подсвечиваются. Цифра ваша: 2,2 м стоит по умолчанию.</p></div>'; } finally { U.inDock = false; } }
   function vOptbar() {
@@ -1120,7 +1177,7 @@ var PL = (function () {
       (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'замечаний: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><button type="button" class="sck" data-pact="smart" title="Притягивать к центрам и краям других объектов" aria-pressed="' + (P().smart !== false) + '">к объектам</button><button type="button" class="sck" data-pact="rulers" title="Линейки и направляющие" aria-pressed="' + rulersOn() + '">линейки</button><button type="button" class="sck" data-pact="snapcyc" title="Сетка с привязкой: нет → 1 м → 0,5 м" aria-pressed="' + !!P().snap + '">' + (P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка: нет') + '</button><span>единицы: ' + uLab() + '</span>';
   }
   const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="ptop"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g><g id="prul"></g></svg>' +
-    '<div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
+    '<div id="pctx" class="pctx" role="menu" hidden></div><div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
     '<div id="pempty" class="pempty2" hidden><div><b>План зала пуст</b><span>Начните с формы зала, потом впишите замеры стен — как с лазерной рулетки.</span><div class="pacts">' +
     '<button type="button" class="btn sm pri" data-pact="fly-pick" data-g="room" data-v="rect">Прямоугольный зал</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="L">Г-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="U">П-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="draw">Нарисовать по углам</button></div></div></div>';
 
@@ -1128,7 +1185,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, validate, drop, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { st, validate, drop, sumText, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */

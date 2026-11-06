@@ -759,6 +759,36 @@ var PG = (function () {
   /* table numbers: the next free one */
   function nextNum(p) { let m = 0; p.items.forEach((it) => { if (it.kind === 'table' && !it.stand && +it.num > m) m = +it.num; }); return m + 1; }
 
+  /* ---------- passages: neighbours (with their chairs) closer than the minimum, with the two nearest points ---------- */
+  function closest(A, B) {
+    let best = { d: Infinity, a: null, b: null };
+    const tryP = (p, P, Q, rev) => { for (let j = 0; j < Q.length; j++) { const a = Q[j], b = Q[(j + 1) % Q.length], r = distSeg(p, a, b); if (r.d < best.d) { const q = [a[0] + (b[0] - a[0]) * r.t, a[1] + (b[1] - a[1]) * r.t]; best = rev ? { d: r.d, a: q, b: p } : { d: r.d, a: p, b: q }; } } };
+    A.forEach((p) => tryP(p, A, B, false)); B.forEach((p) => tryP(p, B, A, true));
+    return best;
+  }
+  function narrowGaps(p, min) {
+    if (!(min > 0)) return [];
+    const F = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; }), out = [];
+    for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
+      const A = F[i], B = F[j];
+      if (A.it.grp && A.it.grp === B.it.grp) continue;   // a group is meant to stand together
+      if (A.bb.x0 - min > B.bb.x1 || B.bb.x0 - min > A.bb.x1 || A.bb.y0 - min > B.bb.y1 || B.bb.y0 - min > A.bb.y1) continue;
+      let best = { d: Infinity };
+      A.f.forEach((pa) => B.f.forEach((pb) => { if (polysTouch(pa, pb)) best = { d: 0 }; else if (best.d > 0) { const c = closest(pa, pb); if (c.d < best.d) best = c; } }));
+      if (best.d > 0 && best.d < min) out.push({ a: A.it.id, b: B.it.id, d: best.d, p: best.a, q: best.b });
+    }
+    return out.sort((u, v) => u.d - v.d);
+  }
+  /* what is on the plan, by kind and size: for the rental company or the venue */
+  function seatingSummary(p) {
+    const rows = {}, tot = totals(p);
+    p.items.forEach((it) => { if (it.kind !== 'table' && it.kind !== 'chairs') return;
+      const sz = it.shape === 'round' ? 'Ø' + nf(it.w / 1000, 2) + ' м' : nf(it.w / 1000, 2) + '×' + nf(it.d / 1000, 2) + ' м', key = (it.stand ? 'stand|' : 'table|') + it.shape + '|' + sz;
+      const r = rows[key] = rows[key] || { label: (it.stand ? 'Коктейльный' : it.shape === 'round' ? 'Круглый' : it.shape === 'oval' ? 'Овальный' : 'Прямоугольный') + ' ' + sz, n: 0, seats: 0, stand: !!it.stand };
+      r.n++; r.seats += seatCount(it); });
+    const list = Object.keys(rows).map((k) => rows[k]).sort((a, b) => (a.stand - b.stand) || b.n - a.n);
+    return { list, tables: tot.tables, stand: tot.stand, seats: tot.seats, chairs: tot.seats };
+  }
   /* ---------- several objects at once: line up, spread evenly, number again, one seating for many tables ---------- */
   function moveBy(it, dx, dy) { it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; }
   /* how: left, cx, right (by the table bodies), top, cy, bottom; the reference is the outermost body of the set (or the middle for cx/cy) */
@@ -956,6 +986,7 @@ var PG = (function () {
     o.h = clamp(Math.round(+o.h || 3000), 1800, 20000);
     o.minClear = clamp(Math.round(+o.minClear || 2200), 1000, 6000);
     o.snap = [500, 1000].indexOf(+o.snap) >= 0 ? +o.snap : 0;   // grid with snapping: off, 0.5 m, 1 m
+    o.aisle = o.aisle === 0 ? 0 : clamp(Math.round(+o.aisle || 900), 300, 3000);   // narrow passage warning, 0 = off
     o.smart = o.smart !== false;   // lining up with other objects while dragging
     o.rulers = o.rulers !== false;
     o.guides = (Array.isArray(o.guides) ? o.guides : []).filter((g) => g && isFinite(+g.at)).slice(0, 60).map((g) => ({ id: String(g.id || uid()), vert: !!g.vert, at: Math.round(+g.at) }));
@@ -989,7 +1020,7 @@ var PG = (function () {
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
     newPlan, normalize, summary, NAMES,
-    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
+    bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
 if (typeof module !== 'undefined') module.exports = PG;

@@ -163,5 +163,27 @@ for (let k = 0; k < 400; k++) {
   const w = T('w', 0, 0, 2000, 800); w.sides = [1, 1, 1, 1]; PG.applySeating(w, 'dense'); ok(w.sides.join() === '4,4,1,1', 'all four sides used: 4,4,1,1');
   const r = Object.assign(PG.makeItem('t_r150', 0, 0), { w: 1800, shape: 'round' }); PG.applySeating(r, 'normal'); ok(r.seats === 9, 'round Ø1,8 normal: 9'); }
 
+/* 28. passages narrower than the minimum (chairs included), and the summary of tables */
+{ const T = (id, x, y, o) => Object.assign(PG.makeItem('t_q180', x, y), { id, w: 1800, d: 800, sides: [3, 3, 0, 0] }, o || {});
+  for (let k = 0; k < 150; k++) {
+    const gap = rnd(50, 1500), a = T('a', 3000, 3000), fa = PG.fullBox(a), b0 = T('b', 0, 3000), fb = PG.fullBox(b0), b = T('b', fa.x1 + gap - fb.x0, 3000);
+    const g = PG.narrowGaps({ items: [a, b] }, 900);
+    if (gap < 900) { ok(g.length === 1 && Math.abs(g[0].d - gap) < 1, 'gap ' + gap + ' mm found: ' + (g[0] && g[0].d.toFixed(1))); near(Math.hypot(g[0].q[0] - g[0].p[0], g[0].q[1] - g[0].p[1]), g[0].d, 1e-6, 'its two points are that far apart'); }
+    else ok(g.length === 0, 'gap ' + gap + ' mm is wide enough');
+  }
+  // chairs count: two tables 1,2 m apart by the bodies but chairs reach into the gap
+  const a = T('a', 3000, 3000), b = T('b', 3000, 3000 + 800 + 1200); const g = PG.narrowGaps({ items: [a, b] }, 900);
+  ok(g.length === 1 && g[0].d < 1200, 'chairs make the passage narrower than the bodies: ' + (g[0] && Math.round(g[0].d)));
+  ok(PG.narrowGaps({ items: [a, T('c', 3000, 3300)] }, 900).length === 0, 'overlapping ones are a conflict, not a passage');
+  ok(PG.narrowGaps({ items: [a, b] }, 0).length === 0, 'minimum 0: off');
+  const ga = Object.assign(T('x', 3000, 6000), { grp: 'g1' }), gb = Object.assign(T('y', 5000, 6000), { grp: 'g1' }); ok(PG.narrowGaps({ items: [ga, gb] }, 900).length === 0, 'tables of one group are not a passage');
+  ok(PG.normalize({}).aisle === 900 && PG.normalize({ aisle: 0 }).aisle === 0 && PG.normalize({ aisle: 1200 }).aisle === 1200, 'aisle setting saved');
+  // summary
+  const p = { items: [T('1', 0, 0), T('2', 0, 0), T('3', 0, 0, { sides: [2, 2, 0, 0] }), Object.assign(PG.makeItem('t_r150', 0, 0), { id: 'r', w: 1500, shape: 'round', seats: 8 }), Object.assign(PG.makeItem('t_r150', 0, 0), { id: 's', w: 700, shape: 'round', stand: true }), Object.assign(PG.makeItem('z_podium', 0, 0), { id: 'z' })] };
+  const S2 = PG.seatingSummary(p); ok(S2.tables === 4 && S2.stand === 1 && S2.seats === 6 + 6 + 4 + 8, 'totals: 4 tables, 1 standing, 24 seats');
+  ok(S2.list[0].label === 'Прямоугольный 1,80×0,80 м' && S2.list[0].n === 3 && S2.list[0].seats === 16, 'rows by kind and size: ' + S2.list.map((r) => r.label + ' ' + r.n).join('; '));
+  ok(S2.list.reduce((x, r) => x + r.seats, 0) === S2.seats, 'rows add up to the total seats');
+  ok(S2.list[S2.list.length - 1].stand, 'standing tables listed last'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);
