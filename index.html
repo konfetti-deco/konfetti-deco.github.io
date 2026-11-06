@@ -1072,7 +1072,7 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 38</span>
+  <span class="ver" id="ver">версия 39</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -4976,21 +4976,34 @@ var PL = (function () {
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('planhost'); }
+  const MODE = 'plan';
+  /* the size of the drawing area, kept by a ResizeObserver: reading clientWidth right after the panel was rebuilt
+     forced the browser to lay out the whole page in the middle of every redraw */
+  const HS = { w: 0, h: 0, el: null, ro: null };
+  function hsize() {
+    const h = host(); if (!h) return { w: 0, h: 0 };
+    if (HS.el !== h && window.ResizeObserver) {
+      if (HS.ro) HS.ro.disconnect(); HS.el = h; HS.w = 0; HS.h = 0;
+      HS.ro = new ResizeObserver((es) => { const r = es[es.length - 1].contentRect, w = Math.round(r.width), hh = Math.round(r.height), moved = Math.abs(w - HS.w) > 2 || Math.abs(hh - HS.h) > 2; HS.w = w; HS.h = hh; if (moved && w > 0 && UI.mode === MODE) paint(); });
+      HS.ro.observe(h);
+    }
+    return HS.w > 0 && HS.h > 0 ? { w: HS.w, h: HS.h } : { w: h.clientWidth, h: h.clientHeight };
+  }
   function svg() { return document.getElementById('plan'); }
   function fit(force) {
-    const h = host(); if (!h) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const h = host(); if (!h) return; const hz = hsize(), W = hz.w, H = hz.h; if (W < 50 || H < 50) return;
     const bb = G.planBBox(P()) || { x0: -1000, y0: -1000, x1: 15000, y1: 10000, w: 16000, h: 11000 };
     const mx = Math.max(bb.w * 0.12, 1200), my = Math.max(bb.h * 0.12, 1200), bw = bb.w + 2 * mx, bh = bb.h + 2 * my;
     const s = G.clamp(Math.min(W / bw, H / bh), 0.004, 1.2);
     st.v = { s, x: bb.x0 - mx - (W / s - bw) / 2, y: bb.y0 - my - (H / s - bh) / 2 };
     st.lastW = W; st.lastH = H;
   }
-  function ensureView() { const h = host(); if (!h) return; if (!st.v || (h.clientWidth && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2) && !st.v.user)) fit(); }
+  function ensureView() { const h = host(); if (!h) return; const z = hsize(); if (!st.v || (z.w && (Math.abs(z.w - st.lastW) > 2 || Math.abs(z.h - st.lastH) > 2) && !st.v.user)) fit(); }
   function applyView() { const g = document.getElementById('pvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('pzlbl'); if (z) z.textContent = zoomText(); }
   function zoomText() { if (!st.v) return ''; const px = st.v.s * 1000; return px >= 10 ? '1 м = ' + Math.round(px) + ' пикс.' : '1 м = ' + px.toFixed(1) + ' пикс.'; }
   function toMM(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
   function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.004, 1.2); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); laterRepaint(); }
-  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; const z = hsize(); zoomAt(f, z.w / 2, z.h / 2); }
   function laterRepaint() { clearTimeout(st.repaint); st.repaint = setTimeout(() => { paint(); }, 140); }
 
   /* ---------- painting ---------- */
@@ -5003,7 +5016,7 @@ var PL = (function () {
     return '<text class="' + cls + '" x="' + n1(x) + '" y="' + n1(y) + '" font-size="' + n1(fz) + '" stroke-width="' + n1(3.2 / s) + '" text-anchor="' + (anchor || 'middle') + '" dominant-baseline="central"' + (rot ? ' transform="rotate(' + n1(rot) + ' ' + n1(x) + ' ' + n1(y) + ')"' : '') + '>' + esc(str) + '</text>';
   }
   function gridSvg() {
-    const h = host(), v = st.v, W = h.clientWidth / v.s, H = h.clientHeight / v.s;
+    const z = hsize(), v = st.v, W = z.w / v.s, H = z.h / v.s;
     const steps = [100, 250, 500, 1000, 2000, 5000, 10000, 20000];
     let minor = steps.find((q) => q * v.s >= 14) || 20000; const major = minor >= 1000 ? minor * 5 : 1000;
     const x0 = Math.floor((v.x - W) / minor) * minor, x1 = v.x + 2 * W, y0 = Math.floor((v.y - H) / minor) * minor, y1 = v.y + 2 * H;
@@ -5794,7 +5807,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { st, validate, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */
@@ -5907,7 +5920,7 @@ var PF = (function () {
     if (img) img.style.visibility = on ? 'hidden' : '';
     if (!on) { if (!cvs.hidden) { cvs.hidden = true; cvs.width = 1; cvs.height = 1; } return; }
     cvs.hidden = false;
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(h.clientWidth * dpr), H = Math.round(h.clientHeight * dpr);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), hz = hsize(), W = Math.round(hz.w * dpr), H = Math.round(hz.h * dpr);
     if (cvs.width !== W || cvs.height !== H) { cvs.width = W; cvs.height = H; }
     const c = cvs.getContext('2d'), s = st.v.s * dpr; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
     c.setTransform(s, 0, 0, s, -st.v.x * s, -st.v.y * s); c.imageSmoothingQuality = 'high';
@@ -5970,17 +5983,30 @@ var PF = (function () {
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('photohost'); }
+  const MODE = 'photo';
+  /* the size of the drawing area, kept by a ResizeObserver: reading clientWidth right after the panel was rebuilt
+     forced the browser to lay out the whole page in the middle of every redraw */
+  const HS = { w: 0, h: 0, el: null, ro: null };
+  function hsize() {
+    const h = host(); if (!h) return { w: 0, h: 0 };
+    if (HS.el !== h && window.ResizeObserver) {
+      if (HS.ro) HS.ro.disconnect(); HS.el = h; HS.w = 0; HS.h = 0;
+      HS.ro = new ResizeObserver((es) => { const r = es[es.length - 1].contentRect, w = Math.round(r.width), hh = Math.round(r.height), moved = Math.abs(w - HS.w) > 2 || Math.abs(hh - HS.h) > 2; HS.w = w; HS.h = hh; if (moved && w > 0 && UI.mode === MODE) paint(); });
+      HS.ro.observe(h);
+    }
+    return HS.w > 0 && HS.h > 0 ? { w: HS.w, h: HS.h } : { w: h.clientWidth, h: h.clientHeight };
+  }
   function svg() { return document.getElementById('fsvg'); }
   function fit() {
-    const h = host(), ph = cur(); if (!h || !ph) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const h = host(), ph = cur(); if (!h || !ph) return; const hz = hsize(), W = hz.w, H = hz.h; if (W < 50 || H < 50) return;
     const s = Math.min((W - 24) / ph.w, (H - 24) / ph.h);
     st.v = { s, x: -(W / s - ph.w) / 2, y: -(H / s - ph.h) / 2 }; st.lastW = W; st.lastH = H;
   }
-  function ensureView() { const h = host(); if (!h) return; if (!st.v || (!st.v.user && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2))) fit(); }
+  function ensureView() { const h = host(); if (!h) return; const z = hsize(); if (!st.v || (!st.v.user && (Math.abs(z.w - st.lastW) > 2 || Math.abs(z.h - st.lastH) > 2))) fit(); }
   function applyView() { const g = document.getElementById('fvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('fzlbl'); if (z && st.v) z.textContent = Math.round(st.v.s * 100) + ' %'; drawFit(); }
   function toImg(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
   function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.05, 12); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); clearTimeout(st.repaint); st.repaint = setTimeout(paint, 120); }
-  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; const z = hsize(); zoomAt(f, z.w / 2, z.h / 2); }
 
   /* ---------- painting ---------- */
   function txt(x, y, str, px, col, bg, sel) {
@@ -6305,7 +6331,7 @@ var PF = (function () {
     document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
+  return { st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */
@@ -6881,6 +6907,8 @@ function syncImgDefs(){var d=$('#imgdefs');if(!d)return;var ids=Object.keys(IMG)
 /* Replacing a section can blur a field with an uncommitted value; the browser then fires `change` in the middle of
    the replacement. Such a nested call only marks the page dirty and one more pass runs afterwards. */
 var rendering=false,renderAgain=false;
+/* errors while drawing are kept (window.__renderErrors) and logged instead of freezing the screen; tests check the list is empty */
+function renderErr(where,e){try{(window.__renderErrors=window.__renderErrors||[]).push(where+': '+(e&&e.message||e));console.error('render '+where,e)}catch(x){}}
 function render(){
   if(rendering){renderAgain=true;return}
   rendering=true;
@@ -6891,17 +6919,18 @@ function renderSecs(box,T,key){
   if(box.dataset.view!==key){box.innerHTML=T.skel;box.dataset.view=key}
   var act=document.activeElement,fid=act&&act.id&&box.contains(act)?act.id:null,s0,s1;
   try{s0=act.selectionStart;s1=act.selectionEnd}catch(e){}
-  $$('[data-sec]',box).forEach(function(n){var f=T.secs[n.dataset.sec];if(!f)return;var h=f();if(n._h!==h){n.innerHTML=h;n._h=h}});
+  $$('[data-sec]',box).forEach(function(n){var f=T.secs[n.dataset.sec];if(!f)return;var h;try{h=f()}catch(e){renderErr(key+'.'+n.dataset.sec,e);h='<p class="muted small" style="padding:10px 12px">Эта часть панели не отрисовалась. Остальное работает — сообщите, что делали перед этим.</p>'}if(n._h!==h){n.innerHTML=h;n._h=h}});
   if(fid&&!box.contains(act)){var n=document.getElementById(fid);if(n){n.focus({preventScroll:true});try{n.setSelectionRange(s0,s1)}catch(e){}}}
 }
 function renderNow(){
+  try{PL.validate();PF.validate()}catch(e){renderErr('validate',e)}
   var pn=$('#pname');if(document.activeElement!==pn)pn.value=S.name;
   document.body.dataset.tab=UI.tab;
   $$('.ctabs .tab').forEach(function(b){b.setAttribute('aria-selected',b.dataset.id===UI.tab)});
   renderSecs($('#view'),V.con,'con');
   var w=$('#wsm');if(w){w.classList.toggle('flyon',!!UI.fly);w.classList.toggle('mini',UI.dock==='mini');w.dataset.dtab=UI.dtab;w.classList.toggle('hand',UI.tool==='hand')}
   var dk=$('#dock');if(dk&&UI.dsplit)dk.style.setProperty('--dsplit',UI.dsplit+'px');
-  PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else if(UI.mode==='photo'){PF.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly();
+  try{PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else if(UI.mode==='photo'){PF.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly()}catch(e){renderErr('canvas '+UI.mode,e)}
   var cw=$('#calcwin');
   if(UI.tab!=='con'&&V[UI.tab]){cw.hidden=false;renderSecs($('#calcview'),V[UI.tab],UI.tab);if(UI.tab==='client')IO.drawOffer($('#offer'))}
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
@@ -7246,7 +7275,8 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
     case 'save':if(IO.db)act('cloud-save',a);else act('menu',a);break;
     case 'new-proj':openModal({type:'newproj',title:'Новый проект'});break;
     case 'new-go':{var nm=a&&a.dataset&&a.dataset.id||'scene',o=M.defaults();o.name=nm==='photo'?'Фото с размерами':nm==='plan'?'План зала':'Новая фотозона';o.pid=null;
-      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';PL.st.sel=null;PF.st.open=null;PF.st.sel=null;if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
+      PL.st.sel=null;PL.st.tool=null;PF.st.open=null;PF.st.sel=null;PF.st.tool='';PF.st.pend=null;UI.fly=false;
+      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
     case 'dtab':UI.dtab=id;wsSave();render();break;
     case 'dopen':if(id!=='props')UI.dtab=id;UI.dock='';wsSave();render();break;
     case 'dock':UI.dock=UI.dock==='mini'?'':'mini';wsSave();render();setTimeout(function(){fitStage()},0);break;

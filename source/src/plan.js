@@ -83,21 +83,34 @@ var PL = (function () {
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('planhost'); }
+  const MODE = 'plan';
+  /* the size of the drawing area, kept by a ResizeObserver: reading clientWidth right after the panel was rebuilt
+     forced the browser to lay out the whole page in the middle of every redraw */
+  const HS = { w: 0, h: 0, el: null, ro: null };
+  function hsize() {
+    const h = host(); if (!h) return { w: 0, h: 0 };
+    if (HS.el !== h && window.ResizeObserver) {
+      if (HS.ro) HS.ro.disconnect(); HS.el = h; HS.w = 0; HS.h = 0;
+      HS.ro = new ResizeObserver((es) => { const r = es[es.length - 1].contentRect, w = Math.round(r.width), hh = Math.round(r.height), moved = Math.abs(w - HS.w) > 2 || Math.abs(hh - HS.h) > 2; HS.w = w; HS.h = hh; if (moved && w > 0 && UI.mode === MODE) paint(); });
+      HS.ro.observe(h);
+    }
+    return HS.w > 0 && HS.h > 0 ? { w: HS.w, h: HS.h } : { w: h.clientWidth, h: h.clientHeight };
+  }
   function svg() { return document.getElementById('plan'); }
   function fit(force) {
-    const h = host(); if (!h) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const h = host(); if (!h) return; const hz = hsize(), W = hz.w, H = hz.h; if (W < 50 || H < 50) return;
     const bb = G.planBBox(P()) || { x0: -1000, y0: -1000, x1: 15000, y1: 10000, w: 16000, h: 11000 };
     const mx = Math.max(bb.w * 0.12, 1200), my = Math.max(bb.h * 0.12, 1200), bw = bb.w + 2 * mx, bh = bb.h + 2 * my;
     const s = G.clamp(Math.min(W / bw, H / bh), 0.004, 1.2);
     st.v = { s, x: bb.x0 - mx - (W / s - bw) / 2, y: bb.y0 - my - (H / s - bh) / 2 };
     st.lastW = W; st.lastH = H;
   }
-  function ensureView() { const h = host(); if (!h) return; if (!st.v || (h.clientWidth && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2) && !st.v.user)) fit(); }
+  function ensureView() { const h = host(); if (!h) return; const z = hsize(); if (!st.v || (z.w && (Math.abs(z.w - st.lastW) > 2 || Math.abs(z.h - st.lastH) > 2) && !st.v.user)) fit(); }
   function applyView() { const g = document.getElementById('pvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('pzlbl'); if (z) z.textContent = zoomText(); }
   function zoomText() { if (!st.v) return ''; const px = st.v.s * 1000; return px >= 10 ? '1 м = ' + Math.round(px) + ' пикс.' : '1 м = ' + px.toFixed(1) + ' пикс.'; }
   function toMM(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
   function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.004, 1.2); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); laterRepaint(); }
-  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; const z = hsize(); zoomAt(f, z.w / 2, z.h / 2); }
   function laterRepaint() { clearTimeout(st.repaint); st.repaint = setTimeout(() => { paint(); }, 140); }
 
   /* ---------- painting ---------- */
@@ -110,7 +123,7 @@ var PL = (function () {
     return '<text class="' + cls + '" x="' + n1(x) + '" y="' + n1(y) + '" font-size="' + n1(fz) + '" stroke-width="' + n1(3.2 / s) + '" text-anchor="' + (anchor || 'middle') + '" dominant-baseline="central"' + (rot ? ' transform="rotate(' + n1(rot) + ' ' + n1(x) + ' ' + n1(y) + ')"' : '') + '>' + esc(str) + '</text>';
   }
   function gridSvg() {
-    const h = host(), v = st.v, W = h.clientWidth / v.s, H = h.clientHeight / v.s;
+    const z = hsize(), v = st.v, W = z.w / v.s, H = z.h / v.s;
     const steps = [100, 250, 500, 1000, 2000, 5000, 10000, 20000];
     let minor = steps.find((q) => q * v.s >= 14) || 20000; const major = minor >= 1000 ? minor * 5 : 1000;
     const x0 = Math.floor((v.x - W) / minor) * minor, x1 = v.x + 2 * W, y0 = Math.floor((v.y - H) / minor) * minor, y1 = v.y + 2 * H;
@@ -901,7 +914,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { st, validate, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */

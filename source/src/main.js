@@ -75,6 +75,8 @@ function syncImgDefs(){var d=$('#imgdefs');if(!d)return;var ids=Object.keys(IMG)
 /* Replacing a section can blur a field with an uncommitted value; the browser then fires `change` in the middle of
    the replacement. Such a nested call only marks the page dirty and one more pass runs afterwards. */
 var rendering=false,renderAgain=false;
+/* errors while drawing are kept (window.__renderErrors) and logged instead of freezing the screen; tests check the list is empty */
+function renderErr(where,e){try{(window.__renderErrors=window.__renderErrors||[]).push(where+': '+(e&&e.message||e));console.error('render '+where,e)}catch(x){}}
 function render(){
   if(rendering){renderAgain=true;return}
   rendering=true;
@@ -85,17 +87,18 @@ function renderSecs(box,T,key){
   if(box.dataset.view!==key){box.innerHTML=T.skel;box.dataset.view=key}
   var act=document.activeElement,fid=act&&act.id&&box.contains(act)?act.id:null,s0,s1;
   try{s0=act.selectionStart;s1=act.selectionEnd}catch(e){}
-  $$('[data-sec]',box).forEach(function(n){var f=T.secs[n.dataset.sec];if(!f)return;var h=f();if(n._h!==h){n.innerHTML=h;n._h=h}});
+  $$('[data-sec]',box).forEach(function(n){var f=T.secs[n.dataset.sec];if(!f)return;var h;try{h=f()}catch(e){renderErr(key+'.'+n.dataset.sec,e);h='<p class="muted small" style="padding:10px 12px">Эта часть панели не отрисовалась. Остальное работает — сообщите, что делали перед этим.</p>'}if(n._h!==h){n.innerHTML=h;n._h=h}});
   if(fid&&!box.contains(act)){var n=document.getElementById(fid);if(n){n.focus({preventScroll:true});try{n.setSelectionRange(s0,s1)}catch(e){}}}
 }
 function renderNow(){
+  try{PL.validate();PF.validate()}catch(e){renderErr('validate',e)}
   var pn=$('#pname');if(document.activeElement!==pn)pn.value=S.name;
   document.body.dataset.tab=UI.tab;
   $$('.ctabs .tab').forEach(function(b){b.setAttribute('aria-selected',b.dataset.id===UI.tab)});
   renderSecs($('#view'),V.con,'con');
   var w=$('#wsm');if(w){w.classList.toggle('flyon',!!UI.fly);w.classList.toggle('mini',UI.dock==='mini');w.dataset.dtab=UI.dtab;w.classList.toggle('hand',UI.tool==='hand')}
   var dk=$('#dock');if(dk&&UI.dsplit)dk.style.setProperty('--dsplit',UI.dsplit+'px');
-  PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else if(UI.mode==='photo'){PF.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly();
+  try{PL.syncTop();if(UI.mode==='plan'){PL.paint();optPaint();setH($('#statbar'),V.statbar())}else if(UI.mode==='photo'){PF.paint();optPaint();setH($('#statbar'),V.statbar())}else{paintStage();fitStage()}placeFly()}catch(e){renderErr('canvas '+UI.mode,e)}
   var cw=$('#calcwin');
   if(UI.tab!=='con'&&V[UI.tab]){cw.hidden=false;renderSecs($('#calcview'),V[UI.tab],UI.tab);if(UI.tab==='client')IO.drawOffer($('#offer'))}
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
@@ -440,7 +443,8 @@ function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClo
     case 'save':if(IO.db)act('cloud-save',a);else act('menu',a);break;
     case 'new-proj':openModal({type:'newproj',title:'Новый проект'});break;
     case 'new-go':{var nm=a&&a.dataset&&a.dataset.id||'scene',o=M.defaults();o.name=nm==='photo'?'Фото с размерами':nm==='plan'?'План зала':'Новая фотозона';o.pid=null;
-      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';PL.st.sel=null;PF.st.open=null;PF.st.sel=null;if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
+      PL.st.sel=null;PL.st.tool=null;PF.st.open=null;PF.st.sel=null;PF.st.tool='';PF.st.pend=null;UI.fly=false;
+      if(loadState(o,true)){UI.nextLabel=null;UI.modal=null;UI.tab='con';if(UI.mode!==nm)PL.setMode(nm);render();toast('Новый проект: «'+S.name+'». Сохраняется как обычно — Файл → Сохранить.')}break}
     case 'dtab':UI.dtab=id;wsSave();render();break;
     case 'dopen':if(id!=='props')UI.dtab=id;UI.dock='';wsSave();render();break;
     case 'dock':UI.dock=UI.dock==='mini'?'':'mini';wsSave();render();setTimeout(function(){fitStage()},0);break;

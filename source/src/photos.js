@@ -88,7 +88,7 @@ var PF = (function () {
     if (img) img.style.visibility = on ? 'hidden' : '';
     if (!on) { if (!cvs.hidden) { cvs.hidden = true; cvs.width = 1; cvs.height = 1; } return; }
     cvs.hidden = false;
-    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.round(h.clientWidth * dpr), H = Math.round(h.clientHeight * dpr);
+    const dpr = Math.min(2, window.devicePixelRatio || 1), hz = hsize(), W = Math.round(hz.w * dpr), H = Math.round(hz.h * dpr);
     if (cvs.width !== W || cvs.height !== H) { cvs.width = W; cvs.height = H; }
     const c = cvs.getContext('2d'), s = st.v.s * dpr; c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, W, H);
     c.setTransform(s, 0, 0, s, -st.v.x * s, -st.v.y * s); c.imageSmoothingQuality = 'high';
@@ -151,17 +151,30 @@ var PF = (function () {
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('photohost'); }
+  const MODE = 'photo';
+  /* the size of the drawing area, kept by a ResizeObserver: reading clientWidth right after the panel was rebuilt
+     forced the browser to lay out the whole page in the middle of every redraw */
+  const HS = { w: 0, h: 0, el: null, ro: null };
+  function hsize() {
+    const h = host(); if (!h) return { w: 0, h: 0 };
+    if (HS.el !== h && window.ResizeObserver) {
+      if (HS.ro) HS.ro.disconnect(); HS.el = h; HS.w = 0; HS.h = 0;
+      HS.ro = new ResizeObserver((es) => { const r = es[es.length - 1].contentRect, w = Math.round(r.width), hh = Math.round(r.height), moved = Math.abs(w - HS.w) > 2 || Math.abs(hh - HS.h) > 2; HS.w = w; HS.h = hh; if (moved && w > 0 && UI.mode === MODE) paint(); });
+      HS.ro.observe(h);
+    }
+    return HS.w > 0 && HS.h > 0 ? { w: HS.w, h: HS.h } : { w: h.clientWidth, h: h.clientHeight };
+  }
   function svg() { return document.getElementById('fsvg'); }
   function fit() {
-    const h = host(), ph = cur(); if (!h || !ph) return; const W = h.clientWidth, H = h.clientHeight; if (W < 50 || H < 50) return;
+    const h = host(), ph = cur(); if (!h || !ph) return; const hz = hsize(), W = hz.w, H = hz.h; if (W < 50 || H < 50) return;
     const s = Math.min((W - 24) / ph.w, (H - 24) / ph.h);
     st.v = { s, x: -(W / s - ph.w) / 2, y: -(H / s - ph.h) / 2 }; st.lastW = W; st.lastH = H;
   }
-  function ensureView() { const h = host(); if (!h) return; if (!st.v || (!st.v.user && (Math.abs(h.clientWidth - st.lastW) > 2 || Math.abs(h.clientHeight - st.lastH) > 2))) fit(); }
+  function ensureView() { const h = host(); if (!h) return; const z = hsize(); if (!st.v || (!st.v.user && (Math.abs(z.w - st.lastW) > 2 || Math.abs(z.h - st.lastH) > 2))) fit(); }
   function applyView() { const g = document.getElementById('fvp'); if (g && st.v) g.setAttribute('transform', 'matrix(' + st.v.s + ' 0 0 ' + st.v.s + ' ' + (-st.v.x * st.v.s) + ' ' + (-st.v.y * st.v.s) + ')'); const z = document.getElementById('fzlbl'); if (z && st.v) z.textContent = Math.round(st.v.s * 100) + ' %'; drawFit(); }
   function toImg(ev) { const r = svg().getBoundingClientRect(); return [(ev.clientX - r.left) / st.v.s + st.v.x, (ev.clientY - r.top) / st.v.s + st.v.y]; }
   function zoomAt(f, px, py) { const v = st.v, mx = px / v.s + v.x, my = py / v.s + v.y, s = G.clamp(v.s * f, 0.05, 12); st.v = { s, x: mx - px / s, y: my - py / s, user: true }; applyView(); clearTimeout(st.repaint); st.repaint = setTimeout(paint, 120); }
-  function zoomBy(f) { const h = host(); if (!h || !st.v) return; zoomAt(f, h.clientWidth / 2, h.clientHeight / 2); }
+  function zoomBy(f) { const h = host(); if (!h || !st.v) return; const z = hsize(); zoomAt(f, z.w / 2, z.h / 2); }
 
   /* ---------- painting ---------- */
   function txt(x, y, str, px, col, bg, sel) {
@@ -486,7 +499,7 @@ var PF = (function () {
     document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
+  return { st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */
