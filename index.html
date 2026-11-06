@@ -1146,7 +1146,7 @@ input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color])
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 50</span>
+  <span class="ver" id="ver">версия 51</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -5670,7 +5670,9 @@ var PL = (function () {
     if (ref && ref[0] === 'i' && item(ref[1]) && (multiOn || (st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0))) {
       d.mode = 'gmove'; d.gid = ref[1]; d.toggle = multiOn; d.gsnap = {};
       const ids = st.multi.indexOf(ref[1]) >= 0 ? st.multi : st.multi.concat([ref[1]]); d.ids = ids;
-      ids.forEach((id) => { const it = item(id); if (it) d.gsnap[id] = { x: it.x, y: it.y }; }); return true;
+      ids.forEach((id) => { const it = item(id); if (it) d.gsnap[id] = { x: it.x, y: it.y }; });
+      if (!multiOn) { const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; st.multi = ids.slice(); st.sel = null; ctxOpen(rf, cx, cy); }; if (ev.button === 2) { open(); return true; } d.lp = setTimeout(open, 550); }   // long press on a chosen one: the menu for all of them
+      return true;
     }
     if (ref && (ref[0] === 'i' || ref[0] === 'r') && st.tool !== 'multi') {
       const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; ctxOpen(rf, cx, cy); };
@@ -5979,6 +5981,12 @@ var PL = (function () {
         const it = item(id); if (!it) return; P().items = P().items.filter((x) => x.id !== id); if (st.sel && st.sel.i === id) st.sel = null; label('удалено — ' + G.itemLabel(it)); return; }
       case 'm-align': { const L = st.multi.map(item).filter(Boolean); if (G.alignItems(L, v)) label('выровнено — ' + ({ left: 'по левому краю', cx: 'по центру', right: 'по правому краю', top: 'по верху', cy: 'по середине', bottom: 'по низу' })[v]); else toast('Уже на одной линии.'); return; }
       case 'm-dist': { const L = st.multi.map(item).filter(Boolean); if (L.length < 3 && st.mgap == null) { toast('Чтобы распределить поровну, нужно хотя бы 3 объекта — или впишите промежуток.'); return; } G.distributeItems(L, v, st.mgap == null ? undefined : st.mgap); label(st.mgap == null ? 'поровну ' + (v === 'x' ? 'по горизонтали' : 'по вертикали') : 'через ' + fl(st.mgap) + ' ' + uLab()); return; }
+      case 'm-dup': {   // copies of all chosen, side by side to the right, numbered on; groups stay groups; the copies become the selection
+        const L = st.multi.map(item).filter(Boolean); if (!L.length) return;
+        const bs = L.map(G.fullBox), x0 = Math.min(...bs.map((b) => b.x0)), x1 = Math.max(...bs.map((b) => b.x1)), dx = Math.round((x1 - x0 + 600) / 10) * 10, gmap = {}, made = [];
+        L.slice().sort((a, b) => (+a.num || 0) - (+b.num || 0)).forEach((it) => { const c = JSON.parse(JSON.stringify(it)); c.id = G.uid(); c.x = Math.round((it.x + dx) * 10) / 10; delete c.lock;
+          if (c.grp) c.grp = gmap[it.grp] = gmap[it.grp] || 'g' + G.uid(); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); made.push(c.id); });
+        st.multi = made; st.sel = null; label('копия — ' + made.length + ' объект' + plural(made.length)); toast('Копии стоят справа и выделены — перетащите их на место.'); return; }
       case 'm-rot': { st.multi.map(item).filter((it) => it && !it.lock).forEach((it) => { it.rot = G.normDeg((it.rot || 0) + 90); }); label('повёрнуто на 90° — ' + st.multi.length); return; }
       case 'm-lock': { const L = st.multi.map(item).filter(Boolean), on = L.some((it) => !it.lock); L.forEach((it) => { if (on) it.lock = true; else delete it.lock; }); label((on ? 'закреплено — ' : 'откреплено — ') + L.length); return; }
       case 'm-del': { const n = st.multi.length; P().items = P().items.filter((it) => st.multi.indexOf(it.id) < 0); st.multi = []; st.sel = null; label('удалено — ' + n + ' объект' + plural(n)); return; }
@@ -6084,6 +6092,7 @@ var PL = (function () {
       if (k === 'Enter' && ev.target && ev.target.id === 'pl-wlen') { ev.preventDefault(); const t = ev.target; t.blur(); setTimeout(() => act('w-step', { dataset: { v: '1' } }), 0); return true; }
       return false;
     }
+    if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.multi.length > 1) { ev.preventDefault(); act('m-dup'); return true; }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.sel && st.sel.t === 'item') { ev.preventDefault(); act('it-dup'); return true; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
     if (k === 'Escape' && st.multi.length) { st.multi = []; render(); return true; }
@@ -6291,7 +6300,7 @@ var PL = (function () {
       grp('Распределить', '<div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
         fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
       (T.length ? grp('Столы: ' + T.length, '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
-      '<div class="pacts">' + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
+      '<div class="pacts">' + btn('m-dup', 'Дублировать ' + L.length) + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }
   function fallbackCopy(t) { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
   function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + r.n + ' шт.' + (r.stand ? '' : ', мест ' + r.seats)).join('\n') + '\nВсего: столов ' + S2.tables + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', мест ' + S2.seats + ' (стульев ' + S2.chairs + ')'; }
@@ -6311,7 +6320,7 @@ var PL = (function () {
     const r = st.ctx.ref, B = (act, t, cls, v) => '<button type="button" class="cxi' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '"' + (v != null ? ' data-v="' + v + '"' : '') + '>' + t + '</button>';
     let h = '';
     if (st.multi.length > 1) { const L = st.multi.map(item).filter(Boolean), isG = L.every((it) => it.grp && it.grp === L[0].grp), lk = L.some((it) => !it.lock);
-      h = '<div class="cxh">' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</div>' + B('m-rot', 'Повернуть на 90°') + B('m-lock', lk ? 'Закрепить все' : 'Открепить все') + (isG ? B('m-ungroup', 'Разгруппировать') : B('m-group', 'Сгруппировать')) + B('ctx-props', 'Выровнять, распределить…') + B('m-del', 'Удалить ' + L.length, 'dng'); }
+      h = '<div class="cxh">' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</div>' + B('m-dup', 'Дублировать') + B('m-rot', 'Повернуть на 90°') + B('m-lock', lk ? 'Закрепить все' : 'Открепить все') + (isG ? B('m-ungroup', 'Разгруппировать') : B('m-group', 'Сгруппировать')) + B('ctx-props', 'Выровнять, распределить…') + B('m-del', 'Удалить ' + L.length, 'dng'); }
     else if (r[0] === 'i') { const it = item(r[1]); if (!it) return '';
       const nm = it.kind === 'table' && !it.stand && it.num != null ? 'Стол №' + it.num : G.itemLabel(it);
       h = '<div class="cxh">' + esc(nm) + '</div>' + B('lyr-lock', it.lock ? 'Открепить' : 'Закрепить', '', 'i|' + it.id) + (it.kind === 'column' || it.kind === 'photo' ? '' : B('it-dup', 'Дублировать') + B('it-rot90', 'Повернуть на 90°')) + B('ctx-multi', 'Выбрать ещё…') + B('ctx-props', 'Свойства') + B('it-del', 'Удалить', 'dng'); }
@@ -6365,7 +6374,7 @@ var PL = (function () {
   function vOptbar() {
     const s = st.sel;
     if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
-    if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
+    if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s" data-pact="m-dup" title="Дублировать выделенные (Ctrl+D)" aria-label="Дублировать выделенные">' + U.ico.dup + '</button><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
     if (s && s.t === 'guide') { const g = (P().guides || []).find((q) => q.id === s.g); return g ? '<span class="onm">Направляющая</span><span class="sep"></span><span class="ohint">от угла A: ' + fl(g.at - G.gridOrigin(P())[g.vert ? 0 : 1]) + ' ' + uLab() + ' · утащите на линейку, чтобы убрать</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="g-del" title="Убрать направляющую" aria-label="Убрать направляющую">' + U.ico.del + '</button>' : ''; }
     if (!s) return '<span class="ohint">План: коснитесь помещения, стены, угла, проёма или стола · один палец по пустому месту двигает план, два — масштаб</span>';
     const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';

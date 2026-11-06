@@ -24,7 +24,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  // rotated 90°: the side handle still changes its own dimension
  await put({w:1800,d:800,rot:90});b0=await box();await drag('e1',0,60);b1=await box();ok(Math.abs(b1.w-2300)<=10&&b1.d===800&&b1.y0===b0.y0,'turned 90°: the side handle lengthens it along its own side');
  // round: one diameter handle only; tiny table: no side handles
- await put({ref:'t_r150',w:1500,shape:'round'});ok(await ev(()=>document.querySelectorAll('#phnd [data-r*="|e"]').length)===0,'round table: no side handles');
+ await put({ref:'t_r150',w:1500,shape:'round'});await p.waitForTimeout(150);await ev(()=>PL.paint());ok(await ev(()=>document.querySelectorAll('#phnd [data-r*="|e"]').length)===0,'round table: no side handles');
  await put({w:250,d:200,ref:'t_q180'});ok(await ev(()=>document.querySelectorAll('#phnd [data-r*="|e"]').length)===0,'small on screen: side handles hidden, corners stay');
  // chairs that no longer fit go when the side is shortened
  await put({w:2000,d:800});await ev(()=>{S.plan.items[0].sides=[4,4,1,1];commit()});await drag('e1',-96,0);ok(await ev(()=>S.plan.items[0].sides[0])<=2,'shorter side: extra chairs taken away: '+await ev(()=>S.plan.items[0].sides.join()));
