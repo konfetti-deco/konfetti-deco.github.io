@@ -164,5 +164,62 @@ var RP = (function () {
       doc.addImage(planCanvas(1.5).toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210); return IO.save(IO.fname('pdf', 'План'), doc.output('blob'), 'bin');
     }).catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
   }
-  return { build, pdf, planCanvas, planPng, planPdf };
+
+  /* one photo on an A4 sheet: landscape or portrait as the photo is, its sizes listed under it (names and numbers from reportData) */
+  function photoSheet(ph, rp, pc, k) {
+    const land = ph.w >= ph.h, PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, M0 = 70, u = (S.plan && S.plan.unit) || 'm', cv = document.createElement('canvas');
+    cv.width = PW * k; cv.height = PH * k; const c = cv.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, PW, PH);
+    c.font = '600 42px ' + disp; txt(c, fit(c, String(rp.name || ph.name || 'Фото'), PW - 2 * M0 - 320), M0, 92, '600 42px ' + disp, em);
+    eyebrow(c, rp.fit ? 'Фото с фотозоной' : 'Фото с размерами', PW - M0, 74, 'right'); txt(c, String(S.name || '') ? S.name + ' · ' + today() : today(), PW - M0, 100, '400 18px ' + body, mu, 'right');
+    c.fillStyle = line; c.fillRect(M0, 118, PW - 2 * M0, 1);
+    const cols = land ? 3 : 2, lines = rp.dims.map((dm) => [dm.name || 'Размер ' + dm.n, dm.v ? (dm.est ? '≈' : '') + fl(dm.v, u) + ' ' + uLab(u) : '? — нет числа', !dm.v])
+      .concat(rp.figs.map((f, i) => ['Фигура ' + (i + 1), 'P ' + fl(f.P, u) + (f.area > 0 ? ' · S ' + (f.exact ? '' : '≈') + m2(f.area) : ''), false]));
+    const maxRows = land ? 4 : 7, rows = Math.min(maxRows, Math.ceil(lines.length / cols)), shown = rows * cols, more = Math.max(0, lines.length - shown);
+    const footH = lines.length ? 40 + rows * 30 + (more ? 28 : 0) : 20, top = 140, bh = PH - top - footH - 40, bw = PW - 2 * M0;
+    if (pc) { let iw = bw, ih = bw * ph.h / ph.w; if (ih > bh) { ih = bh; iw = bh * ph.w / ph.h; } c.drawImage(pc, M0 + (bw - iw) / 2, top + (bh - ih) / 2, iw, ih); }
+    else txt(c, 'снимок не загружен на этом устройстве', PW / 2, top + bh / 2, '400 22px ' + body, warn, 'center');
+    if (lines.length) {
+      let y = PH - footH - 6; c.fillStyle = line; c.fillRect(M0, y, PW - 2 * M0, 1); y += 34; const cw = (PW - 2 * M0) / cols;
+      for (let i = 0; i < shown && i < lines.length; i++) { const col = Math.floor(i / rows), row = i % rows, x0 = M0 + col * cw, yy = y + row * 30, L = lines[i];
+        c.font = '400 17px ' + body; txt(c, fit(c, L[0], cw * 0.42), x0, yy, '400 17px ' + body, mu); c.font = '600 17px ' + body; txt(c, fit(c, L[1], cw * 0.55), x0 + cw * 0.44, yy, '600 17px ' + body, L[2] ? warn : ink); }
+      if (more) txt(c, 'и ещё ' + more + ' — полный список в отчёте обмера', M0, y + rows * 30 + 4, '400 15px ' + body, mu);
+    }
+    return cv;
+  }
+  function jspdf() { return IO.script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(() => IO.fonts()); }
+  function sheetsPdf(cvs, name) {
+    let doc = null;
+    cvs.forEach((cv) => { const land = cv.width > cv.height, o = land ? 'landscape' : 'portrait';
+      if (!doc) doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: o, compress: true }); else doc.addPage('a4', o);
+      doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, land ? 297 : 210, land ? 210 : 297); });
+    return IO.save(IO.fname('pdf', name), doc.output('blob'), 'bin');
+  }
+  /* the chosen photos (one = that photo, none = all), each on its own A4 sheet */
+  function photosPdf(list) {
+    list = list && list.length ? list : (S.photos || []); if (!list.length) { toast('В проекте нет фото.'); return Promise.resolve(); }
+    toast(list.length > 1 ? 'Готовлю PDF: ' + list.length + ' фото…' : 'Готовлю PDF с фото…');
+    const R = G.reportData(S.plan, S.photos || []), needCut = list.some((ph) => ph.fit && ph.fit.on);
+    return jspdf().then(() => (needCut ? PF.refreshCut(true) : null)).then(() => Promise.all(list.map((ph) => PF.photoCanvas(ph, 1.5).catch(() => null)))).then((pcs) =>
+      sheetsPdf(list.map((ph, i) => photoSheet(ph, R.photos[(S.photos || []).indexOf(ph)] || { name: ph.name, dims: [], figs: [] }, pcs[i], 1.5)), list.length === 1 ? (list[0].name || 'Фото') : 'Фото'))
+      .catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
+  }
+  /* the scene on an A4 landscape sheet: the picture with sizes, the zone under it */
+  function sceneSheet(sc, k) {
+    const PW = 1754, PH = 1240, M0 = 70, cv = document.createElement('canvas'); cv.width = PW * k; cv.height = PH * k; const c = cv.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, PW, PH);
+    c.font = '600 46px ' + disp; txt(c, fit(c, String(S.name || 'Фотозона'), PW - 2 * M0 - 300), M0, 96, '600 46px ' + disp, em); eyebrow(c, 'Фотозона', PW - M0, 78, 'right'); txt(c, today(), PW - M0, 104, '400 18px ' + body, mu, 'right');
+    c.fillStyle = line; c.fillRect(M0, 122, PW - 2 * M0, 1);
+    const top = 146, bw = PW - 2 * M0, bh = PH - top - 120; let iw = bw, ih = bw * sc.height / sc.width; if (ih > bh) { ih = bh; iw = bh * sc.width / sc.height; }
+    c.drawImage(sc, M0 + (bw - iw) / 2, top + (bh - ih) / 2, iw, ih);
+    const z = (window.R && R.zone) || null, n = S.els.filter((e) => !e.hide && e.type !== 'person').length, m1 = (v) => G.nf(v / 1000, 1);
+    c.fillStyle = line; c.fillRect(M0, PH - 92, PW - 2 * M0, 1);
+    txt(c, [z && n ? 'зона ' + m1(z.w) + ' × ' + m1(z.d) + ' м, высота ' + m1(z.h) + ' м' : '', n + ' элемент' + (n % 10 === 1 && n % 100 !== 11 ? '' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'а' : 'ов')].filter(Boolean).join('   ·   '), M0, PH - 54, '500 19px ' + body, ink);
+    return cv;
+  }
+  function scenePdf() {
+    if (!S.els.some((e) => !e.hide)) { toast('Сцена пуста.'); return Promise.resolve(); }
+    toast('Готовлю PDF сцены…');
+    return jspdf().then(() => IO.sceneCanvas(2600, { dims: true })).then((sc) => sheetsPdf([sceneSheet(sc, 1.5)], 'Сцена'))
+      .catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
+  }
+  return { build, pdf, planCanvas, planPng, planPdf, photoSheet, photosPdf, sceneSheet, scenePdf };
 })();

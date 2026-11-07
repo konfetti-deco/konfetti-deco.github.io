@@ -460,7 +460,8 @@ function addEl(ne){UI.multi=null;UI.fly=false;
   UI.sel=ne.id;UI.ced=null;commit();
 }
 function addPic(id,more){var im=IMG[id];if(!im)return;var mn=M.main(S),w=Math.round(Math.min(1100,Math.max(300,mn?mn.w*.6:800))/50)*50,d={im:id,ar:im.h/im.w,w:w,mount:'wall'};for(var k in (more||{}))d[k]=more[k];addEl(M.make(S,'pic',d))}
-function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
+function act(name,a){if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
+  if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
   var el=V.sel(),i=el?S.els.indexOf(el):-1,id=a&&a.dataset.id;
   switch(name){
     case 'tab':UI.tab=V[id]?id:'con';render();var cv=$('#calcview');if(cv)cv.scrollTop=0;var tb=$('.ctabs .tab[data-id="'+id+'"]');if(tb&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'center'});break;
@@ -571,6 +572,10 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
+    case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
+    case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
+    case 'photos-pdf':RP.photosPdf();break;
+    case 'scene-pdf':RP.scenePdf();break;
     case 'plan-png':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPng();break;
     case 'plan-pdf':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPdf();break;
     case 'copy-offer':copyFrom($('#offer-text'));break;
@@ -989,7 +994,7 @@ function transferIn(B){var go=function(){toast('Переношу данные…
   },function(){toast('Перенос не удался: база не ответила. Попробуйте ещё раз — уже перенесённое не задвоится.')})};
   if(window.SITE&&!SITE.code())return SITE.connect(SITE.newCode()).then(go);return go()}
 function openTab(id){act('tab',{dataset:{id:id}})}
-function menuClose(){var m=$('#mpop');if(m&&!m.hidden){m.hidden=true;m.dataset.id='';m.innerHTML=''}$$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded','false')})}
+function menuClose(){UI.msub=null;var m=$('#mpop');if(m&&!m.hidden){m.hidden=true;m.dataset.id='';m.innerHTML=''}$$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded','false')})}
 /* scrub: drag a label in the options bar sideways to change its number, as in Photoshop; one step goes into the history at the end */
 var scrub=null;
 function scrubDown(ev){var b=ev.target.closest&&ev.target.closest('[data-scrub]');if(!b||(ev.button!==undefined&&ev.button>0))return false;var inp=b.parentNode.querySelector('input');if(!inp)return false;

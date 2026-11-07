@@ -605,9 +605,9 @@ body.scrubbing,body.scrubbing *{cursor:ew-resize!important}
 @media (max-width:1100px){.ohint.om{display:none}}
 /* ---------- workspace ---------- */
 main#view{max-width:none;margin:0;padding:0;min-height:0;overflow:hidden}
-.wsm{display:grid;grid-template-columns:40px minmax(0,1fr) 276px;height:100%;min-height:0}
-.wsm.mini{grid-template-columns:40px minmax(0,1fr) 38px}
-@media (min-width:1300px){.wsm{grid-template-columns:40px minmax(0,1fr) 310px}}
+.wsm{display:grid;grid-template-columns:var(--toolw,56px) minmax(0,1fr) 276px;height:100%;min-height:0}
+.wsm.mini{grid-template-columns:var(--toolw,56px) minmax(0,1fr) 38px}
+@media (min-width:1300px){.wsm{grid-template-columns:var(--toolw,56px) minmax(0,1fr) 310px}}
 .tools{background:var(--chrome);border-right:1px solid var(--wline);display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;overflow-y:auto;scrollbar-width:none;min-height:0}
 .tools::-webkit-scrollbar{display:none}
 .tb{flex:none;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:0;border-radius:5px;background:transparent;position:relative;color:var(--ink);padding:0}
@@ -772,8 +772,8 @@ span.dt{cursor:default}
 .btn,.chip,.tile,.pal{border-radius:5px}
 .scrim{z-index:100}
 #toast{z-index:130}
-@media (max-width:760px){.wsm{grid-template-columns:40px minmax(0,1fr) 230px}.dock .fld{grid-template-columns:76px minmax(0,1fr)}}
-@media (max-width:560px){.wsm{grid-template-columns:40px minmax(0,1fr) 200px}.mb{padding:5px 6px}}
+@media (max-width:760px){.wsm{grid-template-columns:var(--toolw,56px) minmax(0,1fr) 230px}.dock .fld{grid-template-columns:76px minmax(0,1fr)}}
+@media (max-width:560px){.wsm{grid-template-columns:var(--toolw,56px) minmax(0,1fr) 200px}.mb{padding:5px 6px}}
 /* drop-down lists in place of rows of choices that would not fit the dock */
 .dsel{position:relative;display:block;min-width:0}
 .dsel select{display:block;width:100%;height:24px;border:1px solid var(--wline);border-radius:4px;background:var(--well);color:var(--ink);font:500 12px/1 var(--f-body);padding:0 24px 0 7px;-webkit-appearance:none;appearance:none;cursor:pointer;text-overflow:ellipsis}
@@ -1144,6 +1144,32 @@ html .kpu button.kmic[aria-pressed=true],html.glass .kpu button.kmic[aria-presse
 .kvs.ask{background:color-mix(in srgb,#e0a030 22%,var(--chip))}
 .kvs.warn{background:color-mix(in srgb,var(--bad) 18%,var(--chip))}
 .kp.kpc .kvs[hidden]{display:none}
+/* v53: File menu — План / Фото / Сцена open their own lists */
+.msub{position:relative}
+.mi.msb .mnote{flex:0 0 auto;font-size:11px;color:var(--muted);margin-left:8px}
+.mi.msb .marr{flex:0 0 auto;margin-left:8px;font-size:15px;line-height:1;color:var(--muted);font-weight:600}
+.msub.open>.mi.msb{background:var(--sel)}
+.msubm{display:none;position:absolute;left:calc(100% + 2px);top:-5px;min-width:230px;padding:4px;background:var(--panel);border:1px solid var(--wline);border-radius:6px;box-shadow:var(--sh2);flex-direction:column;z-index:2}
+.msubm.flip{left:auto;right:calc(100% + 2px)}
+.msub.open>.msubm{display:flex}
+@media (hover:hover) and (pointer:fine){.msub:hover>.msubm{display:flex}.msub:hover>.mi.msb{background:var(--sel)}}
+.msubm hr{border:0;border-top:1px solid var(--wline);margin:4px 2px}
+.msubm .mhd{font-size:11px;color:var(--muted);padding:4px 10px 4px 26px;max-width:260px;white-space:normal;line-height:1.3}
+html.glass .msubm{border-radius:10px;padding:5px}
+
+/* v53: the left toolbar, bigger for fingers — wider column, larger buttons and icons, a clearer "on" state (only .tools, not the right strip) */
+:root{--toolw:56px}
+.tools{gap:3px;padding:8px 0}
+.tools .tb{width:48px;height:46px;border-radius:10px}
+.tools .tb svg{width:26px;height:26px;stroke-width:2.05}
+.tools .tb[aria-pressed="true"]{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc);box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--acc) 60%,transparent)}
+.tools .tb:active{transform:scale(.94)}
+.tools .tb .tri{right:3px;bottom:3px;border-width:4px}
+.tools hr{width:34px;margin:5px 0}
+html.glass .tools .tb{border-radius:10px}
+.tools .plyr{width:48px}
+.tools .plyr button{font-size:12.5px;min-height:32px;padding:7px 0;border-radius:8px}
+.msub>.mi{width:100%}
 
 </style>
 </head>
@@ -1157,7 +1183,7 @@ html .kpu button.kmic[aria-pressed=true],html.glass .kpu button.kmic[aria-presse
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 52</span>
+  <span class="ver" id="ver">версия 53</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -5282,9 +5308,22 @@ V.statbar = function(){var z=R.zone,bad=R.checks.filter(function(c){return !c.ok
   return '<span class="zm"><button type="button" class="ib s" data-act="zoom-out" title="Отдалить" aria-label="Отдалить">'+U.ico.zout+'</button><button type="button" class="zl" id="zoomlbl" data-act="zoom-fit" title="Вписать сцену">'+Math.round(UI.zoom.z*100)+' %</button><button type="button" class="ib s" data-act="zoom-in" title="Приблизить" aria-label="Приблизить">'+U.ico.zin+'</button><button type="button" class="ib s" data-act="zoom-fit" title="Вписать сцену" aria-label="Вписать сцену">'+U.ico.fit+'</button></span>'+
     (S.els.length?'<span>зона '+U.n(z.w/1000,1)+' × '+U.n(z.d/1000,1)+' м</span>':'')+'<span>'+S.els.length+' эл.</span><button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot '+(nb?'bad':bad.length?'warn':'ok')+'"></i>'+(bad.length?'проверки: '+bad.length:'проверки пройдены')+'</button><span class="sp"></span><span>цена клиенту '+U.eur0(R.eco.cur.gross)+'</span>'};
 V.hasClip = function(){if(UI.clip)return true;try{return !!localStorage.getItem('fotozona.clip.v1')}catch(e){return false}};
+/* File menu: План / Фото / Сцена open their own small lists, so the menu stays short */
+V.photoTarget = function(){var L=S.photos||[],o=typeof PF!=='undefined'&&PF.st&&PF.st.open;return L.find(function(p){return p.id===o})||(L.length===1?L[0]:null)};
+V.fileSubs = function(it){
+  var sub=function(id,lab,note,body){var on=UI.msub===id;return '<div class="msub'+(on?' open':'')+'"><button type="button" class="mi msb" data-act="msub" data-id="'+id+'" aria-expanded="'+on+'"><i class="mck" aria-hidden="true"></i><span>'+lab+'</span><small class="mnote">'+note+'</small><b class="marr" aria-hidden="true">›</b></button><div class="msubm" role="menu">'+body+'</div></div>'};
+  var planOk=!!(S.plan&&(S.plan.rooms.length||S.plan.items.length)),L=S.photos||[],ph=V.photoTarget(),sceneOk=S.els.some(function(e){return !e.hide}),pn=ph?'«'+U.esc(String(ph.name||'Фото').slice(0,28))+'»':'';
+  return sub('plan','План',planOk?'':'пуст',it('plan-pdf','PDF — лист A4',{dis:!planOk})+it('plan-png','Картинка PNG',{dis:!planOk}))+
+    sub('photo','Фото',L.length?L.length+' шт.':'нет',
+      (ph?'<div class="mhd">Фото '+pn+'</div>':'<div class="mhd">'+(L.length?'Откройте фото во вкладке «Фото», чтобы сохранить его одно':'В проекте нет фото')+'</div>')+
+      it('photo-pdf','PDF — это фото',{dis:!ph})+it('photo-png','Картинка PNG — это фото',{dis:!ph})+'<hr>'+
+      it('photos-pdf','PDF — все фото'+(L.length>1?' ('+L.length+')':''),{dis:!L.length})+it('report-pdf','Отчёт обмера PDF: план и фото с размерами',{dis:!L.length&&!planOk}))+
+    sub('scene','Сцена',sceneOk?'':'пуста',it('scene-pdf','PDF — лист A4',{dis:!sceneOk})+it('png','Картинка PNG',{dis:!sceneOk})+'<hr>'+it('offer-pdf','Предложение клиенту PDF',{dis:!sceneOk}));
+};
+V.subPlace = function(w){var m=w&&w.querySelector('.msubm');if(!m)return;m.classList.remove('flip');m.style.top='';var r=m.getBoundingClientRect();if(r.right>innerWidth-4)m.classList.add('flip');if(r.bottom>innerHeight-4)m.style.top=Math.round(innerHeight-4-r.bottom)+'px'};
 V.MENUS = {file:'Файл',edit:'Правка',view:'Вид',calc:'Расчёты'};
 V.mmenu = function(id){var it=function(act,lab,o){o=o||{};return '<button type="button" class="mi'+(o.on?' on':'')+'" data-act="'+act+'"'+(o.id?' data-id="'+o.id+'"':'')+(o.dis?' disabled':'')+'><i class="mck" aria-hidden="true">'+(o.on?'✓':'')+'</i><span>'+lab+'</span>'+(o.k?'<kbd>'+o.k+'</kbd>':'')+'</button>'},hr='<hr>',el=V.sel(),ms=V.multi().length>1;
-  if(id==='file')return it('new-proj','Новый проект…')+it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('save-as','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+it('png','Скачать сцену картинкой PNG')+it('plan-pdf','План зала PDF (лист A4)')+it('plan-png','План зала картинкой PNG')+it('report-pdf','Отчёт обмера PDF: план и фото с размерами')+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
+  if(id==='file')return it('new-proj','Новый проект…')+it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('save-as','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+hr+V.fileSubs(it)+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
   if(id==='edit')return it('undo','Отменить',{k:'Ctrl+Z',dis:UI.hi<=0})+it('redo','Вернуть',{k:'Ctrl+Y',dis:UI.hi>=UI.hist.length-1})+it('dopen','История шагов',{id:'hist'})+hr+it(ms?'gdup':'dup','Дублировать',{k:'Ctrl+D',dis:!el&&!ms})+it(ms?'gdel':'del','Удалить',{k:'Del',dis:!el&&!ms})+it('lib-open','В мои шаблоны',{dis:!el&&!ms})+hr+it('copy','Копировать',{k:'Ctrl+C',dis:!el&&!ms})+it('cut','Вырезать',{k:'Ctrl+X',dis:!el&&!ms})+it('paste','Вставить',{k:'Ctrl+V',dis:!V.hasClip()})+hr+it('selall','Выделить всё',{k:'Ctrl+A',dis:!S.els.length})+it('multi','Выбирать несколько',{on:UI.mmode})+it('gclear','Снять выделение',{k:'Esc',dis:!el&&!ms});
   if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()});
   if(id==='calc')return V.TABS.slice(1).map(function(t,i){return it('tab',t[1],{id:t[0],k:String(i+1),on:UI.tab===t[0]})}).join('');
@@ -7011,8 +7050,8 @@ var PF = (function () {
     };
     next();
   }
-  function exportPng() {
-    const ph0 = cur(); if (!ph0 || !IMG[ph0.im]) return;
+  function exportPng(ph) {
+    const ph0 = ph && ph.id ? ph : cur(); if (!ph0 || !IMG[ph0.im]) { if (ph0) toast('Снимок не загружен на этом устройстве.'); return; }
     if (fitOn(ph0)) { refreshCut(true).then(() => exportPng2(ph0)); return; }
     exportPng2(ph0);
   }
@@ -7027,7 +7066,7 @@ var PF = (function () {
       c.drawImage(im, 0, 0, cv.width, cv.height);
       if (fitOn(ph) && cut) { const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height; warp(t.getContext('2d'), cut.cv, ph.fit.q, K, 24); c.globalAlpha = ph.fit.op; c.drawImage(t, 0, 0); c.globalAlpha = 1; }
       c.lineCap = 'round'; c.lineJoin = 'round';
-      const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
+      const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; x = Math.max(w / 2 + 2, Math.min(cv.width - w / 2 - 2, x)); y = Math.max(h / 2 + 2, Math.min(cv.height - h / 2 - 2, y));   /* a label near the edge stays whole */ c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
       const line = (a, b, col, wd) => { c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = wd + 3 * K; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); c.strokeStyle = col; c.lineWidth = wd; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
       const px = Math.max(14, Math.round(Math.max(ph.w, ph.h) / 55)) * K;
       ph.marks.forEach((m) => {
@@ -7371,7 +7410,64 @@ var RP = (function () {
       doc.addImage(planCanvas(1.5).toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 297, 210); return IO.save(IO.fname('pdf', 'План'), doc.output('blob'), 'bin');
     }).catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
   }
-  return { build, pdf, planCanvas, planPng, planPdf };
+
+  /* one photo on an A4 sheet: landscape or portrait as the photo is, its sizes listed under it (names and numbers from reportData) */
+  function photoSheet(ph, rp, pc, k) {
+    const land = ph.w >= ph.h, PW = land ? 1754 : 1240, PH = land ? 1240 : 1754, M0 = 70, u = (S.plan && S.plan.unit) || 'm', cv = document.createElement('canvas');
+    cv.width = PW * k; cv.height = PH * k; const c = cv.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, PW, PH);
+    c.font = '600 42px ' + disp; txt(c, fit(c, String(rp.name || ph.name || 'Фото'), PW - 2 * M0 - 320), M0, 92, '600 42px ' + disp, em);
+    eyebrow(c, rp.fit ? 'Фото с фотозоной' : 'Фото с размерами', PW - M0, 74, 'right'); txt(c, String(S.name || '') ? S.name + ' · ' + today() : today(), PW - M0, 100, '400 18px ' + body, mu, 'right');
+    c.fillStyle = line; c.fillRect(M0, 118, PW - 2 * M0, 1);
+    const cols = land ? 3 : 2, lines = rp.dims.map((dm) => [dm.name || 'Размер ' + dm.n, dm.v ? (dm.est ? '≈' : '') + fl(dm.v, u) + ' ' + uLab(u) : '? — нет числа', !dm.v])
+      .concat(rp.figs.map((f, i) => ['Фигура ' + (i + 1), 'P ' + fl(f.P, u) + (f.area > 0 ? ' · S ' + (f.exact ? '' : '≈') + m2(f.area) : ''), false]));
+    const maxRows = land ? 4 : 7, rows = Math.min(maxRows, Math.ceil(lines.length / cols)), shown = rows * cols, more = Math.max(0, lines.length - shown);
+    const footH = lines.length ? 40 + rows * 30 + (more ? 28 : 0) : 20, top = 140, bh = PH - top - footH - 40, bw = PW - 2 * M0;
+    if (pc) { let iw = bw, ih = bw * ph.h / ph.w; if (ih > bh) { ih = bh; iw = bh * ph.w / ph.h; } c.drawImage(pc, M0 + (bw - iw) / 2, top + (bh - ih) / 2, iw, ih); }
+    else txt(c, 'снимок не загружен на этом устройстве', PW / 2, top + bh / 2, '400 22px ' + body, warn, 'center');
+    if (lines.length) {
+      let y = PH - footH - 6; c.fillStyle = line; c.fillRect(M0, y, PW - 2 * M0, 1); y += 34; const cw = (PW - 2 * M0) / cols;
+      for (let i = 0; i < shown && i < lines.length; i++) { const col = Math.floor(i / rows), row = i % rows, x0 = M0 + col * cw, yy = y + row * 30, L = lines[i];
+        c.font = '400 17px ' + body; txt(c, fit(c, L[0], cw * 0.42), x0, yy, '400 17px ' + body, mu); c.font = '600 17px ' + body; txt(c, fit(c, L[1], cw * 0.55), x0 + cw * 0.44, yy, '600 17px ' + body, L[2] ? warn : ink); }
+      if (more) txt(c, 'и ещё ' + more + ' — полный список в отчёте обмера', M0, y + rows * 30 + 4, '400 15px ' + body, mu);
+    }
+    return cv;
+  }
+  function jspdf() { return IO.script('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js').then(() => IO.fonts()); }
+  function sheetsPdf(cvs, name) {
+    let doc = null;
+    cvs.forEach((cv) => { const land = cv.width > cv.height, o = land ? 'landscape' : 'portrait';
+      if (!doc) doc = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: o, compress: true }); else doc.addPage('a4', o);
+      doc.addImage(cv.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, land ? 297 : 210, land ? 210 : 297); });
+    return IO.save(IO.fname('pdf', name), doc.output('blob'), 'bin');
+  }
+  /* the chosen photos (one = that photo, none = all), each on its own A4 sheet */
+  function photosPdf(list) {
+    list = list && list.length ? list : (S.photos || []); if (!list.length) { toast('В проекте нет фото.'); return Promise.resolve(); }
+    toast(list.length > 1 ? 'Готовлю PDF: ' + list.length + ' фото…' : 'Готовлю PDF с фото…');
+    const R = G.reportData(S.plan, S.photos || []), needCut = list.some((ph) => ph.fit && ph.fit.on);
+    return jspdf().then(() => (needCut ? PF.refreshCut(true) : null)).then(() => Promise.all(list.map((ph) => PF.photoCanvas(ph, 1.5).catch(() => null)))).then((pcs) =>
+      sheetsPdf(list.map((ph, i) => photoSheet(ph, R.photos[(S.photos || []).indexOf(ph)] || { name: ph.name, dims: [], figs: [] }, pcs[i], 1.5)), list.length === 1 ? (list[0].name || 'Фото') : 'Фото'))
+      .catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
+  }
+  /* the scene on an A4 landscape sheet: the picture with sizes, the zone under it */
+  function sceneSheet(sc, k) {
+    const PW = 1754, PH = 1240, M0 = 70, cv = document.createElement('canvas'); cv.width = PW * k; cv.height = PH * k; const c = cv.getContext('2d'); c.setTransform(k, 0, 0, k, 0, 0); c.fillStyle = '#fff'; c.fillRect(0, 0, PW, PH);
+    c.font = '600 46px ' + disp; txt(c, fit(c, String(S.name || 'Фотозона'), PW - 2 * M0 - 300), M0, 96, '600 46px ' + disp, em); eyebrow(c, 'Фотозона', PW - M0, 78, 'right'); txt(c, today(), PW - M0, 104, '400 18px ' + body, mu, 'right');
+    c.fillStyle = line; c.fillRect(M0, 122, PW - 2 * M0, 1);
+    const top = 146, bw = PW - 2 * M0, bh = PH - top - 120; let iw = bw, ih = bw * sc.height / sc.width; if (ih > bh) { ih = bh; iw = bh * sc.width / sc.height; }
+    c.drawImage(sc, M0 + (bw - iw) / 2, top + (bh - ih) / 2, iw, ih);
+    const z = (window.R && R.zone) || null, n = S.els.filter((e) => !e.hide && e.type !== 'person').length, m1 = (v) => G.nf(v / 1000, 1);
+    c.fillStyle = line; c.fillRect(M0, PH - 92, PW - 2 * M0, 1);
+    txt(c, [z && n ? 'зона ' + m1(z.w) + ' × ' + m1(z.d) + ' м, высота ' + m1(z.h) + ' м' : '', n + ' элемент' + (n % 10 === 1 && n % 100 !== 11 ? '' : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 10 || n % 100 >= 20) ? 'а' : 'ов')].filter(Boolean).join('   ·   '), M0, PH - 54, '500 19px ' + body, ink);
+    return cv;
+  }
+  function scenePdf() {
+    if (!S.els.some((e) => !e.hide)) { toast('Сцена пуста.'); return Promise.resolve(); }
+    toast('Готовлю PDF сцены…');
+    return jspdf().then(() => IO.sceneCanvas(2600, { dims: true })).then((sc) => sheetsPdf([sceneSheet(sc, 1.5)], 'Сцена'))
+      .catch(() => toast('PDF собрать не удалось: нужен интернет (загружается модуль). Картинка PNG работает без него.'));
+  }
+  return { build, pdf, planCanvas, planPng, planPdf, photoSheet, photosPdf, sceneSheet, scenePdf };
 })();
 
 /* ===== io.js — pictures, files, cloud projects, autosave. Everything here may be unavailable; the page works without it. ===== */
@@ -8165,7 +8261,8 @@ function addEl(ne){UI.multi=null;UI.fly=false;
   UI.sel=ne.id;UI.ced=null;commit();
 }
 function addPic(id,more){var im=IMG[id];if(!im)return;var mn=M.main(S),w=Math.round(Math.min(1100,Math.max(300,mn?mn.w*.6:800))/50)*50,d={im:id,ar:im.h/im.w,w:w,mount:'wall'};for(var k in (more||{}))d[k]=more[k];addEl(M.make(S,'pic',d))}
-function act(name,a){if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
+function act(name,a){if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
+  if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
   var el=V.sel(),i=el?S.els.indexOf(el):-1,id=a&&a.dataset.id;
   switch(name){
     case 'tab':UI.tab=V[id]?id:'con';render();var cv=$('#calcview');if(cv)cv.scrollTop=0;var tb=$('.ctabs .tab[data-id="'+id+'"]');if(tb&&tb.scrollIntoView)tb.scrollIntoView({block:'nearest',inline:'center'});break;
@@ -8276,6 +8373,10 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
+    case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
+    case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
+    case 'photos-pdf':RP.photosPdf();break;
+    case 'scene-pdf':RP.scenePdf();break;
     case 'plan-png':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPng();break;
     case 'plan-pdf':if(!S.plan||!(S.plan.rooms.length||S.plan.items.length)){toast('План пуст.');break}RP.planPdf();break;
     case 'copy-offer':copyFrom($('#offer-text'));break;
@@ -8694,7 +8795,7 @@ function transferIn(B){var go=function(){toast('Переношу данные…
   },function(){toast('Перенос не удался: база не ответила. Попробуйте ещё раз — уже перенесённое не задвоится.')})};
   if(window.SITE&&!SITE.code())return SITE.connect(SITE.newCode()).then(go);return go()}
 function openTab(id){act('tab',{dataset:{id:id}})}
-function menuClose(){var m=$('#mpop');if(m&&!m.hidden){m.hidden=true;m.dataset.id='';m.innerHTML=''}$$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded','false')})}
+function menuClose(){UI.msub=null;var m=$('#mpop');if(m&&!m.hidden){m.hidden=true;m.dataset.id='';m.innerHTML=''}$$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded','false')})}
 /* scrub: drag a label in the options bar sideways to change its number, as in Photoshop; one step goes into the history at the end */
 var scrub=null;
 function scrubDown(ev){var b=ev.target.closest&&ev.target.closest('[data-scrub]');if(!b||(ev.button!==undefined&&ev.button>0))return false;var inp=b.parentNode.querySelector('input');if(!inp)return false;

@@ -397,8 +397,8 @@ var PF = (function () {
     };
     next();
   }
-  function exportPng() {
-    const ph0 = cur(); if (!ph0 || !IMG[ph0.im]) return;
+  function exportPng(ph) {
+    const ph0 = ph && ph.id ? ph : cur(); if (!ph0 || !IMG[ph0.im]) { if (ph0) toast('Снимок не загружен на этом устройстве.'); return; }
     if (fitOn(ph0)) { refreshCut(true).then(() => exportPng2(ph0)); return; }
     exportPng2(ph0);
   }
@@ -413,7 +413,7 @@ var PF = (function () {
       c.drawImage(im, 0, 0, cv.width, cv.height);
       if (fitOn(ph) && cut) { const t = document.createElement('canvas'); t.width = cv.width; t.height = cv.height; warp(t.getContext('2d'), cut.cv, ph.fit.q, K, 24); c.globalAlpha = ph.fit.op; c.drawImage(t, 0, 0); c.globalAlpha = 1; }
       c.lineCap = 'round'; c.lineJoin = 'round';
-      const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
+      const pill = (x, y, str, px, fg, bg) => { c.font = '700 ' + px + 'px system-ui, sans-serif'; const w = c.measureText(str).width + px * 0.9, h = px * 1.55; x = Math.max(w / 2 + 2, Math.min(cv.width - w / 2 - 2, x)); y = Math.max(h / 2 + 2, Math.min(cv.height - h / 2 - 2, y));   /* a label near the edge stays whole */ c.fillStyle = bg; c.beginPath(); if (c.roundRect) c.roundRect(x - w / 2, y - h / 2, w, h, h / 2); else c.rect(x - w / 2, y - h / 2, w, h); c.fill(); c.fillStyle = fg; c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillText(str, x, y + px * 0.04); };
       const line = (a, b, col, wd) => { c.strokeStyle = 'rgba(0,0,0,.55)'; c.lineWidth = wd + 3 * K; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); c.strokeStyle = col; c.lineWidth = wd; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
       const px = Math.max(14, Math.round(Math.max(ph.w, ph.h) / 55)) * K;
       ph.marks.forEach((m) => {
