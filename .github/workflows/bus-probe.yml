@@ -1,0 +1,30 @@
+name: bus-probe
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/bus-probe.yml']
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          A="https://api.transitous.org"
+          for q in "Schanz (Jakobstraße) Aachen" "Bushof Aachen" "Kaiserplatz Aachen"; do
+            echo "=== geocode $q"
+            curl -sS -G "$A/api/v1/geocode" --data-urlencode "text=$q" --data-urlencode "type=STOP" --data-urlencode "numResults=20" --data-urlencode "place=50.7753,6.0839" \
+              | jq -c '.[] | select([.areas[]?.name]|index("Aachen")) | {name,id}'
+          done
+          echo "=== stoptimes raw sample (Schanz departures)"
+          curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=de-DELFI_de:05334:1015:1:1_G" --data-urlencode "n=3" | jq -c '.stopTimes[0] | del(.place.alerts) ' | cut -c1-1500
+          dep() { curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$1" --data-urlencode "n=40" --data-urlencode "mode=BUS" | jq -c '[.stopTimes[] | {t:.tripId, l:.routeShortName, d:.place.departure, s:.place.name}]'; }
+          arr() { curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$1" --data-urlencode "n=80" --data-urlencode "arriveBy=true" --data-urlencode "mode=BUS" | jq -c '[.stopTimes[] | {t:.tripId, l:.routeShortName, a:.place.arrival, s:.place.name}]'; }
+          arrafter() { curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$1" --data-urlencode "n=80" --data-urlencode "direction=LATER" --data-urlencode "mode=BUS" | jq -c '[.stopTimes[] | {t:.tripId, l:.routeShortName, a:(.place.arrival // .place.departure), s:.place.name}]'; }
+          S=de-DELFI_de:05334:1015:1:1_G; B=be-tec_tec:s-aachenbushof; K=de-AVV-Aachen_de:05334:1011:1:1
+          for pair in "$S $K" "$K $S" "$S $B" "$B $S"; do
+            set -- $pair
+            echo "=== intersect $1 -> $2"
+            D=$(dep $1); R=$(arrafter $2)
+            echo "dep count $(echo $D | jq length), stops: $(echo $D | jq -c '[.[].s]|unique')"
+            echo "arr count $(echo $R | jq length), stops: $(echo $R | jq -c '[.[].s]|unique')"
+            jq -n --argjson d "$D" --argjson r "$R" '[ $d[] as $x | $r[] | select(.t==$x.t and .a > $x.d) | "\($x.l) \($x.d) \($x.s) -> \(.a) \(.s)" ] | .[]'
+          done
