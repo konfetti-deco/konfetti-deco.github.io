@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#7a4b94">
-<meta name="app-version" content="bus-v5">
+<meta name="app-version" content="bus-v6">
 <title>Автобус Schanz</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -278,7 +278,8 @@ function renderList() {
     const inTxt = t.cancelled ? "отмена" : mins <= 0 ? "сейчас" : mins + " мин";
     const delay = Math.round((depMs - new Date(t.depSched).getTime()) / 60000);
     let rt;
-    if (!t.realTime) rt = `<span class="rt-none">● по расписанию</span>`;
+    if (t.cancelled) rt = `<span class="rt-late">● рейс отменён</span>`;
+    else if (!t.realTime) rt = `<span class="rt-none">● по расписанию</span>`;
     else if (delay > 0) rt = `<span class="rt-late">● +${delay} мин (план ${hm(t.depSched)})</span>`;
     else if (delay < 0) rt = `<span class="rt-ok">● ${delay} мин (план ${hm(t.depSched)})</span>`;
     else rt = `<span class="rt-ok">● вовремя</span>`;
