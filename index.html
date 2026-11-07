@@ -1193,6 +1193,32 @@ html.glass .tools .tb{border-radius:10px}
 html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);border:1px solid var(--glb);border-radius:14px}
 .mpop .mhd{font-size:11px;color:var(--muted);padding:4px 10px 4px 26px;max-width:280px;white-space:normal;line-height:1.3}
 @media (max-width:1499px){html.qtop .appn{display:none}html.qtop #photobtn span{display:none}html.qtop #photobtn{padding:0 9px}html.qtop .qbar .qb{width:32px}}
+/* v56: shapes and dimensions on the plan */
+#plan .phl{stroke:transparent;stroke-width:14px}
+#plan .pig.shp.on .pshp{filter:drop-shadow(0 0 2.5px var(--accent))}
+#plan .pig.shp.bad .pshp{stroke:#e03131}
+#plan .psn{fill:var(--ink);font-weight:600}
+#plan #pdim{pointer-events:none}
+#plan .pdm{stroke:var(--pl-dm);stroke-width:1.2px;vector-effect:non-scaling-stroke;fill:none}
+#plan .pdm.ext{stroke-width:.9px;opacity:.85}
+#plan .pdm.arr,#plan .pdm.dot{fill:var(--pl-dm);stroke:none}
+#plan .pdm.on{stroke:var(--accent)}#plan .pdm.on.arr,#plan .pdm.on.dot{fill:var(--accent)}
+#plan .pdt{fill:var(--pl-dmt);font-weight:700}
+#plan .pdt.on{fill:var(--accent)}
+:root,:root[data-theme="dark"]{--pl-dm:#74A7FF;--pl-dmt:#A8C6FF}:root[data-theme="light"]{--pl-dm:#2F6FE4;--pl-dmt:#1D57C4}@media (prefers-color-scheme:light){:root:not([data-theme]){--pl-dm:#2F6FE4;--pl-dmt:#1D57C4}}
+#plan .hd{stroke:transparent;stroke-width:16px;vector-effect:non-scaling-stroke;fill:none;pointer-events:stroke;cursor:pointer}
+#plan .hdt{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
+#plan .pkp{fill:var(--accent);opacity:.75}
+#plan .pvd{fill:#fff;stroke:var(--accent);stroke-width:2px;vector-effect:non-scaling-stroke}
+#plan .pvd.on{fill:var(--accent)}
+#plan .pvm{fill:var(--accent);opacity:.55}
+.swr{display:flex;flex-wrap:wrap;gap:6px}
+.swc{width:30px;height:30px;border-radius:50%;border:2px solid var(--wline);cursor:pointer;padding:0}
+.swc.on{outline:2.5px solid var(--accent);outline-offset:2px}
+.dock .fld.stk{grid-template-columns:1fr;gap:3px}
+.dock .fld.stk>.seg{display:flex;width:100%}
+.dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
+.dock .fld.stk>.seg button svg{display:block;margin:auto}
 
 </style>
 </head>
@@ -1205,7 +1231,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 55</span>
+  <span class="ver" id="ver">версия 56</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -3024,6 +3050,13 @@ var PG = (function () {
     z_cake:   { g: 'zones', label: 'Стол для торта Ø80', kind: 'zone', sub: 'furn', shape: 'round', w: 800 },
     z_gift:   { g: 'zones', label: 'Стол для подарков 1,2×0,6', kind: 'zone', sub: 'furn', shape: 'rect', w: 1200, d: 600 },
     z_lounge: { g: 'zones', label: 'Диван, лаунж 2×0,9 м', kind: 'zone', sub: 'furn', shape: 'rect', w: 2000, d: 900 },
+    /* free geometry: plain shapes for walls, partitions, hanging pieces — whatever is needed; they stand in nobody's way unless marked «препятствие» */
+    g_rect: { g: 'geo', label: 'Прямоугольник 2×1 м', kind: 'shape', shape: 'rect', w: 2000, d: 1000 },
+    g_oval: { g: 'geo', label: 'Круг Ø1,5 м', kind: 'shape', shape: 'oval', w: 1500, d: 1500 },
+    g_tri:  { g: 'geo', label: 'Треугольник 2×1,5 м', kind: 'shape', shape: 'poly', w: 2000, d: 1500, pts: [[0, -750], [1000, 750], [-1000, 750]] },
+    g_wall: { g: 'geo', label: 'Перегородка 3 м × 10 см', kind: 'shape', shape: 'rect', w: 3000, d: 100, solid: true, fill: 'full', col: '#5B6573' },
+    g_free: { g: 'geo', label: 'Своя форма', kind: 'shape', shape: 'poly', w: 1000, d: 1000, draw: true },
+    g_line: { g: 'geo', label: 'Линия', kind: 'shape', shape: 'poly', w: 1000, d: 50, draw: true, open: true },
     /* the upper layer: drawn over the plan, never in the way of the floor; h = height in mm (for decor and light — its lowest point) */
     u_ceil:  { g: 'ceil',  top: true, label: 'Зона потолка 6×4 м', kind: 'ceil', sub: 'ceil', shape: 'rect', w: 6000, d: 4000, dh: 0, hl: 'Высота потолка здесь' },
     u_hook:  { g: 'rig',   top: true, label: 'Точка подвеса', kind: 'hook', sub: 'hook', shape: 'round', w: 240, dh: 0, hl: 'Высота крепления', fixed: true },
@@ -3042,11 +3075,13 @@ var PG = (function () {
     if (c.kind === 'table') { if (c.shape === 'rect') it.sides = c.sides.slice(); else it.seats = c.seats; if (c.stand) it.stand = true; }
     if (c.top) { it.top = true; it.h = null; }   // the height is set when placed: from the ceiling at that point
     if (c.sub === 'stage') it.h = ref === 'z_podium' ? 300 : 400;   // stage height: the clearance above it is counted from its top
+    if (c.kind === 'shape') { it.col = c.col || '#4F8DFF'; it.fill = c.fill || 'soft'; it.lw = 2; if (c.solid) it.solid = true; if (c.open) it.open = true; if (c.pts) it.pts = c.pts.map((q) => q.slice()); }
     return it;
   }
   function itemLabel(it) {
     if (it.kind === 'column') return isRound(it) ? 'Колонна' : 'Колонна';
     if (it.name) return it.name;
+    if (it.kind === 'shape') return it.shape === 'oval' ? (Math.abs(it.w - it.d) < 1 ? 'Круг' : 'Эллипс') : it.shape === 'poly' ? (it.open ? 'Линия' : it.ref === 'g_tri' ? 'Треугольник' : 'Своя форма') : it.ref === 'g_wall' ? 'Перегородка' : (Math.abs(it.w - it.d) < 1 ? 'Квадрат' : 'Прямоугольник');
     const c = CAT[it.ref]; return c ? c.label.replace(/ [\dØ][\d,×Ø .м]*$/, '').replace(/ Ø$/, '') : 'Объект';
   }
   function seatCount(it) {
@@ -3097,6 +3132,7 @@ var PG = (function () {
   /* the object's footprint as world polygons: the table or zone, then each chair */
   function footprint(it) {
     const polys = [];
+    if (it.kind === 'shape' && it.shape === 'poly' && Array.isArray(it.pts) && it.pts.length >= 2) { const W = it.pts.map((q) => toWorld(it, q[0], q[1])); polys.push(it.open ? W.concat(W.slice(1, -1).reverse()) : W); return polys; }
     if (it.shape === 'round' || it.shape === 'oval') polys.push(ellipsePts(it, 20)); else polys.push(itemCorners(it));
     chairsLocal(it).forEach((c) => {
       const a = c.a * DEG, ca = Math.cos(a), sa = Math.sin(a), hw = CHAIR.w / 2, hd = CHAIR.d / 2;
@@ -3128,7 +3164,7 @@ var PG = (function () {
   /* what is in the way: an object crossing a wall, standing outside the rooms, in a door's swing, or on another object */
   function conflicts(p, geoms) {
     geoms = geoms || p.rooms.map(roomGeom);
-    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
+    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo' && !(it.kind === 'shape' && !it.solid)).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
     const swings = []; p.rooms.forEach((r, ri) => doorSwings(r, geoms[ri]).forEach((s) => { s.bb = bboxOf(s.poly); swings.push(s); }));
     const overlapBB = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     fps.forEach((F) => {
@@ -3293,7 +3329,7 @@ var PG = (function () {
   }
   function narrowGaps(p, min) {
     if (!(min > 0)) return [];
-    const F = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; }), out = [];
+    const F = p.items.filter((it) => !it.top && it.kind !== 'photo' && !(it.kind === 'shape' && !it.solid)).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; }), out = [];
     for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
       const A = F[i], B = F[j];
       if (A.it.grp && A.it.grp === B.it.grp) continue;   // a group is meant to stand together
@@ -3525,7 +3561,7 @@ var PG = (function () {
   function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
   /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
   function freeSpot(p, it, cx, cy) {
-    const others = p.items.filter((o) => o.kind !== 'photo' && o.id !== it.id && !!o.top === !!it.top).map(fullBox);
+    const others = p.items.filter((o) => o.kind !== 'photo' && !(o.kind === 'shape' && !o.solid) && o.id !== it.id && !!o.top === !!it.top).map(fullBox);
     const me = fullBox(Object.assign({}, it, { x: 0, y: 0 })), sx = me.x1 - me.x0 + 300, sy = me.y1 - me.y0 + 300, geoms = p.rooms.map(roomGeom);
     const fits = (x, y) => {
       const b = { x0: me.x0 + x, x1: me.x1 + x, y0: me.y0 + y, y1: me.y1 + y };
@@ -3564,7 +3600,7 @@ var PG = (function () {
       approxWalls: rooms.reduce((a, r) => a + r.walls.filter((w) => !w.m).length, 0) };
   }
   /* ---------- the plan as a whole ---------- */
-  function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [] }; }
+  function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [], dims: [] }; }
   function normalize(p) {
     const o = Object.assign(newPlan(), p && typeof p === 'object' ? p : {});
     if (!UNIT[o.unit]) o.unit = 'm';
@@ -3582,10 +3618,18 @@ var PG = (function () {
       r.walls.forEach((w) => { w.id = w.id || uid(); w.len = Math.max(1, Math.round(+w.len || 1)); w.dir = normDeg(+w.dir || 0); w.m = !!w.m; w.ops = (Array.isArray(w.ops) ? w.ops : []).filter((x) => x && x.type); w.ops.forEach((x) => { x.id = x.id || uid(); clampOpening(x, w.len); }); });
       return r;
     });
+    o.dims = (Array.isArray(o.dims) ? o.dims : []).map(normDim).filter(Boolean).slice(0, 500);
     o.items = (Array.isArray(o.items) ? o.items : []).filter((it) => it && it.kind && isFinite(+it.x) && isFinite(+it.y) && +it.w > 0).map((it) => {
       it.id = it.id || uid(); it.x = +it.x; it.y = +it.y; it.w = clamp(Math.round(+it.w), 50, 60000); it.d = clamp(Math.round(+it.d || it.w), 50, 60000); it.rot = normDeg(+it.rot || 0);
       if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1); }
       it.name = String(it.name || '').slice(0, 60);
+      if (it.kind === 'shape') {
+        it.shape = ['rect', 'oval', 'poly'].indexOf(it.shape) >= 0 ? it.shape : 'rect';
+        it.col = /^#[0-9a-f]{6}$/i.test(it.col || '') ? it.col : '#4F8DFF'; it.fill = ['none', 'soft', 'full', 'hatch'].indexOf(it.fill) >= 0 ? it.fill : 'soft'; it.lw = [1, 2, 3].indexOf(+it.lw) >= 0 ? +it.lw : 2;
+        it.solid = !!it.solid; it.open = !!it.open;
+        if (it.shape === 'poly') { it.pts = (Array.isArray(it.pts) ? it.pts : []).filter((q) => Array.isArray(q) && isFinite(+q[0]) && isFinite(+q[1])).slice(0, 200).map((q) => [Math.round(+q[0] * 10) / 10, Math.round(+q[1] * 10) / 10]);
+          if (it.pts.length < (it.open ? 2 : 3)) { it.shape = 'rect'; delete it.pts; it.open = false; } else recenterPoly(it); } else { delete it.pts; it.open = false; }
+      }
       if (it.top) { it.top = true; it.h = +it.h > 0 ? clamp(Math.round(+it.h), 100, 30000) : null; if (it.load != null) it.load = +it.load > 0 ? Math.round(+it.load) : null; } else if (it.h != null) it.h = Math.max(0, Math.round(+it.h) || 0);
       return it; });
     return o;
@@ -3686,13 +3730,109 @@ var PG = (function () {
   }
   const SIDE_NAMES = ['Сверху', 'Снизу', 'Слева', 'Справа'];
 
+  /* ===== shapes: a polygon keeps its points in its own frame, centred on its bounding box (w × d), so turning, moving,
+     snapping and the side handles work as for any rectangle; after a point moves the shape is re-centred ===== */
+  const SHAPE_COLS = ['#4F8DFF', '#40C057', '#FFB547', '#FF5FA2', '#9B6BFF', '#E8590C', '#5B6573', '#2B2B2B'];
+  function recenterPoly(it) {
+    if (!Array.isArray(it.pts) || !it.pts.length) return it;
+    const bb = bboxOf(it.pts), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    if (Math.abs(cx) > 0.05 || Math.abs(cy) > 0.05) { const c = toWorld(it, cx, cy); it.x = Math.round(c[0] * 10) / 10; it.y = Math.round(c[1] * 10) / 10; it.pts = it.pts.map((q) => [Math.round((q[0] - cx) * 10) / 10, Math.round((q[1] - cy) * 10) / 10]); }
+    it.w = Math.max(50, Math.round(bb.x1 - bb.x0)); it.d = Math.max(50, Math.round(bb.y1 - bb.y0));
+    return it;
+  }
+  /* a new size for a polygon: its points stretch to fill it */
+  function scalePoly(it, w, d) {
+    if (!Array.isArray(it.pts)) return it; const bb = bboxOf(it.pts), W0 = Math.max(1, bb.x1 - bb.x0), D0 = Math.max(1, bb.y1 - bb.y0);
+    const kx = W0 > 1 ? w / W0 : 1, ky = D0 > 1 ? d / D0 : 1; it.pts = it.pts.map((q) => [Math.round(q[0] * kx * 10) / 10, Math.round(q[1] * ky * 10) / 10]);
+    return recenterPoly(it);
+  }
+  /* a drawn outline (world points) as a shape */
+  function shapeFromPoints(pts, open) {
+    const bb = bboxOf(pts), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    const it = makeItem(open ? 'g_line' : 'g_free', cx, cy); it.x = Math.round(cx * 10) / 10; it.y = Math.round(cy * 10) / 10;
+    it.pts = pts.map((q) => [Math.round((q[0] - cx) * 10) / 10, Math.round((q[1] - cy) * 10) / 10]); return recenterPoly(it);
+  }
+  function polyArea(L) { let a = 0; for (let i = 0; i < L.length; i++) { const p = L[i], q = L[(i + 1) % L.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+  function shapeArea(it) { if (it.shape === 'oval') return Math.PI * it.w * it.d / 4; if (it.shape === 'poly') return it.open ? 0 : polyArea(it.pts || []); return it.w * it.d; }
+  function shapeLength(it) { if (it.shape !== 'poly' || !it.pts) return 0; let L = 0; const n = it.pts.length, m = it.open ? n - 1 : n; for (let i = 0; i < m; i++) { const a = it.pts[i], b = it.pts[(i + 1) % n]; L += hyp(b[0] - a[0], b[1] - a[1]); } return L; }
+
+  /* ===== dimensions on the plan: each end is a point, stuck to a corner (of a room, an object, a shape's point) by a reference,
+     so the dimension follows when the thing moves; a free end stays where it was put. off — how far the line stands off the
+     measured points (signed, in mm); dir — 'a' along the points, 'h' horizontal, 'v' vertical ===== */
+  function localKey(it, k) {
+    const hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2;
+    if (k === 'o') return [0, 0];
+    if (/^c[0-3]$/.test(k)) return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]][+k[1]];
+    if (/^q[0-3]$/.test(k)) return [[hw, 0], [0, hd], [-hw, 0], [0, -hd]][+k[1]];
+    if (/^v\d+$/.test(k) && Array.isArray(it.pts)) { const q = it.pts[+k.slice(1)]; return q ? q : null; }
+    return null;
+  }
+  function refPoint(p, ref) {
+    if (!ref) return null;
+    if (ref.t === 'r') { const r = p.rooms.find((x) => x.id === ref.id); if (!r) return null; const g = roomGeom(r), q = g.raw[+ref.k]; return q ? [q[0], q[1]] : null; }
+    if (ref.t === 'i') { const it = p.items.find((x) => x.id === ref.id); if (!it) return null; const q = localKey(it, ref.k); return q ? toWorld(it, q[0], q[1]) : null; }
+    return null;
+  }
+  function dimPoint(p, e) { return refPoint(p, e && e.ref) || [+e.x || 0, +e.y || 0]; }
+  /* every point a dimension end can stick to */
+  function keyPoints(p) {
+    const out = [];
+    p.rooms.forEach((r) => { const g = roomGeom(r); for (let i = 0; i < g.n; i++) out.push({ q: g.raw[i], ref: { t: 'r', id: r.id, k: i } }); });
+    p.items.forEach((it) => {
+      if (it.kind === 'photo') return;
+      const add = (k) => { const l = localKey(it, k); if (l) out.push({ q: toWorld(it, l[0], l[1]), ref: { t: 'i', id: it.id, k } }); };
+      add('o');
+      if (it.shape === 'round') ['q0', 'q1', 'q2', 'q3'].forEach(add);
+      else if (it.kind === 'shape' && it.shape === 'poly') (it.pts || []).forEach((q, i) => add('v' + i));
+      else { ['c0', 'c1', 'c2', 'c3'].forEach(add); if (it.shape === 'oval') ['q0', 'q1', 'q2', 'q3'].forEach(add); }
+    });
+    return out;
+  }
+  /* every side a dimension can measure in one tap: its two ends (as references) and which way is «outside» */
+  function dimEdges(p) {
+    const out = [];
+    p.rooms.forEach((r) => { const g = roomGeom(r); for (let i = 0; i < g.n; i++) out.push({ a: { t: 'r', id: r.id, k: i }, b: { t: 'r', id: r.id, k: i + 1 }, A: g.raw[i], B: g.raw[i + 1], out: outward(g, i) }); });
+    p.items.forEach((it) => {
+      if (it.kind === 'photo') return;
+      const ctr = [it.x, it.y], push = (ka, kb) => { const A = refPoint(p, { t: 'i', id: it.id, k: ka }), B = refPoint(p, { t: 'i', id: it.id, k: kb }); if (!A || !B) return; const m = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], L = hyp(B[0] - A[0], B[1] - A[1]) || 1; let n = [-(B[1] - A[1]) / L, (B[0] - A[0]) / L]; if ((m[0] - ctr[0]) * n[0] + (m[1] - ctr[1]) * n[1] < 0) n = [-n[0], -n[1]]; out.push({ a: { t: 'i', id: it.id, k: ka }, b: { t: 'i', id: it.id, k: kb }, A, B, out: n }); };
+      if (it.shape === 'round' || it.shape === 'oval') { push('q2', 'q0'); push('q3', 'q1'); }   // a circle: its diameters
+      else if (it.kind === 'shape' && it.shape === 'poly') { const n = (it.pts || []).length, m = it.open ? n - 1 : n; for (let i = 0; i < m; i++) push('v' + i, 'v' + ((i + 1) % n)); }
+      else { push('c0', 'c1'); push('c1', 'c2'); push('c2', 'c3'); push('c3', 'c0'); }
+    });
+    return out;
+  }
+  /* where a dimension is drawn: the measured points A, B, the line A2–B2 standing off them, the value, the text angle */
+  function dimGeom(p, dm) {
+    const A = dimPoint(p, dm.a), B = dimPoint(p, dm.b), off = +dm.off || 0;
+    let A2, B2, L;
+    if (dm.dir === 'h') { const y = (A[1] + B[1]) / 2 + off; A2 = [A[0], y]; B2 = [B[0], y]; L = Math.abs(B[0] - A[0]); }
+    else if (dm.dir === 'v') { const x = (A[0] + B[0]) / 2 + off; A2 = [x, A[1]]; B2 = [x, B[1]]; L = Math.abs(B[1] - A[1]); }
+    else { L = hyp(B[0] - A[0], B[1] - A[1]); const u = L > 0 ? [(B[0] - A[0]) / L, (B[1] - A[1]) / L] : [1, 0], n = [u[1], -u[0]]; A2 = [A[0] + n[0] * off, A[1] + n[1] * off]; B2 = [B[0] + n[0] * off, B[1] + n[1] * off]; }
+    const ang = Math.atan2(B2[1] - A2[1], B2[0] - A2[0]) / DEG;
+    return { A, B, A2, B2, L, ang, mid: [(A2[0] + B2[0]) / 2, (A2[1] + B2[1]) / 2] };
+  }
+  /* the signed offset that puts the line through point q (for dragging it) */
+  function dimOffsetAt(p, dm, q) {
+    const A = dimPoint(p, dm.a), B = dimPoint(p, dm.b);
+    if (dm.dir === 'h') return q[1] - (A[1] + B[1]) / 2;
+    if (dm.dir === 'v') return q[0] - (A[0] + B[0]) / 2;
+    const L = hyp(B[0] - A[0], B[1] - A[1]) || 1, n = [(B[1] - A[1]) / L, -(B[0] - A[0]) / L]; return (q[0] - A[0]) * n[0] + (q[1] - A[1]) * n[1];
+  }
+  function dimText(dm, L, unit) { return dm.txt ? String(dm.txt) : fmtLen(L, unit || 'm'); }
+  function normDim(dm) {
+    if (!dm || !dm.a || !dm.b) return null;
+    const end = (e) => { const o = { x: Math.round((+e.x || 0) * 10) / 10, y: Math.round((+e.y || 0) * 10) / 10 }; if (e.ref && (e.ref.t === 'r' || e.ref.t === 'i') && e.ref.id) o.ref = { t: e.ref.t, id: String(e.ref.id), k: e.ref.t === 'r' ? Math.max(0, Math.round(+e.ref.k) || 0) : String(e.ref.k) }; return o; };
+    return { id: String(dm.id || uid()), a: end(dm.a), b: end(dm.b), off: clamp(Math.round(+dm.off || 0), -100000, 100000), dir: ['a', 'h', 'v'].indexOf(dm.dir) >= 0 ? dm.dir : 'a',
+      txt: String(dm.txt || '').slice(0, 40), fs: [1, 2, 3, 4].indexOf(+dm.fs) >= 0 ? +dm.fs : 2, arr: ['arrow', 'tick', 'dot', 'none'].indexOf(dm.arr) >= 0 ? dm.arr : 'arrow' };
+  }
+
   return {
     DEG, TOL_OK, TOL_WARN, UNIT, uid, clamp, hyp, nf, fmtLen, parseNum, parseSum, parseLen,
     unitVec, normDeg, signedArea, selfIntersects, triArea, pointInPoly, distSeg, bboxOf, labelPoint, labelAvoid,
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES,
+    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
@@ -5493,6 +5633,8 @@ var PL = (function () {
     pdoor: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 20h4M17 20h4"/><path d="M7 20V8"/><path d="M7 8a12 12 0 0 1 10 12" stroke-dasharray="2 2.4"/></svg>',
     pcol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="8" cy="12" r="4"/><rect x="14" y="8" width="7" height="8" rx="1"/></svg>',
     pruler: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2" stroke-linecap="round"/></svg>',
+    pgeo: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="11" width="9" height="9" rx="1"/><circle cx="16.5" cy="7.5" r="4.5"/><path d="M13.5 20.5l3.7-6.3 3.8 6.3z"/></svg>',
+    pdim: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6v12M21 6v12M3 14h18"/><path d="M6.5 11.5 3 14l3.5 2.5M17.5 11.5 21 14l-3.5 2.5"/><path d="M9 9.5h6" stroke-width="1.5"/></svg>',
     ptable: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="4" r="1.6"/><circle cx="12" cy="20" r="1.6"/><circle cx="4" cy="12" r="1.6"/><circle cx="20" cy="12" r="1.6"/><circle cx="6.3" cy="6.3" r="1.4"/><circle cx="17.7" cy="17.7" r="1.4"/></svg>',
     pceil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 5h18"/><path d="M6 5v3M12 5v6M18 5v3"/><path d="M4 20h16" stroke-dasharray="2 3"/></svg>',
     prig: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M2 6h20v4H2z"/><path d="M2 10l4-4 4 4 4-4 4 4 4-4"/><path d="M12 10v6" stroke-linecap="round"/><circle cx="12" cy="18" r="2"/></svg>',
@@ -5500,8 +5642,8 @@ var PL = (function () {
     pcdeco: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 4h18" stroke-linecap="round"/><path d="M8 4v3M16 4v5"/><circle cx="8" cy="10" r="3"/><circle cx="16" cy="12" r="3"/><circle cx="12" cy="15" r="3"/></svg>',
     pzone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1"/><path d="M6 15h12M8 19h8" stroke-linecap="round"/></svg>',
   };
-  const TOOLS = [['room', 'proom', 'Помещение', 'прямоугольник, Г, П, по углам'], ['open', 'pdoor', 'Двери и окна', 'дверь, двустворчатая, выход, окна'], ['tables', 'ptable', 'Столы и стулья', 'круглые, прямоугольные, империал, П, Т, коктейльные'], ['zones', 'pzone', 'Сцена и зоны', 'сцена, танцпол, бар, DJ, фуршет, фотозона'], ['col', 'pcol', 'Колонна', 'круглая, квадратная']];
-  const TOOLS_TOP = [['ceil', 'pceil', 'Потолок', 'зоны разной высоты'], ['rig', 'prig', 'Подвес', 'точки подвеса, балки, фермы'], ['light', 'plight', 'Свет', 'прожектор, люстра, гирлянда'], ['cdeco', 'pcdeco', 'Декор под потолком', 'облако шаров, ткань, композиция']];
+  const TOOLS = [['room', 'proom', 'Помещение', 'прямоугольник, Г, П, по углам'], ['open', 'pdoor', 'Двери и окна', 'дверь, двустворчатая, выход, окна'], ['tables', 'ptable', 'Столы и стулья', 'круглые, прямоугольные, империал, П, Т, коктейльные'], ['zones', 'pzone', 'Сцена и зоны', 'сцена, танцпол, бар, DJ, фуршет, фотозона'], ['col', 'pcol', 'Колонна', 'круглая, квадратная'], ['geo', 'pgeo', 'Фигуры', 'прямоугольник, круг, треугольник, перегородка, своя форма, линия']];
+  const TOOLS_TOP = [['ceil', 'pceil', 'Потолок', 'зоны разной высоты'], ['rig', 'prig', 'Подвес', 'точки подвеса, балки, фермы'], ['light', 'plight', 'Свет', 'прожектор, люстра, гирлянда'], ['cdeco', 'pcdeco', 'Декор под потолком', 'облако шаров, ткань, композиция'], ['geo', 'pgeo', 'Фигуры', 'прямоугольник, круг, треугольник, своя форма, линия — навесные элементы']];
   const FLY = {
     room: [['rect', 'Прямоугольный зал', '12 × 8 м, потом впишите замеры'], ['L', 'Г-образный зал', '12 × 9 м'], ['U', 'П-образный зал', '15 × 10 м'], ['draw', 'Нарисовать по углам', 'коснитесь углов по порядку']],
     open: Object.keys(G.OPENINGS).map((k) => [k, G.OPENINGS[k].label, G.OPENINGS[k].type === 'window' ? 'окно' : G.OPENINGS[k].type === 'open' ? 'без полотна' : 'с полотном']),
@@ -5511,11 +5653,12 @@ var PL = (function () {
     rig: ['u_hook', 'u_beam', 'u_truss'].map((k) => [k, G.CAT[k].label, 'высота и нагрузка — в свойствах']),
     light: ['u_spot', 'u_chand', 'u_glin'].map((k) => [k, G.CAT[k].label, 'высота — от потолка, можно изменить']),
     cdeco: ['u_cloud', 'u_drape', 'u_hang'].map((k) => [k, G.CAT[k].label, 'низ — от потолка, можно изменить']),
+    geo: [['g_rect', 'Прямоугольник', '2 × 1 м, размер и углы — пальцем или в свойствах'], ['g_oval', 'Круг / эллипс', 'Ø1,5 м, растягивается в эллипс'], ['g_tri', 'Треугольник', 'точки двигаются пальцем'], ['g_wall', 'Перегородка', '3 м × 10 см, мешает проходу'], ['free', 'Своя форма', 'коснитесь точек по порядку, замкните на первой'], ['line', 'Линия', 'точки по порядку, потом «Готово»']],
     zones: Object.keys(G.CAT).filter((k) => G.CAT[k].g === 'zones').map((k) => [k, G.CAT[k].label, 'размер меняется пальцем или в свойствах']),
   };
 
   /* ---------- state that is not saved: view, selection, tool ---------- */
-  const st = { v: null, sel: null, multi: [], mgap: null, marq: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, layer: 'floor', tc: null, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
+  const st = { dimA: null, vsel: null, v: null, sel: null, multi: [], mgap: null, marq: null, tool: null, draw: null, ruler: null, jog: { off: null, w: 1200, d: 400 }, grid: { rows: 2, cols: 3, sx: null, sy: null }, layer: 'floor', tc: null, placed: 0, cf: null, lastTap: null, split: null, drag: null, tps: {}, pinch: null, repaint: 0, lastW: 0, lastH: 0 };
   function P() { if (!S.plan) S.plan = G.newPlan(); return S.plan; }
   function unit() { return P().unit || 'm'; }
   function uLab() { return G.UNIT[unit()].ru; }
@@ -5531,7 +5674,10 @@ var PL = (function () {
   function validate() {
     if (!Array.isArray(st.multi)) st.multi = [];
     if (st.multi.length) { st.multi = st.multi.filter((id) => item(id)); if (st.multi.length === 1) { st.sel = { t: 'item', i: st.multi[0] }; st.multi = []; } else if (st.multi.length > 1) st.sel = null; }
+    (P().dims || []).forEach((dm) => { ['a', 'b'].forEach((k) => { const e = dm[k]; if (e && e.ref) { const q = G.refPoint(P(), e.ref); if (q) { e.x = Math.round(q[0] * 10) / 10; e.y = Math.round(q[1] * 10) / 10; } else delete e.ref; } }); });   // an end whose object is gone stays where it last was
+    if (st.vsel && !(st.sel && st.sel.t === 'item' && st.sel.i === st.vsel.i && item(st.vsel.i) && (item(st.vsel.i).pts || [])[st.vsel.k])) st.vsel = null;
     const s = st.sel; if (!s) return;
+    if (s.t === 'dim') { if (!(P().dims || []).some((d) => d.id === s.d)) st.sel = null; return; }
     if (s.t === 'item') { if (!item(s.i)) st.sel = null; return; }
     if (s.t === 'guide') { if (!(P().guides || []).some((g) => g.id === s.g)) st.sel = null; return; }
     const r = room(s.r); if (!r) { st.sel = null; return; }
@@ -5691,7 +5837,60 @@ var PL = (function () {
       '<rect class="pcam" x="' + n1(-r * 0.55) + '" y="' + n1(-r * 0.38) + '" width="' + n1(r * 1.1) + '" height="' + n1(r * 0.76) + '" rx="' + n1(r * 0.15) + '"/><circle class="pcam2" r="' + n1(r * 0.24) + '"/>' +
       (ph ? text(0, r + 11 / s, ph.name.length > 18 ? ph.name.slice(0, 17) + '…' : ph.name, 10, 'ppn', -(it.rot || 0)) : '') + '</g>';
   }
+  /* a shape: its own colour, fill and outline; the outline keeps its screen thickness at any zoom */
+  function shapeHtml(it, on, bad, s) {
+    const col = it.col || '#4F8DFF', sw = [0, 1.2, 2.2, 4][it.lw || 2], open = it.shape === 'poly' && it.open, fm = open ? 'none' : (it.fill || 'soft');
+    const fill = fm === 'hatch' ? 'url(#ph' + col.slice(1) + ')' : fm === 'none' ? 'none' : col, fo = fm === 'full' ? 0.85 : fm === 'soft' ? 0.22 : 1;
+    const at = ' fill="' + fill + '"' + (fm === 'full' || fm === 'soft' ? ' fill-opacity="' + fo + '"' : '') + ' stroke="' + col + '" stroke-width="' + sw + '" vector-effect="non-scaling-stroke" stroke-linejoin="round" stroke-linecap="round"';
+    const hit = ' class="phl" vector-effect="non-scaling-stroke"' + (open ? ' fill="none"' : ' fill="transparent"');
+    let h = '<g class="pig shp' + (it.top ? ' top' : '') + (on ? ' on' : '') + (bad ? ' bad' : '') + '" data-r="i|' + it.id + '" data-k="' + it.id + '" transform="translate(' + n1(it.x) + ' ' + n1(it.y) + ') rotate(' + n1(it.rot || 0) + ')">';
+    if (it.shape === 'oval') { const e = 'rx="' + n1(it.w / 2) + '" ry="' + n1(it.d / 2) + '"'; h += '<ellipse class="pshp" ' + e + at + '/><ellipse ' + e + hit + '/>'; }
+    else if (it.shape === 'poly') { const tg = open ? 'polyline' : 'polygon', P2 = pts(it.pts || []); h += '<' + tg + ' class="pshp" points="' + P2 + '"' + at + '/><' + tg + ' points="' + P2 + '"' + hit + '/>'; }
+    else { const r = 'x="' + n1(-it.w / 2) + '" y="' + n1(-it.d / 2) + '" width="' + n1(it.w) + '" height="' + n1(it.d) + '"'; h += '<rect class="pshp" ' + r + at + '/><rect ' + r + hit + '/>'; }
+    if (it.name && Math.max(it.w, it.d) * s >= 24) { const fit2 = Math.max(3, Math.floor(Math.max(it.w, it.d) * s / 7)); h += text(0, 0, it.name.length > fit2 ? it.name.slice(0, fit2 - 1) + '…' : it.name, 10.5, 'psn', it.w >= it.d ? -(it.rot || 0) : -(it.rot || 0) + ((it.rot || 0) % 180 === 0 ? -90 : 0)); }
+    return h + '</g>';
+  }
+  /* hatching for shapes: one pattern per colour, its spacing kept on screen */
+  function hatchDefs(s) {
+    const cols = {}; P().items.forEach((it) => { if (it.kind === 'shape' && it.fill === 'hatch') cols[it.col || '#4F8DFF'] = 1; });
+    const st0 = 9 / s, lw = 1.3 / s;
+    return Object.keys(cols).map((c) => '<pattern id="ph' + c.slice(1) + '" patternUnits="userSpaceOnUse" width="' + n1(st0) + '" height="' + n1(st0) + '" patternTransform="rotate(45)"><rect width="' + n1(st0) + '" height="' + n1(st0) + '" fill="' + c + '" fill-opacity=".08"/><line x1="0" y1="0" x2="0" y2="' + n1(st0) + '" stroke="' + c + '" stroke-width="' + n1(lw) + '" stroke-opacity=".8"/></pattern>').join('');
+  }
+  /* dimensions: extension lines, the line itself with its ends, the text above it */
+  function dimOf(id) { return (P().dims || []).find((d) => d.id === id) || null; }
+  const DIM_FS = [0, 9, 11, 13.5, 17];
+  const DI = (d) => '<svg viewBox="0 0 34 12" width="34" height="12" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linecap="round">' + d + '</svg>';
+  const DEND = { arrow: DI('<path d="M3 6h28" fill="none"/><path d="M2 6l6-3v6zM32 6l-6-3v6z" stroke="none"/>'), tick: DI('<path d="M3 6h28M0 9.5l6-7M28 9.5l6-7" fill="none"/>'), dot: DI('<path d="M4 6h26" fill="none"/><circle cx="4" cy="6" r="2.4" stroke="none"/><circle cx="30" cy="6" r="2.4" stroke="none"/>'), none: DI('<path d="M3 6h28" fill="none"/>') };
+  function dimsSvg(s, sel) {
+    let g0 = '', lab = '', hit = '', hnd = '';
+    const L2 = (a, b, cls) => '<line class="' + cls + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>';
+    (P().dims || []).forEach((dm) => {
+      const g = G.dimGeom(P(), dm), on = sel.t === 'dim' && sel.d === dm.id, c = 'pdm' + (on ? ' on' : '');
+      const ext = (A, A2) => { const dx = A2[0] - A[0], dy = A2[1] - A[1], L = Math.hypot(dx, dy); if (L * s < 2) return ''; const ux = dx / L, uy = dy / L; return L2([A[0] + ux * 3 / s, A[1] + uy * 3 / s], [A2[0] + ux * 5 / s, A2[1] + uy * 5 / s], c + ' ext'); };
+      g0 += ext(g.A, g.A2) + ext(g.B, g.B2) + L2(g.A2, g.B2, c);
+      const Ld = Math.hypot(g.B2[0] - g.A2[0], g.B2[1] - g.A2[1]) || 1, u = [(g.B2[0] - g.A2[0]) / Ld, (g.B2[1] - g.A2[1]) / Ld], n = [-u[1], u[0]];
+      const end = (P0, dir) => {   // dir: +1 at the start (points back to it), −1 at the end
+        if (dm.arr === 'none') return '';
+        if (dm.arr === 'dot') return '<circle class="' + c + ' dot" cx="' + n1(P0[0]) + '" cy="' + n1(P0[1]) + '" r="' + n1(2.6 / s) + '"/>';
+        if (dm.arr === 'tick') { const d = 5 / s, a = [P0[0] - (u[0] + n[0]) * d, P0[1] - (u[1] + n[1]) * d], b = [P0[0] + (u[0] + n[0]) * d, P0[1] + (u[1] + n[1]) * d]; return L2(a, b, c + ' tick'); }
+        const al = Math.min(8 / s, Ld / 3), aw = 2.8 / s, b0 = [P0[0] + u[0] * al * dir, P0[1] + u[1] * al * dir];
+        return '<polygon class="' + c + ' arr" points="' + pts([P0, [b0[0] + n[0] * aw, b0[1] + n[1] * aw], [b0[0] - n[0] * aw, b0[1] - n[1] * aw]]) + '"/>';
+      };
+      g0 += end(g.A2, 1) + end(g.B2, -1);
+      const t = G.dimText(dm, g.L, unit()), fz = DIM_FS[dm.fs || 2], ta = upright(g.ang), tr = ta * G.DEG, up = [Math.sin(tr), -Math.cos(tr)], off = (fz * 0.62 + 2) / s, tx = g.mid[0] + up[0] * off, ty = g.mid[1] + up[1] * off;
+      lab += text(tx, ty, t, fz, 'pdt' + (on ? ' on' : ''), ta);
+      const tw = Math.max(16, t.length * fz * 0.6) / s, th = fz * 1.35 / s;
+      hit += L2(g.A2, g.B2, 'hd').replace('<line', '<line data-r="d|' + dm.id + '"') + '<rect class="hdt" data-r="d|' + dm.id + '" x="' + n1(tx - tw / 2) + '" y="' + n1(ty - th / 2) + '" width="' + n1(tw) + '" height="' + n1(th) + '" transform="rotate(' + n1(ta) + ' ' + n1(tx) + ' ' + n1(ty) + ')"/>';
+      if (on) hnd += sq('phd dme', 'de|' + dm.id + '|0', g.A[0], g.A[1], 5 / s) + sq('phd dme', 'de|' + dm.id + '|1', g.B[0], g.B[1], 5 / s) + (Ld * s >= 30 ? pill('dh|' + dm.id, g.mid[0], g.mid[1], 5 / s, g.ang) : '');
+    });
+    if (st.tool === 'dim') {   // where an end can stick: small dots at every corner
+      G.keyPoints(P()).forEach((k) => { g0 += '<circle class="pkp" cx="' + n1(k.q[0]) + '" cy="' + n1(k.q[1]) + '" r="' + n1(2.4 / s) + '"/>'; });
+      if (st.dimA) g0 += '<circle class="pdp first" cx="' + n1(st.dimA.x) + '" cy="' + n1(st.dimA.y) + '" r="' + n1(6 / s) + '"/>';
+    }
+    return { g0, lab, hit, hnd };
+  }
   function itemHtml(it, on, bad, s) {
+    if (it.kind === 'shape') return shapeHtml(it, on, bad, s);
     if (it.kind === 'photo') return pinHtml(it, on, s);
     if (it.top) return topHtml(it, on, bad, s);
     const c = G.CAT[it.ref] || {}, sub = it.kind === 'column' ? 'col' : it.kind === 'table' ? 'tab' : (c.sub || 'furn');
@@ -5827,6 +6026,11 @@ var PL = (function () {
       if (it.lock) {}   // a locked object: no handles
       else if (it.kind === 'photo') { const t1 = W(0, -(10 / s) - 34 / s); hnd += handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }   // a photo pin: only its direction turns
       else if (it.kind === 'hook') {}   // a hanging point has no size
+      else if (it.kind === 'shape' && it.shape === 'poly') {   // a polygon: its points, a «+» in the middle of each side, the ring to turn
+        const P0 = (it.pts || []).map((q) => W(q[0], q[1])), n = P0.length, m = it.open ? n - 1 : n;
+        for (let k = 0; k < m; k++) { const a = P0[k], b = P0[(k + 1) % n]; if (Math.hypot(b[0] - a[0], b[1] - a[1]) * s >= 34) hnd += handle('pvm', 'n|' + it.id + '|' + k, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 4 / s); }
+        P0.forEach((q, k) => { const vs = st.vsel && st.vsel.i === it.id && st.vsel.k === k; hnd += handle('pvd' + (vs ? ' on' : ''), 'v|' + it.id + '|' + k, q[0], q[1], (vs ? 7 : 5.5) / s); });
+        const t0 = W(0, -hd), t1 = W(0, -hd - 34 / s); hnd += '<line class="prl" x1="' + n1(t0[0]) + '" y1="' + n1(t0[1]) + '" x2="' + n1(t1[0]) + '" y2="' + n1(t1[1]) + '"/>' + handle('prh', 'q|' + it.id, t1[0], t1[1], 6 / s); }
       else if (it.shape === 'round') { const q = W(hw, 0); hnd += sq('phd', 'z|' + it.id + '|r', q[0], q[1], r); }
       else { [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach((k, j) => { const q = W(k[0] * hw, k[1] * hd); hnd += sq('phd', 'z|' + it.id + '|' + j, q[0], q[1], r); });
         // sides: top, right, bottom, left — only when the side is long enough on screen for three handles
@@ -5846,6 +6050,7 @@ var PL = (function () {
       labels += text((a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14 / s, fl(L) + ' ' + uLab(), 13, 'pru-t', upright(Math.atan2(b[1] - a[1], b[0] - a[0]) / G.DEG));
     }
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
+    const DM = dimsSvg(s, sel); hit += DM.hit; labels += DM.lab; hnd += DM.hnd; set('pdim', DM.g0); set('pdefs', hatchDefs(s));
     (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize' || st.drag.mode === 'gmove') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
     if (st.layer === 'floor') gaps().forEach((q) => { const mx = (q.p[0] + q.q[0]) / 2, my = (q.p[1] + q.q[1]) / 2; over += '<line class="pna" x1="' + n1(q.p[0]) + '" y1="' + n1(q.p[1]) + '" x2="' + n1(q.q[0]) + '" y2="' + n1(q.q[1]) + '"/>'; labels += text(mx, my - 9 / s, fl(q.d), 10.5, 'pna-t'); });
     if (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'gmove')) (st.spacing || []).forEach((m) => {   // equal steps: a dimension per gap, all at once
@@ -5873,13 +6078,14 @@ var PL = (function () {
     return lo.slice(0, -1).concat(hi.slice(0, -1));
   }
   function banner() {
-    if (st.draw) return '<span>' + (st.draw.pts.length < 3 ? 'Коснитесь углов зала по порядку' : 'Ещё угол — или коснитесь первой точки, чтобы замкнуть') + ' · ' + st.draw.pts.length + ' т.</span>' +
-      (st.draw.pts.length ? '<button type="button" class="btn sm" data-pact="draw-back">Убрать точку</button>' : '') + (st.draw.pts.length >= 3 ? '<button type="button" class="btn sm pri" data-pact="draw-done">Готово</button>' : '') + '<button type="button" class="btn sm" data-pact="draw-cancel">Отмена</button>';
+    if (st.draw) { const dk = st.draw.kind, need = dk === 'line' ? 2 : 3; return '<span>' + (dk === 'line' ? (st.draw.pts.length < 2 ? 'Линия: коснитесь точек по порядку' : 'Ещё точка — или «Готово»') : dk === 'free' ? (st.draw.pts.length < 3 ? 'Своя форма: коснитесь точек по порядку' : 'Ещё точка — или коснитесь первой, чтобы замкнуть') : (st.draw.pts.length < 3 ? 'Коснитесь углов зала по порядку' : 'Ещё угол — или коснитесь первой точки, чтобы замкнуть')) + ' · ' + st.draw.pts.length + ' т.</span>' +
+      (st.draw.pts.length ? '<button type="button" class="btn sm" data-pact="draw-back">Убрать точку</button>' : '') + (st.draw.pts.length >= need ? '<button type="button" class="btn sm pri" data-pact="draw-done">Готово</button>' : '') + '<button type="button" class="btn sm" data-pact="draw-cancel">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('op:') === 0) return '<span>Коснитесь стены, куда поставить: ' + esc(G.OPENINGS[st.tool.slice(3)].label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('col:') === 0) return '<span>Коснитесь места для колонны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('it:') === 0) { const c = G.CAT[st.tool.slice(3)]; return '<span>Коснитесь места, куда поставить: ' + esc(c.label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('combo:') === 0) return '<span>Коснитесь места для ' + (st.tool.slice(6) === 'P' ? 'П' : 'Т') + '-образного стола</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('pin:') === 0) { const ph = (S.photos || []).find((x) => x.id === st.tool.slice(4)); return '<span>Коснитесь места, откуда снято фото' + (ph ? ' «' + esc(ph.name) + '»' : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
+    if (st.tool === 'dim') return '<span>Размер: коснитесь стороны — размер всей стороны; или двух точек — углы притягивают' + (st.dimA ? ' · первая точка есть, теперь вторая' : '') + '</span>' + (st.dimA ? '<button type="button" class="btn sm" data-pact="dim-undo">Убрать точку</button>' : '') + '<button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
     if (st.tool === 'ruler') return '<span>Линейка: тяните от точки к точке' + (st.ruler && st.ruler.b ? ' · ' + fl(G.hyp(st.ruler.b[0] - st.ruler.a[0], st.ruler.b[1] - st.ruler.a[1])) + ' ' + uLab() : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
     return '';
   }
@@ -5918,6 +6124,7 @@ var PL = (function () {
     if (hand) return true;
     if (st.draw) { d.mode = 'draw'; return true; }
     if (st.tool === 'ruler') { st.ruler = { a: snapPoint(p), b: null }; d.mode = 'ruler'; return true; }
+    if (st.tool === 'dim' && !(ref && /^(d|de|dh)$/.test(ref[0]))) { d.mode = 'dimtap'; return true; }
     if (st.tool && /^(op|col|it|combo|pin):/.test(st.tool)) { d.mode = 'place'; return true; }
     /* «Несколько»: a tap adds or removes an object, a drag on an empty spot draws a frame, a drag on a chosen one moves them all */
     const multiOn = st.tool === 'multi' || ev.shiftKey;
@@ -5941,7 +6148,7 @@ var PL = (function () {
     if (t === 'R') { if (ref[1] === 'c') { d.mode = 'tap'; return true; } d.mode = 'newguide'; d.vert = ref[1] === 'y'; return true; }
     if (t === 'G') { d.mode = 'guide'; d.gid = ref[1]; d.gsnap = JSON.stringify(P().guides); return true; }
     const geomStart = (r) => { G.bake(r); d.snap = JSON.stringify({ x: r.x, y: r.y, walls: r.walls, diag: r.diag }); d.room = r.id; };
-    const lockedR = (t === 'r' || t === 'c' || t === 'm' || t === 'w') && room(ref[1]) && room(ref[1]).lock, lockedI = (t === 'i' || t === 'z' || t === 'q') && item(ref[1]) && item(ref[1]).lock;
+    const lockedR = (t === 'r' || t === 'c' || t === 'm' || t === 'w') && room(ref[1]) && room(ref[1]).lock, lockedI = (t === 'i' || t === 'z' || t === 'q' || t === 'v' || t === 'n') && item(ref[1]) && item(ref[1]).lock;
     if (lockedR || lockedI) { d.mode = 'tap'; d.locked = true; return true; }
     if (t === 'r') { d.mode = 'room'; const r = room(ref[1]); d.o = { x: r.x, y: r.y }; }
     else if (t === 'i') { d.mode = 'item'; const it = item(ref[1]); d.o = { x: it.x, y: it.y }; d.isnap = JSON.stringify(it); }
@@ -5951,12 +6158,37 @@ var PL = (function () {
     else if (t === 'e') { d.mode = 'opend'; const r = room(ref[1]), i = wallIx(r, ref[2]), op = r.walls[i].ops.find((o) => o.id === ref[3]); d.o = { off: op.off, w: op.w, end: +ref[4] }; }
     else if (t === 'z') { d.mode = 'isize'; const it = item(ref[1]); d.isnap = JSON.stringify(it); }
     else if (t === 'q') { d.mode = 'irot'; const it = item(ref[1]); d.isnap = JSON.stringify(it); }
+    else if (t === 'v' || t === 'n') {   // a polygon's point; «+» on a side puts a new point there at once
+      const it = item(ref[1]); d.mode = 'pvert'; d.isnap = JSON.stringify(it); let k = +ref[2];
+      if (t === 'n') { const n = it.pts.length, a = it.pts[k], b = it.pts[(k + 1) % n]; it.pts.splice(k + 1, 0, [Math.round((a[0] + b[0]) / 2 * 10) / 10, Math.round((a[1] + b[1]) / 2 * 10) / 10]); shiftVRefs(it.id, k + 1, 1); k += 1; d.ins = true; }
+      d.o = { k }; st.vsel = { i: it.id, k }; st.sel = { t: 'item', i: it.id };
+    }
+    else if (t === 'd' || t === 'dh') { d.mode = 'doff'; d.dsnap = JSON.stringify(dimOf(ref[1])); }
+    else if (t === 'de') { d.mode = 'dend'; d.dsnap = JSON.stringify(dimOf(ref[1])); d.o = { k: ref[2] === '0' ? 'a' : 'b' }; }
     else d.mode = 'tap';
     return true;
   }
   function restoreSnap(d) {
     if (d.snap) { const r = room(d.room); if (r) Object.assign(r, JSON.parse(d.snap)); }
     if (d.isnap) { const o = JSON.parse(d.isnap), it = item(o.id); if (it) Object.assign(it, o); }
+    if (d.ins && d.isnap) shiftVRefs(JSON.parse(d.isnap).id, d.o.k, -1);
+    if (d.dsnap) { const o = JSON.parse(d.dsnap), L = P().dims || [], i = L.findIndex((x) => x.id === o.id); if (i >= 0) L[i] = o; }
+  }
+  /* the nearest corner a dimension end (or a polygon point) can stick to; skip — an object whose own points are not wanted */
+  function shiftVRefs(id, from, delta) { (P().dims || []).forEach((dm) => ['a', 'b'].forEach((e) => { const r = dm[e].ref; if (!r || r.t !== 'i' || r.id !== id || !/^v\d+$/.test(r.k)) return; const k = +r.k.slice(1); if (delta < 0 && k === from) delete dm[e].ref; else if (k >= from + (delta < 0 ? 1 : 0)) r.k = 'v' + (k + delta); })); }
+  function nearKey(p, lim, skip) { let best = null; G.keyPoints(P()).forEach((k) => { if (skip && k.ref.t === 'i' && k.ref.id === skip) return; const d = Math.hypot(k.q[0] - p[0], k.q[1] - p[1]); if (d <= lim && (!best || d < best.d)) best = { q: k.q, ref: k.ref, d }; }); return best; }
+  function nearEdge(p, lim) { let best = null; G.dimEdges(P()).forEach((e) => { const r = G.distSeg(p, e.A, e.B), L = Math.hypot(e.B[0] - e.A[0], e.B[1] - e.A[1]); if (r.d <= lim && r.t * L > 14 / st.v.s && (1 - r.t) * L > 14 / st.v.s && (!best || r.d < best.d)) best = Object.assign({ d: r.d }, e); }); return best; }
+  /* a tap with «Размер»: a side → its whole length at once; otherwise the first point, then the second */
+  function dimTap(p) {
+    const pl = P(), s = st.v.s; if (!pl.dims) pl.dims = [];
+    const kp = nearKey(p, 14 / s); let pt = kp ? { x: kp.q[0], y: kp.q[1], ref: kp.ref } : null;
+    if (!pt && !st.dimA) { const e = nearEdge(p, 11 / s);
+      if (e) { const dm = G.normDim({ a: { x: e.A[0], y: e.A[1], ref: e.a }, b: { x: e.B[0], y: e.B[1], ref: e.b }, off: 0 }), g = G.dimGeom(pl, dm), L = g.L || 1, n = [(g.B[1] - g.A[1]) / L, -(g.B[0] - g.A[0]) / L];
+        dm.off = Math.round((n[0] * e.out[0] + n[1] * e.out[1] >= 0 ? 1 : -1) * 30 / s); pl.dims.push(dm); st.sel = { t: 'dim', d: dm.id }; label('размер стороны — ' + fl(g.L)); return; } }
+    if (!pt) pt = { x: r10(p[0]), y: r10(p[1]) };
+    if (!st.dimA) { st.dimA = pt; render(); return; }
+    const A = st.dimA; if (Math.hypot(pt.x - A.x, pt.y - A.y) < 10) { toast('Вторая точка совпала с первой — коснитесь другой.'); return; }
+    const dm = G.normDim({ a: A, b: pt, off: Math.round(26 / s) }); pl.dims.push(dm); st.dimA = null; st.sel = { t: 'dim', d: dm.id }; label('размер — ' + fl(G.dimGeom(pl, dm).L));
   }
   function snapPoint(p) {   // the ruler sticks to corners
     let best = null, lim = 14 / st.v.s;
@@ -5982,7 +6214,15 @@ var PL = (function () {
     clearTimeout(d.lp); d.moved = true;
     const p = toMM(ev), mm = [p[0] - d.p0[0], p[1] - d.p0[1]], s = st.v.s, free = ev.shiftKey;
     if (d.locked) { if (!d.lockTold) { d.lockTold = true; toast('Объект закреплён — откройте замок в «Слоях», чтобы двигать.'); } return true; }   // neither moves nor pans the view
-    if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' ? 'pan' : d.mode; applyView(); return true; }
+    if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place' || d.mode === 'dimtap') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' || d.mode === 'dimtap' ? 'pan' : d.mode; applyView(); return true; }
+    if (d.mode === 'pvert') {
+      const it = item(d.ref[1]); if (!it || !it.pts) return true; const kp = free ? null : nearKey(p, 10 / s, it.id), w = kp ? kp.q : free ? p : [r10(p[0]), r10(p[1])];
+      const a = -(it.rot || 0) * G.DEG, vx = w[0] - it.x, vy = w[1] - it.y; it.pts[d.o.k] = [Math.round((vx * Math.cos(a) - vy * Math.sin(a)) * 10) / 10, Math.round((vx * Math.sin(a) + vy * Math.cos(a)) * 10) / 10];
+      const n = it.pts.length, k = d.o.k, nb = (j) => it.pts[(j + n) % n], len = (q1, q2) => fl(Math.hypot(q2[0] - q1[0], q2[1] - q1[1]));
+      tip((it.open && k === 0 ? '' : '← ' + len(nb(k - 1), it.pts[k]) + ' ') + (it.open && k === n - 1 ? '' : '→ ' + len(it.pts[k], nb(k + 1))) + ' ' + uLab() + (kp ? ' · к углу' : '')); paint(); return true;
+    }
+    if (d.mode === 'doff') { const dm = dimOf(d.ref[1]); if (!dm) return true; const o = G.dimOffsetAt(P(), dm, p); dm.off = free ? Math.round(o) : r10(o); st.sel = { t: 'dim', d: dm.id }; tip('отступ ' + fl(Math.abs(dm.off)) + ' ' + uLab()); paint(); return true; }
+    if (d.mode === 'dend') { const dm = dimOf(d.ref[1]); if (!dm) return true; const kp = free ? null : nearKey(p, 14 / s); dm[d.o.k] = kp ? { x: kp.q[0], y: kp.q[1], ref: kp.ref } : { x: r10(p[0]), y: r10(p[1]) }; st.sel = { t: 'dim', d: dm.id }; tip(fl(G.dimGeom(P(), dm).L) + ' ' + uLab() + (kp ? ' · прикреплён к углу' : ' · свободная точка')); paint(); return true; }
     if (d.mode === 'draw') { st.draw.hover = snapDraw(p, st.draw.pts[st.draw.pts.length - 1], free); paint(); return true; }
     if (d.mode === 'ruler') { st.ruler.b = free ? p.map(Math.round) : snapPoint(p); paint(); return true; }
     if (d.mode === 'marq') { st.marq = { a: d.m0, b: p }; paint(); return true; }
@@ -6087,21 +6327,24 @@ var PL = (function () {
       if (onRuler) { pl.guides = pl.guides.filter((q) => q !== g); st.sel = null; if (d.mode === 'guide') label('направляющая убрана'); else render(); return true; }
       label(d.mode === 'guide' ? 'направляющая сдвинута' : 'направляющая'); return true;
     }
-    if (cancel) { if (d.moved) restoreSnap(d); if (d.moved && (d.mode === 'room' || d.mode === 'item' || d.mode === 'op' || d.mode === 'opend')) restore(UI.hi); paint(); return true; }
+    if (cancel) { if (d.moved || d.ins) restoreSnap(d); if (d.moved && (d.mode === 'room' || d.mode === 'item' || d.mode === 'op' || d.mode === 'opend')) restore(UI.hi); paint(); return true; }
     const p = toMM(ev);
     if (d.locked && d.moved) { paint(); return true; }
     if (d.mode === 'pan') { if (d.moved) paint(); else { if (st.sel) { st.sel = null; render(); } } return true; }
     if (d.mode === 'draw') {
       if (d.moved && !st.draw.hover) return true;
       const prev = st.draw.pts[st.draw.pts.length - 1], q = snapDraw(p, prev, ev.shiftKey), f = st.draw.pts[0];
-      if (st.draw.pts.length >= 3 && G.hyp(p[0] - f[0], p[1] - f[1]) * st.v.s < 18) { finishDraw(); return true; }
+      if (st.draw.kind !== 'line' && st.draw.pts.length >= 3 && G.hyp(p[0] - f[0], p[1] - f[1]) * st.v.s < 18) { finishDraw(); return true; }
       if (!prev || G.hyp(q[0] - prev[0], q[1] - prev[1]) >= 50) st.draw.pts.push(q);
       st.draw.hover = null; paint(); return true;
     }
     if (d.mode === 'ruler') { paint(); return true; }
+    if (d.mode === 'dimtap') { dimTap(p); return true; }
+    if (d.mode === 'pvert' && !d.moved) { const it = item(d.ref[1]); if (d.ins && it) { G.recenterPoly(it); st.vsel = null; label('точка добавлена — ' + G.itemLabel(it)); return true; } render(); return true; }
+    if ((d.mode === 'doff' || d.mode === 'dend') && !d.moved) { st.sel = { t: 'dim', d: d.ref[1] }; st.multi = []; render(); return true; }
     if (d.mode === 'place') { if (!d.moved) place(p); else paint(); return true; }
     if (d.moved) {
-      const labs = { room: () => 'перемещение — ' + rname(room(d.ref[1])), item: () => 'перемещение — ' + G.itemLabel(item(d.ref[1])), op: () => 'проём сдвинут', opend: () => 'ширина проёма', corner: () => 'угол ' + G.cornerName(d.o.k) + ' перенесён', wallmove: () => 'стена сдвинута', isize: () => { const it = item(d.ref[1]); if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); return 'размер — ' + G.itemLabel(it); }, irot: () => 'поворот — ' + G.itemLabel(item(d.ref[1])) };
+      const labs = { room: () => 'перемещение — ' + rname(room(d.ref[1])), item: () => 'перемещение — ' + G.itemLabel(item(d.ref[1])), op: () => 'проём сдвинут', opend: () => 'ширина проёма', corner: () => 'угол ' + G.cornerName(d.o.k) + ' перенесён', wallmove: () => 'стена сдвинута', isize: () => { const it = item(d.ref[1]); if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); return 'размер — ' + G.itemLabel(it); }, irot: () => 'поворот — ' + G.itemLabel(item(d.ref[1])), pvert: () => { const it = item(d.ref[1]); G.recenterPoly(it); return (d.ins ? 'точка добавлена — ' : 'точка — ') + G.itemLabel(it); }, doff: () => 'размер: отступ', dend: () => 'размер: конец' };
       if (labs[d.mode]) label(labs[d.mode]()); else paint();
       return true;
     }
@@ -6166,6 +6409,7 @@ var PL = (function () {
     } else if (tool.indexOf('it:') === 0) {
       const it = addTable(G.makeItem(tool.slice(3), r10(p[0]), r10(p[1]))); st.placed = (st.placed || 0) + 1; st.sel = { t: 'item', i: it.id }; st.tool = null;   // one tap = one object, nothing to confirm
       if (it.kind === 'ceil') it.h = G.ceilingAt(P(), [it.x, it.y]);
+      if (it.kind === 'shape' && st.layer === 'top') it.top = true;
       label(G.CAT[it.ref].label + (it.num != null ? ' №' + it.num : ''));   // the tool stays on: tap again for one more
     } else if (tool.indexOf('pin:') === 0) {
       const id = tool.slice(4), x = r10(p[0]), y = r10(p[1]); let rot = 0;
@@ -6177,7 +6421,12 @@ var PL = (function () {
     }
   }
   function finishDraw() {
-    const d = st.draw; if (!d || d.pts.length < 3) return;
+    const d = st.draw; if (!d || d.pts.length < (d.kind === 'line' ? 2 : 3)) return;
+    if (d.kind === 'free' || d.kind === 'line') {
+      const it = G.shapeFromPoints(d.pts, d.kind === 'line'); if (st.layer === 'top') it.top = true;
+      P().items.push(it); st.draw = null; st.sel = { t: 'item', i: it.id }; label(d.kind === 'line' ? 'линия' : 'своя форма');
+      toast('Готово. Точки можно тянуть пальцем, «+» на стороне добавляет точку; цвет и заливка — в свойствах.'); return;
+    }
     const r = G.roomFromPoints('', d.pts, null), g = G.roomGeom(r);
     if (g.selfX) { toast('Стены пересекаются — уберите последнюю точку и обойдите зал по порядку.'); return; }
     if (g.S < 0) { G.mirrorRoom(r); }   // keep one winding for all rooms: corners go clockwise on screen
@@ -6209,7 +6458,13 @@ var PL = (function () {
     const r = selRoom(), s = st.sel || {};
     switch (name) {
       case 'mode': setMode(v); return;
-      case 'ptool': st.placed = 0; if (st.tool === 'multi' && v !== 'multi') { st.multi = []; } if (v === 'multi' && st.tool === 'multi') { st.tool = null; st.multi = []; render(); return; } if (v === 'multi' && st.sel && st.sel.t === 'item') { st.multi = []; } st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
+      case 'dim-undo': st.dimA = null; render(); return;
+      case 'd-del': if (s.t === 'dim') { P().dims = (P().dims || []).filter((x) => x.id !== s.d); st.sel = null; label('размер удалён'); } return;
+      case 'd-set': if (s.t === 'dim') { const dm = dimOf(s.d), k = a.dataset.k; if (!dm) return; if (k === 'fs') dm.fs = +v; else if (k === 'dir') { dm.dir = v; dm.off = Math.round(26 / st.v.s); } else if (k === 'arr') dm.arr = v; label('размер: вид'); } return;
+      case 'v-del': if (s.t === 'item' && st.vsel) { const it = item(s.i); if (!it || !it.pts || it.pts.length <= (it.open ? 2 : 3)) { toast('Меньше точек нельзя.'); return; } const k = st.vsel.k; it.pts.splice(k, 1); shiftVRefs(it.id, k, -1); st.vsel = null; G.recenterPoly(it); label('точка убрана — ' + G.itemLabel(it)); } return;
+      case 'sh-col': if (s.t === 'item') { const it = item(s.i); if (!it || !/^#[0-9a-f]{6}$/i.test(v || '')) return; it.col = v; label('цвет — ' + G.itemLabel(it)); } return;
+      case 'sh-set': if (s.t === 'item') { const it = item(s.i), k = a.dataset.k; if (!it) return; if (k === 'fill') it.fill = v; else if (k === 'lw') it.lw = +v; label((k === 'fill' ? 'заливка — ' : 'контур — ') + G.itemLabel(it)); } return;
+      case 'ptool': st.placed = 0; st.dimA = null; st.vsel = null; if (st.tool === 'multi' && v !== 'multi') { st.multi = []; } if (v === 'multi' && st.tool === 'multi') { st.tool = null; st.multi = []; render(); return; } if (v === 'multi' && st.sel && st.sel.t === 'item') { st.multi = []; } st.tool = v || null; st.draw = null; st.ruler = null; UI.fly = false; if (v === 'hand' || v === 'ruler' || !v) {} render(); return;
       case 'layer': st.layer = v === 'top' ? 'top' : 'floor'; st.tool = null; UI.fly = false; if (st.sel && st.sel.t === 'item') { const it = item(st.sel.i); if (it && !!it.top !== (st.layer === 'top')) st.sel = null; } if (st.layer === 'top' && P().showTop === false) P().showTop = true; render(); return;
       case 'showtop': P().showTop = v === '1'; if (!P().showTop && st.layer === 'top') st.layer = 'floor'; label(P().showTop ? 'верхний слой показан' : 'верхний слой скрыт'); return;
       case 'pfly': UI.pgroup = v; UI.fly = !(UI.fly && UI.pgroup === v); render(); return;
@@ -6222,6 +6477,7 @@ var PL = (function () {
           st.tool = 'op:' + v; st.sel = null; render(); return;
         }
         if (g === 'col') { st.tool = 'col:' + v; render(); return; }
+        if (g === 'geo') { if (v === 'free' || v === 'line') { st.draw = { pts: [], hover: null, kind: v }; st.tool = null; st.sel = null; render(); return; } st.placed = 0; st.tool = 'it:' + v; render(); return; }
         if (g === 'tables' || g === 'zones' || g === 'ceil' || g === 'rig' || g === 'light' || g === 'cdeco') { st.placed = 0; st.tool = (v === 'P' || v === 'T') ? 'combo:' + v : 'it:' + v; render(); return; }
         return;
       }
@@ -6235,6 +6491,7 @@ var PL = (function () {
       case 'lyr-lock': { const [k, id] = String(v).split('|'), o = k === 'r' ? room(id) : item(id); if (!o) return; o.lock = !o.lock; if (!o.lock) delete o.lock; label((o.lock ? 'закреплено — ' : 'откреплено — ') + (k === 'r' ? rname(o) : G.itemLabel(o))); return; }
       case 'lyr-del': { const [k, id] = String(v).split('|');
         if (k === 'r') { const r = room(id); if (!r) return; P().rooms = P().rooms.filter((x) => x.id !== id); if (st.sel && st.sel.r === id) st.sel = null; label('удалено помещение — ' + rname(r)); return; }
+        if (k === 'd') { P().dims = (P().dims || []).filter((x) => x.id !== id); if (st.sel && st.sel.d === id) st.sel = null; label('размер удалён'); return; }
         const it = item(id); if (!it) return; P().items = P().items.filter((x) => x.id !== id); if (st.sel && st.sel.i === id) st.sel = null; label('удалено — ' + G.itemLabel(it)); return; }
       case 'm-align': { const L = st.multi.map(item).filter(Boolean); if (G.alignItems(L, v)) label('выровнено — ' + ({ left: 'по левому краю', cx: 'по центру', right: 'по правому краю', top: 'по верху', cy: 'по середине', bottom: 'по низу' })[v]); else toast('Уже на одной линии.'); return; }
       case 'm-dist': { const L = st.multi.map(item).filter(Boolean); if (L.length < 3 && st.mgap == null) { toast('Чтобы распределить поровну, нужно хотя бы 3 объекта — или впишите промежуток.'); return; } G.distributeItems(L, v, st.mgap == null ? undefined : st.mgap); label(st.mgap == null ? 'поровну ' + (v === 'x' ? 'по горизонтали' : 'по вертикали') : 'через ' + fl(st.mgap) + ' ' + uLab()); return; }
@@ -6277,7 +6534,7 @@ var PL = (function () {
       case 'rulers2': P().rulers = v === '1'; label(P().rulers ? 'линейки показаны' : 'линейки скрыты'); return;
       case 'snap': P().snap = +v || 0; label(P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return;
       case 'snapcyc': { const nx = { 0: 1000, 1000: 500, 500: 0 }[P().snap || 0]; P().snap = nx; label(nx ? 'сетка ' + G.nf(nx / 1000, nx % 1000 ? 1 : 0) + ' м' : 'сетка выключена'); return; }
-      case 'sel': { st.multi = []; const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; st.split = null; render(); return; }
+      case 'sel': { st.multi = []; const q = (a.dataset.sel || '').split('|'); if (q[0] === 'r') st.sel = { t: 'room', r: q[1] }; else if (q[0] === 'w') st.sel = { t: 'wall', r: q[1], w: q[2] }; else if (q[0] === 'o') st.sel = { t: 'op', r: q[1], w: q[2], o: q[3] }; else if (q[0] === 'i') st.sel = { t: 'item', i: q[1] }; else if (q[0] === 'c') st.sel = { t: 'corner', r: q[1], c: +q[2] }; else if (q[0] === 'd') st.sel = { t: 'dim', d: q[1] }; st.split = null; render(); return; }
       case 'clear': st.sel = null; render(); return;
       case 'r-name': if (r) { r.name = v; label('название — ' + v); } return;
       case 'r-rot': if (r) { G.rotateRoom(r, 90); label('поворот на 90° — ' + rname(r)); } return;
@@ -6338,7 +6595,10 @@ var PL = (function () {
         const i = wallIx(r, s.w), L = G.roomGeom(r).L[i];
         if (path === 'op.w') op.w = v; else if (path === 'op.h') op.h = v; else if (path === 'op.off') op.off = v; else if (path === 'op.end') op.off = L - op.w - v; else op.sill = v;
         G.clampOpening(op, L); label('проём: размеры'); return; }
-      case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; it[path.slice(3)] = G.clamp(v, 50, 60000); if (it.shape === 'round') it.d = it.w; if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); label('размер — ' + G.itemLabel(it)); return; }
+      case 'it.solid': { const it = item(s.i); if (!it) return; it.solid = !!n.checked; if (!it.solid) delete it.solid; label(it.solid ? 'препятствие — ' + G.itemLabel(it) : 'не препятствие — ' + G.itemLabel(it)); return; }
+      case 'dm.txt': { const dm = s.t === 'dim' ? dimOf(s.d) : null; if (!dm) return; dm.txt = String(raw).trim().slice(0, 40); label('размер: надпись'); return; }
+      case 'dm.off': { const dm = s.t === 'dim' ? dimOf(s.d) : null; if (!dm) return; const v = String(raw).trim() === '0' ? 0 : len(); if (v === null) return; dm.off = (dm.off < 0 ? -1 : 1) * Math.round(v); label('размер: отступ'); return; }
+      case 'it.w': case 'it.d': { const it = item(s.i); if (!it) return; const v = len(); if (v === null) return; if (it.kind === 'shape' && it.shape === 'poly') { G.scalePoly(it, path === 'it.w' ? G.clamp(v, 50, 60000) : it.w, path === 'it.d' ? G.clamp(v, 50, 60000) : it.d); label('размер — ' + G.itemLabel(it)); return; } it[path.slice(3)] = G.clamp(v, 50, 60000); if (it.shape === 'round') it.d = it.w; if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); label('размер — ' + G.itemLabel(it)); return; }
       case 'it.rot': { const it = item(s.i); if (!it) return; const a = parseFloat(String(raw).replace(',', '.')); if (!isFinite(a)) { render(); return; } it.rot = G.normDeg(a); label('поворот — ' + G.itemLabel(it)); return; }
       case 'it.h': { const it = item(s.i); if (!it) return; if (String(raw).trim() === '') { it.h = null; label('высота — от потолка'); return; } const v = len(); if (v === null) return; if (v < 100 || v > 30000) { toast('Высота — от 0,1 до 30 м.'); render(); return; } it.h = v; label('высота — ' + G.itemLabel(it)); return; }
       case 'it.sh': { const it = item(s.i); if (!it) return; const v = String(raw).trim() === '0' ? 0 : len(); if (v === null) return; it.h = G.clamp(v, 0, 3000); label('высота сцены'); return; }
@@ -6368,6 +6628,9 @@ var PL = (function () {
     if (k === 'Escape') { if (st.draw) { st.draw = null; render(); return true; } if (st.tool) { st.tool = null; st.ruler = null; st.placed = 0; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } return false; }
     if (k === 'Enter' && st.draw && st.draw.pts.length >= 3) { finishDraw(); return true; }
     if ((k === 'Backspace' || k === 'Delete') && st.draw) { st.draw.pts.pop(); paint(); return true; }
+    if ((k === 'Delete' || k === 'Backspace') && st.vsel && st.sel && st.sel.t === 'item') { ev.preventDefault(); act('v-del', null); return true; }
+    if ((k === 'Delete' || k === 'Backspace') && st.sel && st.sel.t === 'dim') { ev.preventDefault(); act('d-del', null); return true; }
+    if (k === 'Escape' && st.dimA) { st.dimA = null; render(); return true; }
     if (k === 'Delete' || k === 'Backspace') { const s = st.sel; if (st.multi.length > 1) { ev.preventDefault(); act('m-del', null); return true; } if (!s) return false; ev.preventDefault(); act(s.t === 'guide' ? 'g-del' : s.t === 'op' ? 'op-del' : s.t === 'item' ? 'it-del' : s.t === 'corner' ? 'c-del' : s.t === 'room' ? 'r-del' : '', null); return true; }
     if (k === '+' || k === '=') { zoomBy(1.4); return true; }
     if (k === '-' || k === '_') { zoomBy(1 / 1.4); return true; }
@@ -6376,6 +6639,7 @@ var PL = (function () {
     if (kk === 'h' || kk === 'р') { act('ptool', { dataset: { v: st.tool === 'hand' ? '' : 'hand' } }); return true; }
     if (kk === 'v' || kk === 'м') { act('ptool', { dataset: { v: '' } }); return true; }
     if (kk === 'r' || kk === 'к') { act('ptool', { dataset: { v: 'ruler' } }); return true; }
+    if (kk === 'd' || kk === 'в') { act('ptool', { dataset: { v: st.tool === 'dim' ? '' : 'dim' } }); return true; }
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[k];
     if (d && st.sel) { ev.preventDefault(); const q = ev.shiftKey ? 10 : 100, s = st.sel;
       if (s.t === 'room') { const r = room(s.r); r.x += d[0] * q; r.y += d[1] * q; label('перемещение — ' + rname(r)); }
@@ -6408,7 +6672,7 @@ var PL = (function () {
     let h = '<div class="plyr" role="group" aria-label="Слой плана"><button type="button" data-pact="layer" data-v="floor" aria-pressed="' + (st.layer === 'floor') + '" title="Пол: стены, двери, столы, зоны">Пол</button><button type="button" data-pact="layer" data-v="top" aria-pressed="' + (st.layer === 'top') + '" title="Верх: потолок, подвес, свет, декор под потолком">Верх</button></div>' +
       tb('data-pact="ptool" data-v=""', ICO.psel, 'Выбор и перемещение (V)', !st.tool && !st.draw) + tb('data-pact="ptool" data-v="hand"', U.ico.hand, 'Рука: двигать план (H)', st.tool === 'hand') + tb('data-pact="ptool" data-v="multi"', U.ico.multi, 'Несколько: касание добавляет или убирает, рамка — по пустому месту', st.tool === 'multi') + '<hr>';
     (st.layer === 'top' ? TOOLS_TOP : TOOLS).forEach((t) => { h += tb('data-pact="pfly" data-v="' + t[0] + '" data-ptool="' + t[0] + '" data-tool="p' + t[0] + '"', ICO[t[1]], t[2] + ': ' + t[3], UI.fly && UI.pgroup === t[0], true); });
-    h += '<hr>' + tb('data-pact="ptool" data-v="ruler"', ICO.pruler, 'Линейка (R)', st.tool === 'ruler');
+    h += '<hr>' + tb('data-pact="ptool" data-v="ruler"', ICO.pruler, 'Линейка: измерить и забыть (R)', st.tool === 'ruler') + tb('data-pact="ptool" data-v="dim"', ICO.pdim, 'Размер на чертеже: к сторонам и углам, остаётся на плане (D)', st.tool === 'dim');
     return h;
   }
   function vFly() {
@@ -6456,6 +6720,35 @@ var PL = (function () {
         return '<div class="phead"><h3>Направляющая ' + (g.vert ? 'вертикальная' : 'горизонтальная') + '</h3></div>' +
           grp('Положение', fld('g.at', 'От угла A, ' + uLab(), fs(g.at - o[k]), { cls: 'full' }) + '<p class="muted small full">Объекты притягиваются к направляющей центром или краем. Тяните её за линию или за треугольник на линейке; утащите обратно на линейку — уберётся.</p>') +
           '<div class="pacts">' + btn('g-del', 'Убрать направляющую', { cls: 'dng' }) + '</div>';
+      }
+      if (s.t === 'dim' && dimOf(s.d)) {
+        const dm = dimOf(s.d), g = G.dimGeom(p, dm);
+        const endTxt = (e) => { const r0 = e.ref; if (!r0) return 'свободная точка'; if (r0.t === 'r') { const rr = room(r0.id); return rr ? 'угол ' + G.cornerName(+r0.k % rr.walls.length) + ' — ' + rname(rr) : 'точка'; } const it = item(r0.id); if (!it) return 'точка'; return G.itemLabel(it) + (it.kind === 'table' && it.num != null ? ' №' + it.num : '') + ' · ' + (r0.k === 'o' ? 'центр' : /^c/.test(r0.k) ? 'угол' : /^q/.test(r0.k) ? 'край' : 'точка ' + (+r0.k.slice(1) + 1)); };
+        return '<div class="phead"><h3>Размер ' + esc(fl(g.L)) + ' ' + uLab() + '</h3></div>' +
+          grp('Размер', '<div class="kv2 full"><span>Измерено</span><b>' + fl(g.L) + ' ' + uLab() + '</b><span>От</span><b>' + esc(endTxt(dm.a)) + '</b><span>До</span><b>' + esc(endTxt(dm.b)) + '</b></div>' +
+            fld('dm.txt', 'Надпись', dm.txt, { cls: 'full', ph: 'авто: ' + fl(g.L) }).replace('inputmode="decimal" spellcheck="false"', 'inputmode="text" spellcheck="false" maxlength="40"') +
+            fld('dm.off', 'Отступ линии, ' + uLab(), fs(Math.abs(dm.off)), { cls: 'full' })) +
+          grp('Вид', '<div class="fld full stk"><span class="fl">Направление</span>' + seg([['a', 'по точкам'], ['h', 'гориз.'], ['v', 'вертик.']], dm.dir, 'd-set', 'dir') + '</div>' +
+            '<div class="fld full stk"><span class="fl">Размер надписи</span>' + seg([1, 2, 3, 4].map((k) => [k, '<span style="font-size:' + [0, 11, 13.5, 16, 19][k] + 'px;font-weight:700">2,5</span>']), dm.fs, 'd-set', 'fs').replace(/data-v="(\d)"/g, (m0, k) => m0 + ' title="' + ['', 'мелкий', 'средний', 'крупный', 'очень крупный'][+k] + '"') + '</div>' +
+            '<div class="fld full stk"><span class="fl">Концы линии</span>' + seg([['arrow', DEND.arrow], ['tick', DEND.tick], ['dot', DEND.dot], ['none', DEND.none]], dm.arr, 'd-set', 'arr').replace(/data-v="(arrow|tick|dot|none)"/g, (m0, k) => m0 + ' title="' + { arrow: 'стрелки', tick: 'засечки', dot: 'точки', none: 'без концов' }[k] + '" aria-label="' + { arrow: 'стрелки', tick: 'засечки', dot: 'точки', none: 'без концов' }[k] + '"') + '</div>') +
+          '<p class="muted small pad">Концы, прикреплённые к углам, едут вместе с объектом или стеной. Квадратик на конце — перетащить к другому углу (Shift — без притяжения); полоска посередине — отодвинуть линию. Пустая надпись — число из чертежа.</p>' +
+          '<div class="pacts">' + btn('d-del', 'Удалить размер', { cls: 'dng' }) + '</div>';
+      }
+      if (s.t === 'item' && item(s.i) && item(s.i).kind === 'shape') {
+        const it = item(s.i), poly = it.shape === 'poly', nm = G.itemLabel(Object.assign({}, it, { name: '' })), A = G.shapeArea(it), Lp = G.shapeLength(it);
+        const sw = G.SHAPE_COLS.map((c) => '<button type="button" class="swc' + ((it.col || '').toLowerCase() === c.toLowerCase() ? ' on' : '') + '" data-pact="sh-col" data-v="' + c + '" style="background:' + c + '" aria-label="Цвет ' + c + '" aria-pressed="' + ((it.col || '').toLowerCase() === c.toLowerCase()) + '"></button>').join('');
+        const cfl = it.solid && !it.top ? conflicts().list.filter((q) => q.a === it.id || q.b === it.id) : [];
+        return '<div class="phead"><h3>' + esc(G.itemLabel(it)) + '</h3></div>' + (it.top ? note('ok', 'Навесной элемент — на верхнем слое, над полом.') : '') + (cfl.length ? note('bad', cfl.map((q) => q.t === 'wall' ? 'Заходит на стену.' : q.t === 'outside' ? 'Стоит вне помещения.' : q.t === 'door' ? 'В зоне открывания двери.' : 'Пересекается с «' + G.itemLabel(item(q.a === it.id ? q.b : q.a) || {}) + '».').join(' ')) : '') +
+          grp('Фигура', fld('it.name', 'Подпись', it.name, { cls: 'full', ph: nm }) +
+            fld('it.w', (it.shape === 'oval' ? 'Ширина' : 'Длина') + ', ' + uLab(), fs(it.w)) + fld('it.d', (it.shape === 'oval' ? 'Высота' : 'Ширина') + ', ' + uLab(), fs(it.d)) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)) +
+            '<div class="kv2 full">' + (A > 0 ? '<span>Площадь</span><b>' + m2(A) + ' м²</b>' : '') + (poly ? '<span>' + (it.open ? 'Длина линии' : 'Периметр') + '</span><b>' + fl(Lp) + ' ' + uLab() + '</b>' : '') + '</div>') +
+          grp('Вид', '<div class="fld full"><span class="fl">Цвет</span><span class="swr">' + sw + '</span></div>' +
+            (poly && it.open ? '' : '<div class="fld full stk"><span class="fl">Заливка</span>' + seg([['none', 'нет'], ['soft', 'лёгкая'], ['full', 'плотная'], ['hatch', 'штрих']], it.fill, 'sh-set', 'fill') + '</div>') +
+            '<div class="fld full stk"><span class="fl">Контур</span>' + seg([[1, 'тонкий'], [2, 'средний'], [3, 'толстый']], it.lw || 2, 'sh-set', 'lw') + '</div>') +
+          (it.top ? '' : grp('На полу', '<label class="tog full"><input type="checkbox" data-pbind="it.solid"' + (it.solid ? ' checked' : '') + '><span>Препятствие: столы не должны заходить, проходы считаются от неё</span></label>')) +
+          (poly ? grp('Точки — ' + it.pts.length, '<p class="muted small full">Тяните точку пальцем — она притягивается к углам зала и объектов (Shift — без притяжения). Кружок на середине стороны добавляет точку. Коснитесь точки, потом «Удалить точку».</p><div class="pacts full">' + btn('v-del', st.vsel && st.vsel.i === it.id ? 'Удалить точку ' + (st.vsel.k + 1) : 'Удалить точку', { dis: !(st.vsel && st.vsel.i === it.id) || it.pts.length <= (it.open ? 2 : 3) }) + '</div>')
+            : '<p class="muted small pad">Размер — квадратики по углам и полоски на сторонах, поворот — кружок сверху.</p>') +
+          '<div class="pacts">' + btn('it-rot90', 'Повернуть на 90°') + btn('it-dup', 'Дублировать') + btn('it-del', 'Удалить', { cls: 'dng' }) + '</div>';
       }
       if (s.t === 'item' && item(s.i) && item(s.i).kind === 'photo') {
         const it = item(s.i), ph = (S.photos || []).find((x) => x.id === it.photo), sr = ph && IMG[ph.im] ? IMG[ph.im].src : '';
@@ -6602,7 +6895,7 @@ var PL = (function () {
       '<button type="button" class="ib s dng" data-pact="lyr-del" data-v="' + k + '|' + id + '" title="Удалить" aria-label="Удалить «' + esc(name) + '»">' + U.ico.del + '</button>';
   }
   function vLayers() {
-    const p = P(); if (!p.rooms.length && !p.items.length) return '<p class="muted small pad">На плане пока ничего нет.</p>';
+    const p = P(); if (!p.rooms.length && !p.items.length && !(p.dims || []).length) return '<p class="muted small pad">На плане пока ничего нет.</p>';
     const s = st.sel || {}, gs = p.rooms.map(G.roomGeom), cf = conflicts();
     let h = '<div class="plist lyrp">';
     p.rooms.forEach((r, ri) => {
@@ -6610,13 +6903,15 @@ var PL = (function () {
       r.walls.forEach((w, i) => (w.ops || []).forEach((o) => { h += '<button type="button" class="prow sub' + (s.o === o.id ? ' on' : '') + '" data-pact="sel" data-sel="o|' + r.id + '|' + w.id + '|' + o.id + '"><span>' + esc(opName(o)) + '</span><span class="muted small">' + G.wallName(r, i) + '</span></button>'; }));
     });
     p.items.slice().sort((a, b) => (a.kind === 'table' ? 0 : 1) - (b.kind === 'table' ? 0 : 1) || (+a.num || 0) - (+b.num || 0)).forEach((it) => {
-      const m1 = (v) => G.nf(v / 1000, v % 100 ? 2 : v % 1000 ? 1 : 0), size = it.shape === 'round' || G.isRound(it) ? 'Ø' + m1(it.w) : m1(it.w) + '×' + m1(it.d || it.w), ico = it.shape === 'round' ? '◯' : it.shape === 'oval' ? '⬭' : '▭';
+      const m1 = (v) => G.nf(v / 1000, v % 100 ? 2 : v % 1000 ? 1 : 0), size = it.shape === 'round' || G.isRound(it) ? 'Ø' + m1(it.w) : m1(it.w) + '×' + m1(it.d || it.w), ico = it.kind === 'shape' ? (it.shape === 'oval' ? '◯' : it.shape === 'poly' ? (it.open ? '╱' : '⬠') : '▭') : it.shape === 'round' ? '◯' : it.shape === 'oval' ? '⬭' : '▭';
       const lab = it.kind === 'photo' ? '📷 ' + (((S.photos || []).find((x) => x.id === it.photo) || {}).name || 'Фото') : it.top ? '⤒ ' + G.itemLabel(it) + ' · ' + fs(G.topH(p, it)) : it.kind === 'column' ? (G.isRound(it) ? '● Колонна ' : '■ Колонна ') + size
         : it.kind === 'table' ? ico + ' ' + (it.stand ? (it.name || 'Коктейльный') + ' · ' + size : (it.num != null ? '№' + it.num + ' · ' : '') + (it.name ? it.name + ' · ' : '') + size) : ico + ' ' + G.itemLabel(it) + ' · ' + size;
       const glab = it.grp ? ' ⧉' : '';
       const on = s.i === it.id || st.multi.indexOf(it.id) >= 0;
       h += '<div class="prw' + (on ? ' on' : '') + '"><button type="button" class="prow' + (on ? ' on' : '') + '" data-pact="sel" data-sel="i|' + it.id + '">' + ((cf.ids[it.id] || topChecks().ids[it.id]) ? '<i class="cdot bad"></i>' : '') + '<span>' + esc(lab + glab) + '</span>' + (it.kind === 'table' && !it.stand ? '<b>' + G.seatCount(it) + ' м.</b>' : '') + '</button>' + rowBtns('i', it.id, it.lock, lab) + '</div>';
     });
+    (p.dims || []).forEach((dm) => { const on = s.t === 'dim' && s.d === dm.id, L = G.dimGeom(p, dm).L, lab = '↔ Размер ' + (dm.txt ? '«' + dm.txt + '»' : fl(L));
+      h += '<div class="prw' + (on ? ' on' : '') + '"><button type="button" class="prow' + (on ? ' on' : '') + '" data-pact="sel" data-sel="d|' + dm.id + '"><span>' + esc(lab) + '</span><span class="muted small">' + (dm.a.ref && dm.b.ref ? 'к углам' : dm.a.ref || dm.b.ref ? 'к углу' : 'свободный') + '</span></button><button type="button" class="ib s dng" data-pact="lyr-del" data-v="d|' + dm.id + '" title="Удалить" aria-label="Удалить размер">' + U.ico.del + '</button></div>'; });
     return h + '</div>';
   }
   function vChecks() {
@@ -6642,7 +6937,7 @@ var PL = (function () {
     '<div class="fld"><span class="fl">Верхний слой</span>' + seg([['1', 'показан'], ['0', 'скрыт']], p.showTop === false ? '0' : '1', 'showtop') + '</div><p class="muted small">«Мин. над гостями» — ниже этой высоты декор и свет над столами, танцполом и сценой подсвечиваются. Цифра ваша: 2,2 м стоит по умолчанию.</p></div>'; } finally { U.inDock = false; } }
   function vOptbar() {
     const s = st.sel;
-    if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
+    if (st.draw) return '<span class="ohint">' + (st.draw.kind === 'line' ? 'Линия: коснитесь точек по порядку' : st.draw.kind === 'free' ? 'Своя форма: коснитесь точек по порядку' : 'Рисование помещения: коснитесь углов по порядку') + '</span>';
     if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s" data-pact="m-dup" title="Дублировать выделенные (Ctrl+D)" aria-label="Дублировать выделенные">' + U.ico.copy + '</button><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
     if (s && s.t === 'guide') { const g = (P().guides || []).find((q) => q.id === s.g); return g ? '<span class="onm">Направляющая</span><span class="sep"></span><span class="ohint">от угла A: ' + fl(g.at - G.gridOrigin(P())[g.vert ? 0 : 1]) + ' ' + uLab() + ' · утащите на линейку, чтобы убрать</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="g-del" title="Убрать направляющую" aria-label="Убрать направляющую">' + U.ico.del + '</button>' : ''; }
     if (!s) return '<span class="ohint">План: коснитесь помещения, стены, угла, проёма или стола · один палец по пустому месту двигает план, два — масштаб</span>';
@@ -6650,6 +6945,8 @@ var PL = (function () {
     const of = (bind, lab, val, t) => '<label class="nf" title="' + t + '"><b>' + lab + '</b><input type="text" inputmode="decimal" autocomplete="off" data-pbind="' + bind + '" value="' + esc(val) + '"></label>';
     const x = ib('clear', 'x', 'Снять выделение (Esc)');
     if (s.t === 'item' && item(s.i) && item(s.i).kind === 'photo') { const it = item(s.i), ph = (S.photos || []).find((x) => x.id === it.photo); return '<span class="onm">📷 ' + esc(ph ? ph.name : 'Фото') + '</span><span class="sep"></span><span class="ohint">тяните значок; кружок — направление</span><span class="sp"></span><button type="button" class="btn sm" data-pact="open-photo" data-v="' + it.photo + '">Открыть фото</button>' + ib('it-del', 'del', 'Убрать отметку', 'dng') + x; }
+    if (s.t === 'dim' && dimOf(s.d)) { const dm = dimOf(s.d); return '<span class="onm">Размер</span><span class="sep"></span><span class="ohint"><b>' + esc(G.dimText(dm, G.dimGeom(P(), dm).L, unit())) + '</b> · тяните квадратики на концах и полоску посередине</span><span class="sp"></span>' + ib('d-del', 'del', 'Удалить размер (Del)', 'dng') + x; }
+    if (s.t === 'item' && item(s.i) && item(s.i).kind === 'shape') { const it = item(s.i); return '<span class="onm">' + esc(G.itemLabel(it)) + '</span><span class="sep"></span>' + of('it.w', 'Д', fs(it.w), 'Длина, ' + uLab()) + of('it.d', 'Ш', fs(it.d), 'Ширина, ' + uLab()) + of('it.rot', '⟳', G.nf(it.rot || 0, 0), 'Поворот, °') + '<span class="sp"></span>' + ib('it-dup', 'copy', 'Дублировать (Ctrl+D)') + ib('it-del', 'del', 'Удалить (Del)', 'dng') + x; }
     if (s.t === 'item' && item(s.i) && item(s.i).top) { const it = item(s.i), round = it.shape === 'round';
       return '<span class="onm">' + esc(G.itemLabel(it)) + '</span><span class="sep"></span>' + (it.kind === 'hook' ? '' : of('it.w', round ? 'Ø' : 'Д', fs(it.w), uLab())) + of('it.h', 'h', +it.h > 0 ? fs(it.h) : '', 'Высота, ' + uLab() + ' (пусто — от потолка: ' + fs(G.topH(P(), it)) + ')') + '<span class="ohint">' + (+it.h > 0 ? 'высота вручную' : 'от потолка: ' + fs(G.topH(P(), it))) + '</span><span class="sp"></span>' + ib('it-dup', 'copy', 'Дублировать (Ctrl+D)') + ib('it-del', 'del', 'Удалить (Del)', 'dng') + x; }
     if (s.t === 'item') { const it = item(s.i), round = it.shape === 'round';
@@ -6669,7 +6966,7 @@ var PL = (function () {
       (sm.rooms ? '<span>площадь ' + (warn || bad ? '≈' : '') + m2(sm.area) + ' м²</span>' : '<span>помещений 0</span>') + (tt.tables || tt.stand ? '<span><b>столов ' + tt.tables + ' · мест ' + tt.seats + '</b>' + (tt.stand ? ' · коктейльных ' + tt.stand : '') + '</span>' : '') +
       (sm.rooms || P().items.length ? '<button type="button" class="sck" data-act="dopen" data-id="checks"><i class="cdot ' + (bad || cf ? 'bad' : warn ? 'warn' : 'ok') + '"></i>' + (cf ? 'замечаний: ' + cf : bad ? 'ошибки замеров: ' + bad : warn ? 'не всё измерено' : 'всё сходится') + '</button>' : '') + '<span class="sp"></span><button type="button" class="sck" data-pact="smart" title="Притягивать к центрам и краям других объектов" aria-pressed="' + (P().smart !== false) + '">к объектам</button><button type="button" class="sck" data-pact="rulers" title="Линейки и направляющие" aria-pressed="' + rulersOn() + '">линейки</button><button type="button" class="sck" data-pact="snapcyc" title="Сетка с привязкой: нет → 1 м → 0,5 м" aria-pressed="' + !!P().snap + '">' + (P().snap ? 'сетка ' + G.nf(P().snap / 1000, P().snap % 1000 ? 1 : 0) + ' м' : 'сетка: нет') + '</button><span>единицы: ' + uLab() + '</span>';
   }
-  const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="ptop"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g><g id="prul"></g></svg>' +
+  const SKEL = '<svg id="plan" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="План зала"><defs id="pdefs"></defs><g id="pvp"><g id="pgrid"></g><g id="pbody"></g><g id="pitems"></g><g id="ptop"></g><g id="pdim"></g><g id="phit"></g><g id="pover"></g><g id="plab"></g><g id="phnd"></g></g><g id="prul"></g></svg>' +
     '<div id="pctx" class="pctx" role="menu" hidden></div><div id="pbanner" class="pbanner" hidden></div><div id="ptip" class="dragtip ptip" hidden></div>' +
     '<div id="pempty" class="pempty2" hidden><div><b>План зала пуст</b><span>Начните с формы зала, потом впишите замеры стен — как с лазерной рулетки.</span><div class="pacts">' +
     '<button type="button" class="btn sm pri" data-pact="fly-pick" data-g="room" data-v="rect">Прямоугольный зал</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="L">Г-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="U">П-образный</button><button type="button" class="btn sm" data-pact="fly-pick" data-g="room" data-v="draw">Нарисовать по углам</button></div></div></div>';
@@ -7341,6 +7638,7 @@ var RP = (function () {
     const gs = plan.rooms.map((r) => G.roomGeom(r)), pts = [];
     gs.forEach((g) => g.pts.forEach((p) => pts.push(p)));
     plan.items.forEach((it) => { if (it.kind === 'photo') return; G.footprint(it).forEach((poly) => poly.forEach((p) => pts.push(p))); });
+    (plan.dims || []).forEach((dm) => { const g = G.dimGeom(plan, dm); pts.push(g.A2, g.B2); });
     if (!pts.length) return;
     let a = Infinity, b = Infinity, cx = -Infinity, cy = -Infinity; pts.forEach((p) => { a = Math.min(a, p[0]); b = Math.min(b, p[1]); cx = Math.max(cx, p[0]); cy = Math.max(cy, p[1]); });
     const pad = 70, s = Math.min((bw - 2 * pad) / Math.max(1, cx - a), (bh - 2 * pad) / Math.max(1, cy - b)), ox = x0 + (bw - (cx - a) * s) / 2 - a * s, oy = y0 + (bh - (cy - b) * s) / 2 - b * s;
@@ -7361,12 +7659,37 @@ var RP = (function () {
         c.save(); c.translate(mx, my); c.rotate(ang); txt(c, G.wallName(r, i) + '  ' + (w.m ? '' : '≈') + fl(g.lens[i], plan.unit), 0, 6, '500 15px ' + body, w.m ? ink : mu, 'center'); c.restore();
       }
     });
+    const rgba = (hex, a) => { const n = parseInt(String(hex || '#4F8DFF').slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; };
     plan.items.forEach((it) => {
       if (it.kind === 'photo') return;
+      if (it.kind === 'shape') {   // a shape: its colour, fill and outline, as on the screen
+        const col = it.col || '#4F8DFF', open = it.shape === 'poly' && it.open, P = (it.shape === 'oval' ? (() => { const o = []; for (let k = 0; k < 48; k++) { const t = 2 * Math.PI * k / 48; o.push(G.toWorld(it, it.w / 2 * Math.cos(t), it.d / 2 * Math.sin(t))); } return o; })() : it.shape === 'poly' ? it.pts.map((q) => G.toWorld(it, q[0], q[1])) : G.itemCorners(it)).map(T);
+        c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); if (!open) c.closePath();
+        if (!open && it.fill !== 'none') { if (it.fill === 'hatch') { c.save(); c.clip(); c.fillStyle = rgba(col, 0.08); c.fillRect(x0, y0, bw, bh); c.strokeStyle = rgba(col, 0.75); c.lineWidth = 1.2; for (let k = -bh; k < bw; k += 9) { c.beginPath(); c.moveTo(x0 + k, y0 + bh); c.lineTo(x0 + k + bh, y0); c.stroke(); } c.restore(); c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); }
+          else { c.fillStyle = rgba(col, it.fill === 'full' ? 0.85 : 0.22); c.fill(); } }
+        c.strokeStyle = col; c.lineWidth = [0, 1.2, 2.2, 4][it.lw || 2]; if (it.top) c.setLineDash([7, 5]); c.stroke(); c.setLineDash([]);
+        if (it.name) { const p0 = T([it.x, it.y]); c.font = '600 13px ' + body; if (Math.max(it.w, it.d) * s > 30) txt(c, fit(c, it.name, Math.max(30, Math.max(it.w, it.d) * s - 6)), p0[0], p0[1] + 5, '600 13px ' + body, ink, 'center'); }
+        return;
+      }
       G.footprint(it).forEach((poly, k) => { const P = poly.map(T); c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath();
         if (it.top) { c.setLineDash([6, 5]); c.strokeStyle = '#7A5BA8'; c.lineWidth = 1.5; c.stroke(); c.setLineDash([]); } else { c.fillStyle = k ? '#E8E2D3' : (it.kind === 'table' ? '#E3EEE8' : '#EFE9DC'); c.fill(); c.strokeStyle = k ? '#B9B09B' : em; c.lineWidth = k ? 1 : 1.6; c.stroke(); } });
       const p = T([it.x, it.y]), lab = it.kind === 'table' && !it.stand && it.num != null ? String(it.num) : (it.name || G.itemLabel(it));
       c.font = '600 13px ' + body; const sz = Math.max(it.w, it.d) * s; if (sz > 26) txt(c, fit(c, lab, Math.max(30, it.w * s - 6)), p[0], p[1] + 5, '600 13px ' + body, it.top ? '#5B3F8A' : ink, 'center');
+    });
+    (plan.dims || []).forEach((dm) => {   // dimensions: extension lines, the line, its ends, the text above
+      const g = G.dimGeom(plan, dm), A = T(g.A), B = T(g.B), A2 = T(g.A2), B2 = T(g.B2), blue = '#2F6FE4', Ld = Math.hypot(B2[0] - A2[0], B2[1] - A2[1]) || 1, u = [(B2[0] - A2[0]) / Ld, (B2[1] - A2[1]) / Ld], n = [-u[1], u[0]];
+      const seg = (a, b, w) => { c.lineWidth = w; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
+      c.strokeStyle = blue; c.fillStyle = blue;
+      [[A, A2], [B, B2]].forEach(([P0, P2]) => { const dx = P2[0] - P0[0], dy = P2[1] - P0[1], L = Math.hypot(dx, dy); if (L < 2) return; seg([P0[0] + dx / L * 3, P0[1] + dy / L * 3], [P2[0] + dx / L * 5, P2[1] + dy / L * 5], 0.9); });
+      seg(A2, B2, 1.3);
+      [[A2, 1], [B2, -1]].forEach(([P0, dr]) => {
+        if (dm.arr === 'none') return; if (dm.arr === 'dot') { c.beginPath(); c.arc(P0[0], P0[1], 2.8, 0, 2 * Math.PI); c.fill(); return; }
+        if (dm.arr === 'tick') { seg([P0[0] - (u[0] + n[0]) * 5, P0[1] - (u[1] + n[1]) * 5], [P0[0] + (u[0] + n[0]) * 5, P0[1] + (u[1] + n[1]) * 5], 1.4); return; }
+        const al = Math.min(9, Ld / 3), aw = 3.2, b0 = [P0[0] + u[0] * al * dr, P0[1] + u[1] * al * dr]; c.beginPath(); c.moveTo(P0[0], P0[1]); c.lineTo(b0[0] + n[0] * aw, b0[1] + n[1] * aw); c.lineTo(b0[0] - n[0] * aw, b0[1] - n[1] * aw); c.closePath(); c.fill(); });
+      let ang = Math.atan2(u[1], u[0]); if (ang > Math.PI / 2 + 1e-6) ang -= Math.PI; if (ang < -Math.PI / 2 - 1e-6) ang += Math.PI;
+      const fz = [0, 11, 13, 16, 20][dm.fs || 2], mid = [(A2[0] + B2[0]) / 2, (A2[1] + B2[1]) / 2];
+      c.save(); c.translate(mid[0], mid[1]); c.rotate(ang); c.font = '700 ' + fz + 'px ' + body; const t = G.dimText(dm, g.L, plan.unit), tw = c.measureText(t).width;
+      c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(-tw / 2 - 3, -fz - 5, tw + 6, fz + 3); txt(c, t, 0, -5, '700 ' + fz + 'px ' + body, blue, 'center'); c.restore();
     });
     gs.forEach((g, ri) => {   // room names last, on a light pill, so tables never cover them
       const ctr = T(g.center), a1 = (R.rooms[ri].exact ? '' : '≈') + m2(g.area); c.font = '600 20px ' + body; const w1 = c.measureText(R.rooms[ri].name).width; c.font = '400 16px ' + body; const w2 = g.area > 0 ? c.measureText(a1).width : 0, bw2 = Math.max(w1, w2) + 28;
@@ -8884,7 +9207,7 @@ var QB=(function(){
       case 'dup':return {dis:!many&&!isIt,run:function(){pa(many?'m-dup':'it-dup')}};
       case 'copy':return {dis:!many&&!isIt,run:function(){pa('clip-copy')}};
       case 'paste':return {dis:!PL.canPaste(),run:function(){pa('clip-paste')}};
-      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
+      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del',dim:'d-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
       case 'lock':{if(many){var L=PL.st.multi.map(function(i){return S.plan.items.find(function(x){return x.id===i})}).filter(Boolean),all=L.length&&L.every(function(x){return x.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){pa('m-lock')}}}
         var o=it||(s.t==='room'?S.plan.rooms.find(function(r){return r.id===s.r}):null);if(!o)return {dis:true};return {on:!!o.lock,title:o.lock?'Открепить':'Закрепить',run:function(){pa('lyr-lock',(it?'i|':'r|')+o.id)}}}
       case 'rot':return {dis:!many&&!isIt,run:function(){pa(many?'m-rot':'it-rot90')}};

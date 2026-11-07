@@ -36,6 +36,7 @@ var RP = (function () {
     const gs = plan.rooms.map((r) => G.roomGeom(r)), pts = [];
     gs.forEach((g) => g.pts.forEach((p) => pts.push(p)));
     plan.items.forEach((it) => { if (it.kind === 'photo') return; G.footprint(it).forEach((poly) => poly.forEach((p) => pts.push(p))); });
+    (plan.dims || []).forEach((dm) => { const g = G.dimGeom(plan, dm); pts.push(g.A2, g.B2); });
     if (!pts.length) return;
     let a = Infinity, b = Infinity, cx = -Infinity, cy = -Infinity; pts.forEach((p) => { a = Math.min(a, p[0]); b = Math.min(b, p[1]); cx = Math.max(cx, p[0]); cy = Math.max(cy, p[1]); });
     const pad = 70, s = Math.min((bw - 2 * pad) / Math.max(1, cx - a), (bh - 2 * pad) / Math.max(1, cy - b)), ox = x0 + (bw - (cx - a) * s) / 2 - a * s, oy = y0 + (bh - (cy - b) * s) / 2 - b * s;
@@ -56,12 +57,37 @@ var RP = (function () {
         c.save(); c.translate(mx, my); c.rotate(ang); txt(c, G.wallName(r, i) + '  ' + (w.m ? '' : '≈') + fl(g.lens[i], plan.unit), 0, 6, '500 15px ' + body, w.m ? ink : mu, 'center'); c.restore();
       }
     });
+    const rgba = (hex, a) => { const n = parseInt(String(hex || '#4F8DFF').slice(1), 16); return 'rgba(' + (n >> 16 & 255) + ',' + (n >> 8 & 255) + ',' + (n & 255) + ',' + a + ')'; };
     plan.items.forEach((it) => {
       if (it.kind === 'photo') return;
+      if (it.kind === 'shape') {   // a shape: its colour, fill and outline, as on the screen
+        const col = it.col || '#4F8DFF', open = it.shape === 'poly' && it.open, P = (it.shape === 'oval' ? (() => { const o = []; for (let k = 0; k < 48; k++) { const t = 2 * Math.PI * k / 48; o.push(G.toWorld(it, it.w / 2 * Math.cos(t), it.d / 2 * Math.sin(t))); } return o; })() : it.shape === 'poly' ? it.pts.map((q) => G.toWorld(it, q[0], q[1])) : G.itemCorners(it)).map(T);
+        c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); if (!open) c.closePath();
+        if (!open && it.fill !== 'none') { if (it.fill === 'hatch') { c.save(); c.clip(); c.fillStyle = rgba(col, 0.08); c.fillRect(x0, y0, bw, bh); c.strokeStyle = rgba(col, 0.75); c.lineWidth = 1.2; for (let k = -bh; k < bw; k += 9) { c.beginPath(); c.moveTo(x0 + k, y0 + bh); c.lineTo(x0 + k + bh, y0); c.stroke(); } c.restore(); c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath(); }
+          else { c.fillStyle = rgba(col, it.fill === 'full' ? 0.85 : 0.22); c.fill(); } }
+        c.strokeStyle = col; c.lineWidth = [0, 1.2, 2.2, 4][it.lw || 2]; if (it.top) c.setLineDash([7, 5]); c.stroke(); c.setLineDash([]);
+        if (it.name) { const p0 = T([it.x, it.y]); c.font = '600 13px ' + body; if (Math.max(it.w, it.d) * s > 30) txt(c, fit(c, it.name, Math.max(30, Math.max(it.w, it.d) * s - 6)), p0[0], p0[1] + 5, '600 13px ' + body, ink, 'center'); }
+        return;
+      }
       G.footprint(it).forEach((poly, k) => { const P = poly.map(T); c.beginPath(); P.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1]))); c.closePath();
         if (it.top) { c.setLineDash([6, 5]); c.strokeStyle = '#7A5BA8'; c.lineWidth = 1.5; c.stroke(); c.setLineDash([]); } else { c.fillStyle = k ? '#E8E2D3' : (it.kind === 'table' ? '#E3EEE8' : '#EFE9DC'); c.fill(); c.strokeStyle = k ? '#B9B09B' : em; c.lineWidth = k ? 1 : 1.6; c.stroke(); } });
       const p = T([it.x, it.y]), lab = it.kind === 'table' && !it.stand && it.num != null ? String(it.num) : (it.name || G.itemLabel(it));
       c.font = '600 13px ' + body; const sz = Math.max(it.w, it.d) * s; if (sz > 26) txt(c, fit(c, lab, Math.max(30, it.w * s - 6)), p[0], p[1] + 5, '600 13px ' + body, it.top ? '#5B3F8A' : ink, 'center');
+    });
+    (plan.dims || []).forEach((dm) => {   // dimensions: extension lines, the line, its ends, the text above
+      const g = G.dimGeom(plan, dm), A = T(g.A), B = T(g.B), A2 = T(g.A2), B2 = T(g.B2), blue = '#2F6FE4', Ld = Math.hypot(B2[0] - A2[0], B2[1] - A2[1]) || 1, u = [(B2[0] - A2[0]) / Ld, (B2[1] - A2[1]) / Ld], n = [-u[1], u[0]];
+      const seg = (a, b, w) => { c.lineWidth = w; c.beginPath(); c.moveTo(a[0], a[1]); c.lineTo(b[0], b[1]); c.stroke(); };
+      c.strokeStyle = blue; c.fillStyle = blue;
+      [[A, A2], [B, B2]].forEach(([P0, P2]) => { const dx = P2[0] - P0[0], dy = P2[1] - P0[1], L = Math.hypot(dx, dy); if (L < 2) return; seg([P0[0] + dx / L * 3, P0[1] + dy / L * 3], [P2[0] + dx / L * 5, P2[1] + dy / L * 5], 0.9); });
+      seg(A2, B2, 1.3);
+      [[A2, 1], [B2, -1]].forEach(([P0, dr]) => {
+        if (dm.arr === 'none') return; if (dm.arr === 'dot') { c.beginPath(); c.arc(P0[0], P0[1], 2.8, 0, 2 * Math.PI); c.fill(); return; }
+        if (dm.arr === 'tick') { seg([P0[0] - (u[0] + n[0]) * 5, P0[1] - (u[1] + n[1]) * 5], [P0[0] + (u[0] + n[0]) * 5, P0[1] + (u[1] + n[1]) * 5], 1.4); return; }
+        const al = Math.min(9, Ld / 3), aw = 3.2, b0 = [P0[0] + u[0] * al * dr, P0[1] + u[1] * al * dr]; c.beginPath(); c.moveTo(P0[0], P0[1]); c.lineTo(b0[0] + n[0] * aw, b0[1] + n[1] * aw); c.lineTo(b0[0] - n[0] * aw, b0[1] - n[1] * aw); c.closePath(); c.fill(); });
+      let ang = Math.atan2(u[1], u[0]); if (ang > Math.PI / 2 + 1e-6) ang -= Math.PI; if (ang < -Math.PI / 2 - 1e-6) ang += Math.PI;
+      const fz = [0, 11, 13, 16, 20][dm.fs || 2], mid = [(A2[0] + B2[0]) / 2, (A2[1] + B2[1]) / 2];
+      c.save(); c.translate(mid[0], mid[1]); c.rotate(ang); c.font = '700 ' + fz + 'px ' + body; const t = G.dimText(dm, g.L, plan.unit), tw = c.measureText(t).width;
+      c.fillStyle = 'rgba(255,255,255,.9)'; c.fillRect(-tw / 2 - 3, -fz - 5, tw + 6, fz + 3); txt(c, t, 0, -5, '700 ' + fz + 'px ' + body, blue, 'center'); c.restore();
     });
     gs.forEach((g, ri) => {   // room names last, on a light pill, so tables never cover them
       const ctr = T(g.center), a1 = (R.rooms[ri].exact ? '' : '≈') + m2(g.area); c.font = '600 20px ' + body; const w1 = c.measureText(R.rooms[ri].name).width; c.font = '400 16px ' + body; const w2 = g.area > 0 ? c.measureText(a1).width : 0, bw2 = Math.max(w1, w2) + 28;

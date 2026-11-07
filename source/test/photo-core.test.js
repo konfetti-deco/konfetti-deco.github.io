@@ -244,5 +244,41 @@ ok(PG.refLen({ q: [[0, 0], [10, 10], [10, 0], [0, 10]], w: 900, h: 2100 }, [0, 0
   ok(eq(PG.sideView(180), [1, 0, 3, 2]), '180°: swapped'); ok(eq(PG.sideView(-90), [2, 3, 1, 0]), '−90° = 270°'); ok(eq(PG.sideView(270), PG.sideView(-90)), '270 = −90'); ok(eq(PG.sideView(360), [0, 1, 2, 3]), '360 = 0');
   for (let k = 0; k < 400; k++) { const r = rnd(-720, 720), v = PG.sideView(r); ok(eq(v.slice().sort(), [0, 1, 2, 3]), 'every name used once at ' + r); ok(eq(PG.sideView(r + 90), v.map((j) => [3, 2, 0, 1][j])), 'one more quarter turn = one more step at ' + r); } }
 
+/* 33. shapes and dimensions on the plan: polygons stay centred; a dimension measures what it is stuck to and follows it; normalize keeps both */
+{ const P = PG.newPlan(); P.rooms = [PG.makeRoom('Зал', 0, 0, [[9000, 0], [6000, 90], [9000, 180], [6000, 270]])];
+  for (let k = 0; k < 200; k++) {
+    const n = 3 + Math.floor(rnd(0, 6)), W = []; for (let j = 0; j < n; j++) W.push([rnd(-5000, 5000), rnd(-5000, 5000)]);
+    const it = PG.shapeFromPoints(W, false); it.rot = rnd(-180, 180); PG.recenterPoly(it);
+    const bb = PG.bboxOf(it.pts); ok(Math.abs(bb.x0 + bb.x1) < 0.2 && Math.abs(bb.y0 + bb.y1) < 0.2, 'centred #' + k); ok(Math.abs(it.w - Math.max(50, Math.round(bb.x1 - bb.x0))) <= 1, 'w = width of points #' + k);
+    const before = it.pts.map((q) => PG.toWorld(it, q[0], q[1])); it.pts[0] = [it.pts[0][0] + 700, it.pts[0][1] - 300]; const moved = PG.toWorld(it, it.pts[0][0], it.pts[0][1]); PG.recenterPoly(it);
+    const after = it.pts.map((q) => PG.toWorld(it, q[0], q[1])); ok(Math.hypot(after[0][0] - moved[0], after[0][1] - moved[1]) < 0.5 && after.slice(1).every((q, j) => Math.hypot(q[0] - before[j + 1][0], q[1] - before[j + 1][1]) < 0.5), 're-centring does not move points in the world #' + k);
+    const w2 = Math.round(rnd(500, 8000)), d2 = Math.round(rnd(500, 8000)); PG.scalePoly(it, w2, d2); ok(Math.abs(it.w - w2) <= 1 && Math.abs(it.d - d2) <= 1, 'scale to ' + w2 + '×' + d2);
+  }
+  const tri = PG.makeItem('g_tri', 3000, 3000); ok(Math.abs(PG.shapeArea(tri) - 2000 * 1500 / 2) < 1, 'triangle area'); const sq = PG.makeItem('g_rect', 0, 0); ok(PG.shapeArea(sq) === 2e6, 'rectangle area');
+  const ln = PG.shapeFromPoints([[0, 0], [3000, 0], [3000, 4000]], true); ok(Math.abs(PG.shapeLength(ln) - 7000) < 0.5 && PG.shapeArea(ln) === 0, 'line length, no area');
+  // a side measured exactly, from any wall
+  const E = PG.dimEdges(P); ok(E.length === 4, '4 walls → 4 sides');
+  E.forEach((e, i) => { const dm = PG.normDim({ a: { ref: e.a }, b: { ref: e.b }, off: 300 }), g = PG.dimGeom(P, dm); ok(Math.abs(g.L - [9000, 6000, 9000, 6000][i]) < 0.5, 'wall ' + i + ' measured'); ok(Math.abs(Math.hypot(g.A2[0] - g.A[0], g.A2[1] - g.A[1]) - 300) < 0.5, 'offset 300'); });
+  // stuck to an object: follows it when it moves and turns
+  const t = PG.makeItem('t_q180', 4000, 3000); P.items.push(t);
+  for (let k = 0; k < 200; k++) { t.x = rnd(-3000, 9000); t.y = rnd(-3000, 9000); t.rot = rnd(-180, 180); const dm = { a: { ref: { t: 'i', id: t.id, k: 'c0' } }, b: { ref: { t: 'i', id: t.id, k: 'c2' } }, off: 0, dir: 'a' }, g = PG.dimGeom(P, dm); ok(Math.abs(g.L - Math.hypot(1800, 800)) < 0.5, 'diagonal of a turned table stays ' + Math.round(g.L)); const c = PG.itemCorners(t); ok(Math.hypot(g.A[0] - c[0][0], g.A[1] - c[0][1]) < 0.5, 'end on the corner'); }
+  // horizontal / vertical / the offset that passes through a point
+  for (let k = 0; k < 200; k++) { const A = [rnd(-5000, 5000), rnd(-5000, 5000)], B = [rnd(-5000, 5000), rnd(-5000, 5000)], q = [rnd(-5000, 5000), rnd(-5000, 5000)];
+    ['a', 'h', 'v'].forEach((dir) => { const dm = { a: { x: A[0], y: A[1] }, b: { x: B[0], y: B[1] }, dir, off: 0 }; dm.off = PG.dimOffsetAt(P, dm, q); const g = PG.dimGeom(P, dm);
+      const Lx = dir === 'h' ? Math.abs(B[0] - A[0]) : dir === 'v' ? Math.abs(B[1] - A[1]) : Math.hypot(B[0] - A[0], B[1] - A[1]); ok(Math.abs(g.L - Lx) < 0.01, dir + ' value');
+      const r = PG.distSeg(q, g.A2, g.B2); const onLine = dir === 'a' ? Math.abs(((g.B2[0] - g.A2[0]) * (q[1] - g.A2[1]) - (g.B2[1] - g.A2[1]) * (q[0] - g.A2[0])) / (Math.hypot(g.B2[0] - g.A2[0], g.B2[1] - g.A2[1]) || 1)) : dir === 'h' ? Math.abs(q[1] - g.A2[1]) : Math.abs(q[0] - g.A2[0]); ok(onLine < 0.01 || Lx < 1e-6, dir + ': the line passes through the dragged point'); }); }
+  ok(PG.dimText({ txt: '' }, 3450, 'm') === '3,450' && PG.dimText({ txt: '3,5 по проекту' }, 3450, 'm') === '3,5 по проекту' && PG.dimText({}, 3450, 'cm') === '345,0', 'text: number in plan units, or own text');
+  // keypoints: every room corner, table corners and centre
+  const K = PG.keyPoints(P); ok(K.filter((k) => k.ref.t === 'r').length === 4 && K.filter((k) => k.ref.t === 'i').length === 5, 'keypoints: 4 room corners, 4 table corners + centre');
+  // normalize: bad values cleaned, good kept
+  const n = PG.normalize({ rooms: P.rooms, items: [Object.assign(PG.makeItem('g_tri', 0, 0), { col: 'red', fill: 'x', lw: 9 }), Object.assign(PG.makeItem('g_free', 0, 0), { pts: [[0, 0], [1, 1]] }), ln],
+    dims: [{ a: { x: 1, y: 2, ref: { t: 'r', id: P.rooms[0].id, k: 2 } }, b: { x: 3, y: 4 }, off: 'x', fs: 9, arr: 'zz', dir: 'q', txt: 'a'.repeat(99) }, { a: null }] });
+  ok(n.items[0].col === '#4F8DFF' && n.items[0].fill === 'soft' && n.items[0].lw === 2, 'bad colour/fill/outline → defaults'); ok(n.items[1].shape === 'rect' && !n.items[1].pts, 'a polygon of 2 points → rectangle'); ok(n.items[2].open === true && n.items[2].pts.length === 3, 'line kept');
+  ok(n.dims.length === 1 && n.dims[0].fs === 2 && n.dims[0].arr === 'arrow' && n.dims[0].dir === 'a' && n.dims[0].off === 0 && n.dims[0].txt.length === 40 && n.dims[0].a.ref.k === 2 && !n.dims[0].b.ref, 'dimension cleaned');
+  // plain shapes are not obstacles; a marked one is
+  const P2 = PG.newPlan(); P2.rooms = P.rooms; const sh = PG.makeItem('g_rect', 4000, 3000), tb = PG.makeItem('t_q180', 4000, 3000); P2.items = [sh, tb];
+  ok(!PG.conflicts(P2).length, 'a table on a plain shape: no conflict'); sh.solid = true; ok(PG.conflicts(P2).some((q) => q.t === 'item'), 'on an obstacle shape: conflict');
+  const wall = PG.makeItem('g_wall', 0, 0); ok(wall.solid === true && wall.fill === 'full', 'partition is an obstacle by default'); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

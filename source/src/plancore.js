@@ -502,6 +502,13 @@ var PG = (function () {
     z_cake:   { g: 'zones', label: 'Стол для торта Ø80', kind: 'zone', sub: 'furn', shape: 'round', w: 800 },
     z_gift:   { g: 'zones', label: 'Стол для подарков 1,2×0,6', kind: 'zone', sub: 'furn', shape: 'rect', w: 1200, d: 600 },
     z_lounge: { g: 'zones', label: 'Диван, лаунж 2×0,9 м', kind: 'zone', sub: 'furn', shape: 'rect', w: 2000, d: 900 },
+    /* free geometry: plain shapes for walls, partitions, hanging pieces — whatever is needed; they stand in nobody's way unless marked «препятствие» */
+    g_rect: { g: 'geo', label: 'Прямоугольник 2×1 м', kind: 'shape', shape: 'rect', w: 2000, d: 1000 },
+    g_oval: { g: 'geo', label: 'Круг Ø1,5 м', kind: 'shape', shape: 'oval', w: 1500, d: 1500 },
+    g_tri:  { g: 'geo', label: 'Треугольник 2×1,5 м', kind: 'shape', shape: 'poly', w: 2000, d: 1500, pts: [[0, -750], [1000, 750], [-1000, 750]] },
+    g_wall: { g: 'geo', label: 'Перегородка 3 м × 10 см', kind: 'shape', shape: 'rect', w: 3000, d: 100, solid: true, fill: 'full', col: '#5B6573' },
+    g_free: { g: 'geo', label: 'Своя форма', kind: 'shape', shape: 'poly', w: 1000, d: 1000, draw: true },
+    g_line: { g: 'geo', label: 'Линия', kind: 'shape', shape: 'poly', w: 1000, d: 50, draw: true, open: true },
     /* the upper layer: drawn over the plan, never in the way of the floor; h = height in mm (for decor and light — its lowest point) */
     u_ceil:  { g: 'ceil',  top: true, label: 'Зона потолка 6×4 м', kind: 'ceil', sub: 'ceil', shape: 'rect', w: 6000, d: 4000, dh: 0, hl: 'Высота потолка здесь' },
     u_hook:  { g: 'rig',   top: true, label: 'Точка подвеса', kind: 'hook', sub: 'hook', shape: 'round', w: 240, dh: 0, hl: 'Высота крепления', fixed: true },
@@ -520,11 +527,13 @@ var PG = (function () {
     if (c.kind === 'table') { if (c.shape === 'rect') it.sides = c.sides.slice(); else it.seats = c.seats; if (c.stand) it.stand = true; }
     if (c.top) { it.top = true; it.h = null; }   // the height is set when placed: from the ceiling at that point
     if (c.sub === 'stage') it.h = ref === 'z_podium' ? 300 : 400;   // stage height: the clearance above it is counted from its top
+    if (c.kind === 'shape') { it.col = c.col || '#4F8DFF'; it.fill = c.fill || 'soft'; it.lw = 2; if (c.solid) it.solid = true; if (c.open) it.open = true; if (c.pts) it.pts = c.pts.map((q) => q.slice()); }
     return it;
   }
   function itemLabel(it) {
     if (it.kind === 'column') return isRound(it) ? 'Колонна' : 'Колонна';
     if (it.name) return it.name;
+    if (it.kind === 'shape') return it.shape === 'oval' ? (Math.abs(it.w - it.d) < 1 ? 'Круг' : 'Эллипс') : it.shape === 'poly' ? (it.open ? 'Линия' : it.ref === 'g_tri' ? 'Треугольник' : 'Своя форма') : it.ref === 'g_wall' ? 'Перегородка' : (Math.abs(it.w - it.d) < 1 ? 'Квадрат' : 'Прямоугольник');
     const c = CAT[it.ref]; return c ? c.label.replace(/ [\dØ][\d,×Ø .м]*$/, '').replace(/ Ø$/, '') : 'Объект';
   }
   function seatCount(it) {
@@ -575,6 +584,7 @@ var PG = (function () {
   /* the object's footprint as world polygons: the table or zone, then each chair */
   function footprint(it) {
     const polys = [];
+    if (it.kind === 'shape' && it.shape === 'poly' && Array.isArray(it.pts) && it.pts.length >= 2) { const W = it.pts.map((q) => toWorld(it, q[0], q[1])); polys.push(it.open ? W.concat(W.slice(1, -1).reverse()) : W); return polys; }
     if (it.shape === 'round' || it.shape === 'oval') polys.push(ellipsePts(it, 20)); else polys.push(itemCorners(it));
     chairsLocal(it).forEach((c) => {
       const a = c.a * DEG, ca = Math.cos(a), sa = Math.sin(a), hw = CHAIR.w / 2, hd = CHAIR.d / 2;
@@ -606,7 +616,7 @@ var PG = (function () {
   /* what is in the way: an object crossing a wall, standing outside the rooms, in a door's swing, or on another object */
   function conflicts(p, geoms) {
     geoms = geoms || p.rooms.map(roomGeom);
-    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
+    const out = [], fps = p.items.filter((it) => !it.top && it.kind !== 'photo' && !(it.kind === 'shape' && !it.solid)).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; });
     const swings = []; p.rooms.forEach((r, ri) => doorSwings(r, geoms[ri]).forEach((s) => { s.bb = bboxOf(s.poly); swings.push(s); }));
     const overlapBB = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
     fps.forEach((F) => {
@@ -771,7 +781,7 @@ var PG = (function () {
   }
   function narrowGaps(p, min) {
     if (!(min > 0)) return [];
-    const F = p.items.filter((it) => !it.top && it.kind !== 'photo').map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; }), out = [];
+    const F = p.items.filter((it) => !it.top && it.kind !== 'photo' && !(it.kind === 'shape' && !it.solid)).map((it) => { const f = footprint(it); return { it, f, bb: polyBB(f) }; }), out = [];
     for (let i = 0; i < F.length; i++) for (let j = i + 1; j < F.length; j++) {
       const A = F[i], B = F[j];
       if (A.it.grp && A.it.grp === B.it.grp) continue;   // a group is meant to stand together
@@ -1003,7 +1013,7 @@ var PG = (function () {
   function fullBox(it) { const pts = []; footprint(it).forEach((poly) => poly.forEach((q) => pts.push(q))); return bboxOf(pts); }
   /* a place near (cx, cy) where a new object with its chairs touches nothing and stays inside a room: tried in rings, sideways first */
   function freeSpot(p, it, cx, cy) {
-    const others = p.items.filter((o) => o.kind !== 'photo' && o.id !== it.id && !!o.top === !!it.top).map(fullBox);
+    const others = p.items.filter((o) => o.kind !== 'photo' && !(o.kind === 'shape' && !o.solid) && o.id !== it.id && !!o.top === !!it.top).map(fullBox);
     const me = fullBox(Object.assign({}, it, { x: 0, y: 0 })), sx = me.x1 - me.x0 + 300, sy = me.y1 - me.y0 + 300, geoms = p.rooms.map(roomGeom);
     const fits = (x, y) => {
       const b = { x0: me.x0 + x, x1: me.x1 + x, y0: me.y0 + y, y1: me.y1 + y };
@@ -1042,7 +1052,7 @@ var PG = (function () {
       approxWalls: rooms.reduce((a, r) => a + r.walls.filter((w) => !w.m).length, 0) };
   }
   /* ---------- the plan as a whole ---------- */
-  function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [] }; }
+  function newPlan() { return { v: 1, unit: 'm', h: 3000, minClear: 2200, rooms: [], items: [], dims: [] }; }
   function normalize(p) {
     const o = Object.assign(newPlan(), p && typeof p === 'object' ? p : {});
     if (!UNIT[o.unit]) o.unit = 'm';
@@ -1060,10 +1070,18 @@ var PG = (function () {
       r.walls.forEach((w) => { w.id = w.id || uid(); w.len = Math.max(1, Math.round(+w.len || 1)); w.dir = normDeg(+w.dir || 0); w.m = !!w.m; w.ops = (Array.isArray(w.ops) ? w.ops : []).filter((x) => x && x.type); w.ops.forEach((x) => { x.id = x.id || uid(); clampOpening(x, w.len); }); });
       return r;
     });
+    o.dims = (Array.isArray(o.dims) ? o.dims : []).map(normDim).filter(Boolean).slice(0, 500);
     o.items = (Array.isArray(o.items) ? o.items : []).filter((it) => it && it.kind && isFinite(+it.x) && isFinite(+it.y) && +it.w > 0).map((it) => {
       it.id = it.id || uid(); it.x = +it.x; it.y = +it.y; it.w = clamp(Math.round(+it.w), 50, 60000); it.d = clamp(Math.round(+it.d || it.w), 50, 60000); it.rot = normDeg(+it.rot || 0);
       if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1); }
       it.name = String(it.name || '').slice(0, 60);
+      if (it.kind === 'shape') {
+        it.shape = ['rect', 'oval', 'poly'].indexOf(it.shape) >= 0 ? it.shape : 'rect';
+        it.col = /^#[0-9a-f]{6}$/i.test(it.col || '') ? it.col : '#4F8DFF'; it.fill = ['none', 'soft', 'full', 'hatch'].indexOf(it.fill) >= 0 ? it.fill : 'soft'; it.lw = [1, 2, 3].indexOf(+it.lw) >= 0 ? +it.lw : 2;
+        it.solid = !!it.solid; it.open = !!it.open;
+        if (it.shape === 'poly') { it.pts = (Array.isArray(it.pts) ? it.pts : []).filter((q) => Array.isArray(q) && isFinite(+q[0]) && isFinite(+q[1])).slice(0, 200).map((q) => [Math.round(+q[0] * 10) / 10, Math.round(+q[1] * 10) / 10]);
+          if (it.pts.length < (it.open ? 2 : 3)) { it.shape = 'rect'; delete it.pts; it.open = false; } else recenterPoly(it); } else { delete it.pts; it.open = false; }
+      }
       if (it.top) { it.top = true; it.h = +it.h > 0 ? clamp(Math.round(+it.h), 100, 30000) : null; if (it.load != null) it.load = +it.load > 0 ? Math.round(+it.load) : null; } else if (it.h != null) it.h = Math.max(0, Math.round(+it.h) || 0);
       return it; });
     return o;
@@ -1164,13 +1182,109 @@ var PG = (function () {
   }
   const SIDE_NAMES = ['Сверху', 'Снизу', 'Слева', 'Справа'];
 
+  /* ===== shapes: a polygon keeps its points in its own frame, centred on its bounding box (w × d), so turning, moving,
+     snapping and the side handles work as for any rectangle; after a point moves the shape is re-centred ===== */
+  const SHAPE_COLS = ['#4F8DFF', '#40C057', '#FFB547', '#FF5FA2', '#9B6BFF', '#E8590C', '#5B6573', '#2B2B2B'];
+  function recenterPoly(it) {
+    if (!Array.isArray(it.pts) || !it.pts.length) return it;
+    const bb = bboxOf(it.pts), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    if (Math.abs(cx) > 0.05 || Math.abs(cy) > 0.05) { const c = toWorld(it, cx, cy); it.x = Math.round(c[0] * 10) / 10; it.y = Math.round(c[1] * 10) / 10; it.pts = it.pts.map((q) => [Math.round((q[0] - cx) * 10) / 10, Math.round((q[1] - cy) * 10) / 10]); }
+    it.w = Math.max(50, Math.round(bb.x1 - bb.x0)); it.d = Math.max(50, Math.round(bb.y1 - bb.y0));
+    return it;
+  }
+  /* a new size for a polygon: its points stretch to fill it */
+  function scalePoly(it, w, d) {
+    if (!Array.isArray(it.pts)) return it; const bb = bboxOf(it.pts), W0 = Math.max(1, bb.x1 - bb.x0), D0 = Math.max(1, bb.y1 - bb.y0);
+    const kx = W0 > 1 ? w / W0 : 1, ky = D0 > 1 ? d / D0 : 1; it.pts = it.pts.map((q) => [Math.round(q[0] * kx * 10) / 10, Math.round(q[1] * ky * 10) / 10]);
+    return recenterPoly(it);
+  }
+  /* a drawn outline (world points) as a shape */
+  function shapeFromPoints(pts, open) {
+    const bb = bboxOf(pts), cx = (bb.x0 + bb.x1) / 2, cy = (bb.y0 + bb.y1) / 2;
+    const it = makeItem(open ? 'g_line' : 'g_free', cx, cy); it.x = Math.round(cx * 10) / 10; it.y = Math.round(cy * 10) / 10;
+    it.pts = pts.map((q) => [Math.round((q[0] - cx) * 10) / 10, Math.round((q[1] - cy) * 10) / 10]); return recenterPoly(it);
+  }
+  function polyArea(L) { let a = 0; for (let i = 0; i < L.length; i++) { const p = L[i], q = L[(i + 1) % L.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a) / 2; }
+  function shapeArea(it) { if (it.shape === 'oval') return Math.PI * it.w * it.d / 4; if (it.shape === 'poly') return it.open ? 0 : polyArea(it.pts || []); return it.w * it.d; }
+  function shapeLength(it) { if (it.shape !== 'poly' || !it.pts) return 0; let L = 0; const n = it.pts.length, m = it.open ? n - 1 : n; for (let i = 0; i < m; i++) { const a = it.pts[i], b = it.pts[(i + 1) % n]; L += hyp(b[0] - a[0], b[1] - a[1]); } return L; }
+
+  /* ===== dimensions on the plan: each end is a point, stuck to a corner (of a room, an object, a shape's point) by a reference,
+     so the dimension follows when the thing moves; a free end stays where it was put. off — how far the line stands off the
+     measured points (signed, in mm); dir — 'a' along the points, 'h' horizontal, 'v' vertical ===== */
+  function localKey(it, k) {
+    const hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2;
+    if (k === 'o') return [0, 0];
+    if (/^c[0-3]$/.test(k)) return [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]][+k[1]];
+    if (/^q[0-3]$/.test(k)) return [[hw, 0], [0, hd], [-hw, 0], [0, -hd]][+k[1]];
+    if (/^v\d+$/.test(k) && Array.isArray(it.pts)) { const q = it.pts[+k.slice(1)]; return q ? q : null; }
+    return null;
+  }
+  function refPoint(p, ref) {
+    if (!ref) return null;
+    if (ref.t === 'r') { const r = p.rooms.find((x) => x.id === ref.id); if (!r) return null; const g = roomGeom(r), q = g.raw[+ref.k]; return q ? [q[0], q[1]] : null; }
+    if (ref.t === 'i') { const it = p.items.find((x) => x.id === ref.id); if (!it) return null; const q = localKey(it, ref.k); return q ? toWorld(it, q[0], q[1]) : null; }
+    return null;
+  }
+  function dimPoint(p, e) { return refPoint(p, e && e.ref) || [+e.x || 0, +e.y || 0]; }
+  /* every point a dimension end can stick to */
+  function keyPoints(p) {
+    const out = [];
+    p.rooms.forEach((r) => { const g = roomGeom(r); for (let i = 0; i < g.n; i++) out.push({ q: g.raw[i], ref: { t: 'r', id: r.id, k: i } }); });
+    p.items.forEach((it) => {
+      if (it.kind === 'photo') return;
+      const add = (k) => { const l = localKey(it, k); if (l) out.push({ q: toWorld(it, l[0], l[1]), ref: { t: 'i', id: it.id, k } }); };
+      add('o');
+      if (it.shape === 'round') ['q0', 'q1', 'q2', 'q3'].forEach(add);
+      else if (it.kind === 'shape' && it.shape === 'poly') (it.pts || []).forEach((q, i) => add('v' + i));
+      else { ['c0', 'c1', 'c2', 'c3'].forEach(add); if (it.shape === 'oval') ['q0', 'q1', 'q2', 'q3'].forEach(add); }
+    });
+    return out;
+  }
+  /* every side a dimension can measure in one tap: its two ends (as references) and which way is «outside» */
+  function dimEdges(p) {
+    const out = [];
+    p.rooms.forEach((r) => { const g = roomGeom(r); for (let i = 0; i < g.n; i++) out.push({ a: { t: 'r', id: r.id, k: i }, b: { t: 'r', id: r.id, k: i + 1 }, A: g.raw[i], B: g.raw[i + 1], out: outward(g, i) }); });
+    p.items.forEach((it) => {
+      if (it.kind === 'photo') return;
+      const ctr = [it.x, it.y], push = (ka, kb) => { const A = refPoint(p, { t: 'i', id: it.id, k: ka }), B = refPoint(p, { t: 'i', id: it.id, k: kb }); if (!A || !B) return; const m = [(A[0] + B[0]) / 2, (A[1] + B[1]) / 2], L = hyp(B[0] - A[0], B[1] - A[1]) || 1; let n = [-(B[1] - A[1]) / L, (B[0] - A[0]) / L]; if ((m[0] - ctr[0]) * n[0] + (m[1] - ctr[1]) * n[1] < 0) n = [-n[0], -n[1]]; out.push({ a: { t: 'i', id: it.id, k: ka }, b: { t: 'i', id: it.id, k: kb }, A, B, out: n }); };
+      if (it.shape === 'round' || it.shape === 'oval') { push('q2', 'q0'); push('q3', 'q1'); }   // a circle: its diameters
+      else if (it.kind === 'shape' && it.shape === 'poly') { const n = (it.pts || []).length, m = it.open ? n - 1 : n; for (let i = 0; i < m; i++) push('v' + i, 'v' + ((i + 1) % n)); }
+      else { push('c0', 'c1'); push('c1', 'c2'); push('c2', 'c3'); push('c3', 'c0'); }
+    });
+    return out;
+  }
+  /* where a dimension is drawn: the measured points A, B, the line A2–B2 standing off them, the value, the text angle */
+  function dimGeom(p, dm) {
+    const A = dimPoint(p, dm.a), B = dimPoint(p, dm.b), off = +dm.off || 0;
+    let A2, B2, L;
+    if (dm.dir === 'h') { const y = (A[1] + B[1]) / 2 + off; A2 = [A[0], y]; B2 = [B[0], y]; L = Math.abs(B[0] - A[0]); }
+    else if (dm.dir === 'v') { const x = (A[0] + B[0]) / 2 + off; A2 = [x, A[1]]; B2 = [x, B[1]]; L = Math.abs(B[1] - A[1]); }
+    else { L = hyp(B[0] - A[0], B[1] - A[1]); const u = L > 0 ? [(B[0] - A[0]) / L, (B[1] - A[1]) / L] : [1, 0], n = [u[1], -u[0]]; A2 = [A[0] + n[0] * off, A[1] + n[1] * off]; B2 = [B[0] + n[0] * off, B[1] + n[1] * off]; }
+    const ang = Math.atan2(B2[1] - A2[1], B2[0] - A2[0]) / DEG;
+    return { A, B, A2, B2, L, ang, mid: [(A2[0] + B2[0]) / 2, (A2[1] + B2[1]) / 2] };
+  }
+  /* the signed offset that puts the line through point q (for dragging it) */
+  function dimOffsetAt(p, dm, q) {
+    const A = dimPoint(p, dm.a), B = dimPoint(p, dm.b);
+    if (dm.dir === 'h') return q[1] - (A[1] + B[1]) / 2;
+    if (dm.dir === 'v') return q[0] - (A[0] + B[0]) / 2;
+    const L = hyp(B[0] - A[0], B[1] - A[1]) || 1, n = [(B[1] - A[1]) / L, -(B[0] - A[0]) / L]; return (q[0] - A[0]) * n[0] + (q[1] - A[1]) * n[1];
+  }
+  function dimText(dm, L, unit) { return dm.txt ? String(dm.txt) : fmtLen(L, unit || 'm'); }
+  function normDim(dm) {
+    if (!dm || !dm.a || !dm.b) return null;
+    const end = (e) => { const o = { x: Math.round((+e.x || 0) * 10) / 10, y: Math.round((+e.y || 0) * 10) / 10 }; if (e.ref && (e.ref.t === 'r' || e.ref.t === 'i') && e.ref.id) o.ref = { t: e.ref.t, id: String(e.ref.id), k: e.ref.t === 'r' ? Math.max(0, Math.round(+e.ref.k) || 0) : String(e.ref.k) }; return o; };
+    return { id: String(dm.id || uid()), a: end(dm.a), b: end(dm.b), off: clamp(Math.round(+dm.off || 0), -100000, 100000), dir: ['a', 'h', 'v'].indexOf(dm.dir) >= 0 ? dm.dir : 'a',
+      txt: String(dm.txt || '').slice(0, 40), fs: [1, 2, 3, 4].indexOf(+dm.fs) >= 0 ? +dm.fs : 2, arr: ['arrow', 'tick', 'dot', 'none'].indexOf(dm.arr) >= 0 ? dm.arr : 'arrow' };
+  }
+
   return {
     DEG, TOL_OK, TOL_WARN, UNIT, uid, clamp, hyp, nf, fmtLen, parseNum, parseSum, parseLen,
     unitVec, normDeg, signedArea, selfIntersects, triArea, pointInPoly, distSeg, bboxOf, labelPoint, labelAvoid,
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES,
+    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();

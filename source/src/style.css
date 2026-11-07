@@ -1174,3 +1174,29 @@ html.glass .tools .tb{border-radius:10px}
 html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);border:1px solid var(--glb);border-radius:14px}
 .mpop .mhd{font-size:11px;color:var(--muted);padding:4px 10px 4px 26px;max-width:280px;white-space:normal;line-height:1.3}
 @media (max-width:1499px){html.qtop .appn{display:none}html.qtop #photobtn span{display:none}html.qtop #photobtn{padding:0 9px}html.qtop .qbar .qb{width:32px}}
+/* v56: shapes and dimensions on the plan */
+#plan .phl{stroke:transparent;stroke-width:14px}
+#plan .pig.shp.on .pshp{filter:drop-shadow(0 0 2.5px var(--accent))}
+#plan .pig.shp.bad .pshp{stroke:#e03131}
+#plan .psn{fill:var(--ink);font-weight:600}
+#plan #pdim{pointer-events:none}
+#plan .pdm{stroke:var(--pl-dm);stroke-width:1.2px;vector-effect:non-scaling-stroke;fill:none}
+#plan .pdm.ext{stroke-width:.9px;opacity:.85}
+#plan .pdm.arr,#plan .pdm.dot{fill:var(--pl-dm);stroke:none}
+#plan .pdm.on{stroke:var(--accent)}#plan .pdm.on.arr,#plan .pdm.on.dot{fill:var(--accent)}
+#plan .pdt{fill:var(--pl-dmt);font-weight:700}
+#plan .pdt.on{fill:var(--accent)}
+:root,:root[data-theme="dark"]{--pl-dm:#74A7FF;--pl-dmt:#A8C6FF}:root[data-theme="light"]{--pl-dm:#2F6FE4;--pl-dmt:#1D57C4}@media (prefers-color-scheme:light){:root:not([data-theme]){--pl-dm:#2F6FE4;--pl-dmt:#1D57C4}}
+#plan .hd{stroke:transparent;stroke-width:16px;vector-effect:non-scaling-stroke;fill:none;pointer-events:stroke;cursor:pointer}
+#plan .hdt{fill:transparent;stroke:none;pointer-events:all;cursor:pointer}
+#plan .pkp{fill:var(--accent);opacity:.75}
+#plan .pvd{fill:#fff;stroke:var(--accent);stroke-width:2px;vector-effect:non-scaling-stroke}
+#plan .pvd.on{fill:var(--accent)}
+#plan .pvm{fill:var(--accent);opacity:.55}
+.swr{display:flex;flex-wrap:wrap;gap:6px}
+.swc{width:30px;height:30px;border-radius:50%;border:2px solid var(--wline);cursor:pointer;padding:0}
+.swc.on{outline:2.5px solid var(--accent);outline-offset:2px}
+.dock .fld.stk{grid-template-columns:1fr;gap:3px}
+.dock .fld.stk>.seg{display:flex;width:100%}
+.dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
+.dock .fld.stk>.seg button svg{display:block;margin:auto}

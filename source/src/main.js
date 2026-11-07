@@ -1024,7 +1024,7 @@ var QB=(function(){
       case 'dup':return {dis:!many&&!isIt,run:function(){pa(many?'m-dup':'it-dup')}};
       case 'copy':return {dis:!many&&!isIt,run:function(){pa('clip-copy')}};
       case 'paste':return {dis:!PL.canPaste(),run:function(){pa('clip-paste')}};
-      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
+      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del',dim:'d-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
       case 'lock':{if(many){var L=PL.st.multi.map(function(i){return S.plan.items.find(function(x){return x.id===i})}).filter(Boolean),all=L.length&&L.every(function(x){return x.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){pa('m-lock')}}}
         var o=it||(s.t==='room'?S.plan.rooms.find(function(r){return r.id===s.r}):null);if(!o)return {dis:true};return {on:!!o.lock,title:o.lock?'Открепить':'Закрепить',run:function(){pa('lyr-lock',(it?'i|':'r|')+o.id)}}}
       case 'rot':return {dis:!many&&!isIt,run:function(){pa(many?'m-rot':'it-rot90')}};
