@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#7a4b94">
-<meta name="app-version" content="bus-v1">
+<meta name="app-version" content="bus-v2">
 <title>Автобус Schanz</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -121,14 +121,16 @@ async function getJSON(url) {
 
 // ===== Поиск ID остановки (с кэшем) =====
 async function resolveStop(key, force) {
-  const ck = "stop2:" + key;
+  const ck = "stop3:" + key;
   const cached = store.get(ck);
   if (!force && cached && Date.now() - cached.t < STOP_CACHE_DAYS * 864e5) return cached.id;
   const s = STOPS[key];
-  const url = `${API}/api/v1/geocode?type=STOP&place=${AACHEN}&text=${encodeURIComponent(s.query)}`;
+  const url = `${API}/api/v1/geocode?type=STOP&numResults=20&place=${AACHEN}&text=${encodeURIComponent(s.query)}`;
   const res = await getJSON(url);
-  const inAachen = m => !m.areas || !m.areas.length || m.areas.some(a => /aachen/i.test(a.name));
-  const hit = (res || []).find(m => s.match.test(m.name) && inAachen(m));
+  // город именно Аахен (не Eschweiler, не Düren), немецкие данные (de-…) раньше бельгийских/нидерландских
+  const inAachen = m => (m.areas || []).some(a => /^aachen$/i.test(a.name));
+  const cands = (res || []).filter(m => s.match.test(m.name) && inAachen(m));
+  const hit = cands.find(m => /^de-/.test(m.id)) || cands[0];
   if (!hit) throw new Error(`Остановка «${s.name}» не найдена`);
   store.set(ck, { id: hit.id, name: hit.name, t: Date.now() });
   return hit.id;
@@ -195,7 +197,7 @@ let current = Math.min(Math.max(+store.get("route") || 0, 0), ROUTES.length - 1)
 const state = {};       // по индексу направления: { trips, at }
 let lastTouch = Date.now();
 let timer = null;
-let loading = false;
+const inflight = {};    // по индексу направления: идущая загрузка
 
 function renderTabs() {
   $("tabs").innerHTML = ROUTES.map(([a, b], i) =>
@@ -238,10 +240,13 @@ function renderList() {
 function setStatus(text) { $("status").textContent = text; }
 function setBanner(text) { const b = $("banner"); b.textContent = text || ""; b.style.display = text ? "block" : "none"; }
 
-async function load(i, retryStops = true) {
-  if (loading) return;
-  loading = true;
-  setStatus("Обновление…");
+function load(i) {
+  if (i === current) setStatus("Обновление…");
+  if (!inflight[i]) inflight[i] = doLoad(i).finally(() => { delete inflight[i]; });
+  return inflight[i];
+}
+
+async function doLoad(i, retryStops = true) {
   const [a, b] = ROUTES[i];
   try {
     const [fromId, toId] = await Promise.all([resolveStop(a, false), resolveStop(b, false)]);
@@ -256,8 +261,9 @@ async function load(i, retryStops = true) {
     const trips = toTrips(data);
     state[i] = { trips, at: Date.now() };
     store.set("cache:" + i, state[i]);
-    setBanner("");
+    if (i === current) setBanner("");
   } catch (e) {
+    if (i !== current) { console.error(e); return; }
     const cached = state[i] || store.get("cache:" + i);
     if (cached) {
       state[i] = cached;
@@ -268,7 +274,6 @@ async function load(i, retryStops = true) {
     }
     console.error(e);
   } finally {
-    loading = false;
     if (i === current) { renderList(); updateStatus(); }
   }
 }

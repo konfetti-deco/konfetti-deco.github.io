@@ -9,13 +9,26 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - name: Stops in the data source
+      - name: Stops and direct trips in the data source
         run: |
-          for q in "Schanz (Jakobstraße) Aachen" "Bushof Aachen" "Kaiserplatz Aachen"; do
-            echo "=== $q"
+          pick() {  # same rule as the page: name matches, city Aachen, German feed first
             curl -sS -G "https://api.transitous.org/api/v1/geocode" -H "Referer: https://konfetti-deco.github.io/bus/" \
-              --data-urlencode "text=$q" --data-urlencode "type=STOP" --data-urlencode "place=50.7753,6.0839" \
-              | jq -c '.[:5][] | {name,id,areas:[.areas[]?.name]}'
+              --data-urlencode "text=$1" --data-urlencode "type=STOP" --data-urlencode "numResults=20" --data-urlencode "place=50.7753,6.0839" \
+              | jq -r --arg re "$2" '[.[] | select((.name|test($re;"i")) and ([.areas[]?.name]|index("Aachen")))] | (map(select(.id|startswith("de-"))) + .)[0] | "\(.id)\t\(.name)"'
+          }
+          S=$(pick "Schanz (Jakobstraße) Aachen" "schanz.*jakob"); B=$(pick "Bushof Aachen" "bushof"); K=$(pick "Kaiserplatz Aachen" "kaiserplatz")
+          echo "Schanz: $S"; echo "Bushof: $B"; echo "Kaiserplatz: $K"
+          S=${S%%$'\t'*}; B=${B%%$'\t'*}; K=${K%%$'\t'*}
+          for v in v6 v5 v4 v3 v2 v1; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -G "https://api.transitous.org/api/$v/plan" --data-urlencode "fromPlace=$S" --data-urlencode "toPlace=$B")
+            echo "plan $v -> $code"; [ "$code" = 200 ] && V=$v && break
+          done
+          for pair in "$S $B" "$B $S" "$S $K" "$K $S"; do
+            set -- $pair
+            echo "=== $1 -> $2"
+            curl -sS -G "https://api.transitous.org/api/$V/plan" -H "Referer: https://konfetti-deco.github.io/bus/" \
+              --data-urlencode "fromPlace=$1" --data-urlencode "toPlace=$2" --data-urlencode "numItineraries=8" --data-urlencode "maxTransfers=1" \
+              | jq -r '.itineraries[] | [.legs[] | select(.mode!="WALK") | "\(.routeShortName // .mode) \(.from.name) \(.startTime) (plan \(.scheduledStartTime)) rt=\(.realTime) -> \(.to.name) \(.endTime)"] | join(" | ")'
           done
       - name: CORS
         run: |
@@ -24,7 +37,7 @@ jobs:
       - name: Wait for the deployed page
         run: |
           for i in $(seq 1 40); do
-            if curl -sS "https://konfetti-deco.github.io/bus/?t=$(date +%s)" | grep -q 'bus-v1'; then echo "live"; exit 0; fi
+            if curl -sS "https://konfetti-deco.github.io/bus/?t=$(date +%s)" | grep -q 'bus-v2'; then echo "live"; exit 0; fi
             sleep 15
           done
           echo "page not live"; exit 1
@@ -43,7 +56,7 @@ jobs:
           const tabs = await p.locator('.tab').count();
           for (let i = 0; i < tabs; i++) {
             await p.locator('.tab').nth(i).click();
-            await p.waitForFunction(() => !/Обновление|Загрузка/.test(document.getElementById('status').textContent), null, {timeout:45000}).catch(()=>{});
+            await p.waitForFunction(() => /Обновлено/.test(document.getElementById('status').textContent) || getComputedStyle(document.getElementById('banner')).display !== 'none', null, {timeout:60000}).catch(()=>console.log('TIMEOUT waiting for data'));
             const name = await p.locator('.tab').nth(i).innerText();
             console.log('\n##### ' + name);
             console.log('status:', await p.locator('#status').innerText());
