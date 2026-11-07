@@ -1151,3 +1151,26 @@ html.glass .tools .tb{border-radius:10px}
 .tools .plyr{width:48px}
 .tools .plyr button{font-size:12.5px;min-height:32px;padding:7px 0;border-radius:8px}
 .msub>.mi{width:100%}
+/* v55: the actions panel — in the top bar, floating on the canvas, or hidden */
+.qbar{display:flex;align-items:center;gap:1px;flex:none;min-width:0}
+.qbar .qb{width:34px;height:34px;border-radius:7px}
+.qbar .qb svg{width:20px;height:20px}
+.qb[disabled]{opacity:.32;cursor:default}
+.qb[aria-pressed=true]{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc)}
+.qb.dng:not([disabled]){color:var(--bad,#d9534f)}
+.qsep{flex:none;width:1px;height:20px;background:var(--wline);margin:0 3px}
+.qfloat{position:fixed;z-index:110;display:flex;align-items:center;gap:2px;padding:4px;background:var(--panel);border:1px solid var(--wline);border-radius:12px;box-shadow:var(--sh2);touch-action:none;user-select:none}
+.qfloat[hidden]{display:none}
+.qfloat .qb{width:44px;height:44px;border-radius:9px}
+.qfloat .qb svg{width:24px;height:24px}
+.qfloat.vert{flex-direction:column}
+.qfloat.vert .qsep{width:24px;height:1px;margin:3px 0}
+.qfloat .qgrip{flex:none;width:22px;height:44px;display:grid;place-items:center;color:var(--muted);cursor:grab;touch-action:none}
+.qfloat.vert .qgrip{width:44px;height:22px}
+.qfloat.vert .qgrip svg{transform:rotate(90deg)}
+.qfloat .qgrip svg{width:20px;height:20px}
+.qfloat.drag{opacity:.85;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.qfloat.drag .qgrip{cursor:grabbing}
+html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);border:1px solid var(--glb);border-radius:14px}
+.mpop .mhd{font-size:11px;color:var(--muted);padding:4px 10px 4px 26px;max-width:280px;white-space:normal;line-height:1.3}
+@media (max-width:1499px){html.qtop .appn{display:none}html.qtop #photobtn span{display:none}html.qtop #photobtn{padding:0 9px}html.qtop .qbar .qb{width:32px}}

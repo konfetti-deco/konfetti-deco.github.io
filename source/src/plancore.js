@@ -1153,13 +1153,24 @@ var PG = (function () {
     return { mm, sure };
   }
 
+  /* a rectangular table's chair sides as they look on the plan now: sides[k] is kept in the table's own frame
+     (0 top, 1 bottom, 2 left, 3 right before any turn); after a turn the names follow the picture — a quarter turn
+     clockwise makes the old top the right side. Returns, for each own side k, the side it shows as (same 0..3 meaning). */
+  const SIDE_CW = [3, 2, 0, 1];
+  function sideView(rot) {
+    let q = Math.round((((+rot || 0) % 360) + 360) % 360 / 90) % 4, m = [0, 1, 2, 3];
+    while (q-- > 0) m = m.map((j) => SIDE_CW[j]);
+    return m;
+  }
+  const SIDE_NAMES = ['Сверху', 'Снизу', 'Слева', 'Справа'];
+
   return {
     DEG, TOL_OK, TOL_WARN, UNIT, uid, clamp, hyp, nf, fmtLen, parseNum, parseSum, parseLen,
     unitVec, normDeg, signedArea, selfIntersects, triArea, pointInPoly, distSeg, bboxOf, labelPoint, labelAvoid,
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken,
+    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();

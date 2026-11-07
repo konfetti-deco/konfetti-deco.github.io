@@ -238,5 +238,11 @@ ok(PG.refLen({ q: [[0, 0], [10, 10], [10, 0], [0, 10]], w: 900, h: 2100 }, [0, 0
   // any metre reading said as digits with a comma comes back exactly
   for (let k = 0; k < 500; k++) { const mm = Math.round(rnd(10, 60000)), t = String(mm / 1000).replace('.', ','), r = PG.parseSpoken(t, 'm'); ok(r && r.mm === mm && r.sure === (t.indexOf(',') >= 0 ? true : false) || (t.indexOf(',') < 0 && mm >= 100000), 'reading ' + t + ' → ' + JSON.stringify(r)); } }
 
+/* 32. chair sides named as the table looks now: a quarter turn clockwise moves top → right, right → bottom, bottom → left, left → top */
+{ const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  ok(eq(PG.sideView(0), [0, 1, 2, 3]), 'no turn: names as they are'); ok(eq(PG.sideView(90), [3, 2, 0, 1]), '90°: top→right, bottom→left, left→top, right→bottom');
+  ok(eq(PG.sideView(180), [1, 0, 3, 2]), '180°: swapped'); ok(eq(PG.sideView(-90), [2, 3, 1, 0]), '−90° = 270°'); ok(eq(PG.sideView(270), PG.sideView(-90)), '270 = −90'); ok(eq(PG.sideView(360), [0, 1, 2, 3]), '360 = 0');
+  for (let k = 0; k < 400; k++) { const r = rnd(-720, 720), v = PG.sideView(r); ok(eq(v.slice().sort(), [0, 1, 2, 3]), 'every name used once at ' + r); ok(eq(PG.sideView(r + 90), v.map((j) => [3, 2, 0, 1][j])), 'one more quarter turn = one more step at ' + r); } }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

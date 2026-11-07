@@ -13,7 +13,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  const n=()=>ev(()=>S.plan.items.filter(i=>i.kind==='table').length);
  ok(await n()===4,'4 tables placed: '+await n());
  const domN=()=>ev(()=>document.querySelectorAll('#pitems [data-id], #pitems > g').length);const d4=await domN();
- await p.click('[data-act=undo] >> nth=0');await p.waitForTimeout(150);ok(await n()===3,'undo button: 3 tables');ok(await domN()<d4,'plan redrawn after undo');
+ await p.click('#qbar [data-id=undo]');await p.waitForTimeout(150);ok(await n()===3,'undo button: 3 tables');ok(await domN()<d4,'plan redrawn after undo');
  ok(await ev(()=>{const h=document.querySelector('#dock .phead h3');return h?h.textContent:''})!=='Стол №4','panel title no longer «Стол №4»: '+await ev(()=>{const h=document.querySelector('#dock .phead h3');return h?h.textContent:''}));
  await p.keyboard.press('Control+z');await p.waitForTimeout(150);ok(await n()===2,'Ctrl+Z: 2 tables');
  // the history list: tap an earlier step
@@ -21,7 +21,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  const rows=await p.$$('[data-act=hgo], .hrow, [data-act=hist]');ok(rows.length>0,'history rows shown: '+rows.length);
  const hiBefore=await ev(()=>UI.hi);if(rows.length){await rows[Math.max(0,hiBefore-2)].click().catch(()=>{});await p.waitForTimeout(150)}
  ok(await ev(()=>UI.hi)<hiBefore,'history row tap moves back: '+hiBefore+' → '+await ev(()=>UI.hi));
- await p.click('[data-act=redo] >> nth=0');await p.waitForTimeout(150);ok(await ev(()=>UI.hi)>0,'redo works');
+ await p.click('#qbar [data-id=redo]');await p.waitForTimeout(150);ok(await ev(()=>UI.hi)>0,'redo works');
  ok(await ev(()=>(window.__renderErrors||[]).length===0),'no drawing errors: '+await ev(()=>JSON.stringify(window.__renderErrors||[])));
  ok(!errs.length,'no page errors: '+errs.slice(0,3).join(' | '));
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();

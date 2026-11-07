@@ -140,6 +140,9 @@ var PF = (function () {
     return best ? best.e.slice() : q;
   }
   function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
+  function clampX(ph, x) { return Math.round(Math.max(0, Math.min(ph.w, x)) * 10) / 10; }
+  function clampY(ph, y) { return Math.round(Math.max(0, Math.min(ph.h, y)) * 10) / 10; }
+  function fclip() { if (UI.fclip) return UI.fclip; try { const t = localStorage.getItem('fotozona.fclip.v1'); if (t) return (UI.fclip = JSON.parse(t)); } catch (e) {} return null; }
   function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
   function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
   /* a size without a number: its length on the plane of the reference (null when there is no full reference) */
@@ -457,6 +460,12 @@ var PF = (function () {
       case 'send': { const w = m && wallPick(m, ph); if (!w || !(m.v > 0)) return; if (G.sendToWall(S.plan, m, w.rid, w.wid)) { label('замер ' + fl(m.v) + ' → стена ' + G.wallName(w.r, w.i)); toast('Стена ' + G.wallName(w.r, w.i) + ' в плане = ' + fl(m.v) + ' ' + uLab() + '.'); } return; }
       case 'showwall': if (m && m.wid) { PL.setMode('plan'); PL.st.layer = 'floor'; PL.st.sel = { t: 'wall', r: m.rid, w: m.wid }; render(); } return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
+      case 'm-dup': if (ph && m) { const c = JSON.parse(JSON.stringify(m)), d = Math.round(Math.max(ph.w, ph.h) * 0.03); c.id = G.uid(); delete c.poly; delete c.rid; delete c.wid;
+          const mv = (q) => [clampX(ph, q[0] + d), clampY(ph, q[1] + d)]; c.a = mv(c.a); if (c.b) c.b = mv(c.b); ph.marks.push(c); st.sel = c.id; label('копия: ' + markName(m).toLowerCase()); } return;
+      case 'clip-copy': if (ph && m) { const o = { mark: JSON.parse(JSON.stringify(m)), w: ph.w, h: ph.h, ph: ph.id }; UI.fclip = o; try { localStorage.setItem('fotozona.fclip.v1', JSON.stringify(o)); } catch (e) {} toast('Скопировано: ' + markName(m).toLowerCase() + '. «Вставить» — на это или другое фото.'); render(); } return;
+      case 'clip-paste': { const o = fclip(); if (!o) { toast('Буфер пуст — сначала «Копировать».'); return; } if (!ph) { toast('Откройте фото, куда вставить.'); return; }
+        const k = ph.w / (o.w || ph.w), d = o.ph === ph.id ? Math.round(Math.max(ph.w, ph.h) * 0.03) : 0, c = JSON.parse(JSON.stringify(o.mark)); c.id = G.uid(); delete c.poly; delete c.rid; delete c.wid;
+        const mv = (q) => [clampX(ph, q[0] * k + d), clampY(ph, q[1] * k + d)]; c.a = mv(c.a); if (c.b) c.b = mv(c.b); ph.marks.push(c); st.sel = c.id; label('вставка: ' + markName(c).toLowerCase()); return; }
       case 'm-del': if (ph && m) { ph.marks = ph.marks.filter((x) => x.id !== m.id); st.sel = null; label('удалено: ' + markName(m).toLowerCase()); } return;
       case 'p-del': if (ph) { const i = L().indexOf(ph); L().splice(i, 1); if (S.plan) S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); st.open = null; st.sel = null; label('фото удалено'); } return;
       case 'png': exportPng(); return;
@@ -571,7 +580,7 @@ var PF = (function () {
     document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
+  return { canPaste: () => !!fclip(), cur, mark: (id) => mark(id), st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */

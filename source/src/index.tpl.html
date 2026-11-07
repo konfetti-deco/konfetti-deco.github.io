@@ -10,10 +10,9 @@
   <nav class="mbar" id="mbar" aria-label="Меню"><button type="button" class="mb" data-act="mopen" data-id="file">Файл</button><button type="button" class="mb" data-act="mopen" data-id="edit">Правка</button><button type="button" class="mb" data-act="mopen" data-id="view">Вид</button><button type="button" class="mb" data-act="mopen" data-id="calc">Расчёты</button></nav>
   <label class="pn"><input id="pname" class="pname" data-bind="s.name" aria-label="Название проекта" autocomplete="off" spellcheck="false"><span class="pned" aria-hidden="true">✎</span></label>
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
-  <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
-  <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
+  <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 54</span>
+  <span class="ver" id="ver">версия 55</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -24,6 +23,7 @@
 </div>
 <div class="calcwin" id="calcwin" hidden><div class="cwin" role="dialog" aria-label="Расчёты"><div class="cbar"><nav class="ctabs" id="tabs" role="tablist"></nav><button type="button" class="pill tab tclose" data-act="tab" data-id="con"></button></div><div class="cbody" id="calcview"></div></div></div>
 <div class="mpop" id="mpop" hidden></div>
+<div class="qfloat" id="qfloat" role="toolbar" aria-label="Действия" hidden></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs id="imgdefs"></defs></svg>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>

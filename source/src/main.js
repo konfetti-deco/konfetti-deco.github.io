@@ -102,6 +102,7 @@ function renderNow(){
   var cw=$('#calcwin');
   if(UI.tab!=='con'&&V[UI.tab]){cw.hidden=false;renderSecs($('#calcview'),V[UI.tab],UI.tab);if(UI.tab==='client')IO.drawOffer($('#offer'))}
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
+  try{QB.render()}catch(e){renderErr('qbar',e)}
   $$('[data-act=undo]').forEach(function(b){b.disabled=UI.hi<=0});$$('[data-act=redo]').forEach(function(b){b.disabled=UI.hi>=UI.hist.length-1});
   renderModal();
   showSelRow();
@@ -460,7 +461,8 @@ function addEl(ne){UI.multi=null;UI.fly=false;
   UI.sel=ne.id;UI.ced=null;commit();
 }
 function addPic(id,more){var im=IMG[id];if(!im)return;var mn=M.main(S),w=Math.round(Math.min(1100,Math.max(300,mn?mn.w*.6:800))/50)*50,d={im:id,ar:im.h/im.w,w:w,mount:'wall'};for(var k in (more||{}))d[k]=more[k];addEl(M.make(S,'pic',d))}
-function act(name,a){if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
+function act(name,a){if(name==='qset'){var qi=a&&a.dataset.id||'';if(qi.indexOf('pos:')===0){QB.setPos(qi.slice(4));return}QB.cfg(qi);var mp=$('#mpop');if(mp&&!mp.hidden&&mp.dataset.id==='qbar')mp.innerHTML=V.mmenu('qbar');return}
+  if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
   if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
   var el=V.sel(),i=el?S.els.indexOf(el):-1,id=a&&a.dataset.id;
   switch(name){
@@ -572,6 +574,8 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
+    case 'qa':QB.run(id);break;
+    case 'qcfg':menuOpen('qbar',a);break;
     case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photos-pdf':RP.photosPdf();break;
@@ -982,8 +986,96 @@ function glassNow(){return document.documentElement.classList.contains('glass')}
 function setGlass(on){document.documentElement.classList.toggle('glass',on);try{localStorage.setItem('fotozona.glass.v1',on?'on':'off')}catch(e){}menuClose();requestAnimationFrame(function(){fitStage();zoomApply();placeFly();placeOv()})}
 function themeNow(){var t=document.documentElement.getAttribute('data-theme');return t==='light'?'light':'dark'}
 /* menus: a word in the bar opens its list under it; while one is open, moving to the next word opens that one, as in Photoshop */
+/* ===== QB: the actions panel — undo, redo, duplicate, copy, paste, delete, layer forward/back, lock, turn 90°, choose several.
+   In the top bar (default), floating over the canvas (dragged by its grip, place remembered), or hidden (then only undo/redo
+   stay in the top bar). Each button does the same thing as its menu item or key in the current tab; what the tab has no use
+   for is not shown, what has nothing to act on is greyed. Which buttons show is the user's choice (⋯ → Кнопки). ===== */
+var QB=(function(){
+  var KEY='fotozona.qbar.v1',st={pos:'top',x:null,y:null,vert:false,hide:{}};
+  try{var t=JSON.parse(localStorage.getItem(KEY)||'null');if(t&&typeof t==='object'){if(/^(top|float|off)$/.test(t.pos))st.pos=t.pos;if(isFinite(t.x))st.x=+t.x;if(isFinite(t.y))st.y=+t.y;st.vert=!!t.vert;if(t.hide&&typeof t.hide==='object')st.hide=t.hide}}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+  var I=function(d){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
+  var ICO={
+    dup:I('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/><path d="M14 11.5v5M11.5 14h5"/>'),
+    copy:I('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>'),
+    paste:I('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 4v2h6V4"/><path d="M9 12h6M9 16h4"/>'),
+    up:I('<path d="M4 15l8 4 8-4" opacity=".55"/><path d="M4 11l8 4 8-4"/><path d="M12 11V3M8.5 6.5 12 3l3.5 3.5"/>'),
+    down:I('<path d="M4 7l8-4 8 4" opacity=".55"/><path d="M4 11l8-4 8 4"/><path d="M12 11v10M8.5 17.5 12 21l3.5-3.5"/>'),
+    rot:I('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/><text x="12" y="15.2" font-size="7" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif">90</text>'),
+    more:I('<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>'),
+    grip:I('<circle cx="9" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.2" fill="currentColor" stroke="none"/>'),
+    turn:I('<path d="M7 7h10v10"/><path d="M7 17 17 7"/>')};
+  var ALL=[['undo','Отменить','Ctrl+Z'],['redo','Вернуть','Ctrl+Y'],['dup','Дублировать','Ctrl+D'],['copy','Копировать','Ctrl+C'],['paste','Вставить','Ctrl+V'],['del','Удалить','Del'],['up','Слой вперёд',''],['down','Слой назад',''],['lock','Закрепить',''],['rot','Повернуть на 90°',''],['multi','Выбирать несколько','']];
+  var SEP={paste:1,del:1,down:1};   // a thin gap after these
+  /* what each button does now: null = not in this tab; {dis, on, title, run} */
+  function scene(id){var el=V.sel(),ms=V.multi(),many=ms.length>1,any=!!el||many;
+    switch(id){
+      case 'dup':return {dis:!any,run:function(){act(many?'gdup':'dup')}};
+      case 'copy':return {dis:!any,run:function(){act('copy')}};
+      case 'paste':return {dis:!V.hasClip(),run:function(){act('paste')}};
+      case 'del':return {dis:!any,run:function(){act(many?'gdel':'del')}};
+      case 'up':case 'down':{if(!el||many)return {dis:true,run:null};var ord=SC.order(S),i=ord.indexOf(S.els.indexOf(el));return {dis:id==='up'?i>=S.els.length-1:i<=0,run:function(){act(id)}}}
+      case 'lock':{if(many){var all=ms.every(function(e){return e.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){act('glock')}}}if(!el)return {dis:true};return {on:!!el.lock,title:el.lock?'Открепить':'Закрепить',run:function(){act('llock',{dataset:{id:el.id}})}}}
+      case 'rot':return {dis:!el||many||!M.canRot(el),title:el&&!many&&!M.canRot(el)?'Этот элемент не поворачивается':'',run:function(){act('rot',{dataset:{id:'90'}})}};
+      case 'multi':return {on:!!UI.mmode,run:function(){act('multi')}};
+    }return null}
+  function plan(id){var s=PL.st.sel||{},many=PL.st.multi.length>1,isIt=s.t==='item',it=isIt?(S.plan.items||[]).find(function(x){return x.id===s.i}):null,pa=function(n,v){PL.act(n,v==null?null:{dataset:{v:v}})};
+    switch(id){
+      case 'dup':return {dis:!many&&!isIt,run:function(){pa(many?'m-dup':'it-dup')}};
+      case 'copy':return {dis:!many&&!isIt,run:function(){pa('clip-copy')}};
+      case 'paste':return {dis:!PL.canPaste(),run:function(){pa('clip-paste')}};
+      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
+      case 'lock':{if(many){var L=PL.st.multi.map(function(i){return S.plan.items.find(function(x){return x.id===i})}).filter(Boolean),all=L.length&&L.every(function(x){return x.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){pa('m-lock')}}}
+        var o=it||(s.t==='room'?S.plan.rooms.find(function(r){return r.id===s.r}):null);if(!o)return {dis:true};return {on:!!o.lock,title:o.lock?'Открепить':'Закрепить',run:function(){pa('lyr-lock',(it?'i|':'r|')+o.id)}}}
+      case 'rot':return {dis:!many&&!isIt,run:function(){pa(many?'m-rot':'it-rot90')}};
+      case 'multi':return {on:PL.st.tool==='multi',run:function(){pa('ptool',PL.st.tool==='multi'?'':'multi')}};
+    }return null}
+  function photo(id){var ph=PF.cur(),m=ph&&PF.st.sel?PF.mark(PF.st.sel):null,pa=function(n){PF.act(n,null)};
+    switch(id){
+      case 'dup':return {dis:!m,run:function(){pa('m-dup')}};
+      case 'copy':return {dis:!m,run:function(){pa('clip-copy')}};
+      case 'paste':return {dis:!ph||!PF.canPaste(),title:!ph?'Откройте фото, куда вставить':'',run:function(){pa('clip-paste')}};
+      case 'del':return {dis:!m,run:function(){pa('m-del')}};
+    }return null}
+  function now(id){
+    if(id==='undo')return {dis:UI.hi<=0,run:function(){act('undo')}};
+    if(id==='redo')return {dis:UI.hi>=UI.hist.length-1,run:function(){act('redo')}};
+    try{return UI.mode==='plan'?plan(id):UI.mode==='photo'?photo(id):scene(id)}catch(e){return null}}
+  function buttons(where){
+    var h='',prev=false,list=st.pos==='off'&&where==='top'?ALL.slice(0,2):ALL;
+    list.forEach(function(b){var id=b[0];if(st.pos!=='off'&&st.hide[id])return;var q=now(id);if(!q)return;
+      var t=(q.title||b[1])+(b[2]?' ('+b[2]+')':''),ic=id==='undo'||id==='redo'?U.ico[id]:id==='lock'?U.ico[q.on?'lock':'unlock']:id==='multi'?U.ico.multi:id==='del'?U.ico.del:ICO[id];
+      if(prev&&where!=='top-off'){h+='';}
+      h+='<button type="button" class="ib qb'+(id==='del'?' dng':'')+'" data-act="qa" data-id="'+id+'"'+(q.on!=null?' aria-pressed="'+!!q.on+'"':'')+(q.dis?' disabled':'')+' title="'+U.esc(t)+'" aria-label="'+U.esc(t)+'">'+ic+'</button>'+(SEP[id]?'<i class="qsep" aria-hidden="true"></i>':'');prev=true});
+    h=h.replace(/(<i class="qsep" aria-hidden="true"><\/i>)+$/,'');
+    if(where==='float'||st.pos!=='off')h+='<button type="button" class="ib qb qmore" data-act="qcfg" title="Панель действий: где стоит и какие кнопки" aria-label="Настроить панель действий">'+ICO.more+'</button>';
+    return h}
+  function render(){
+    var top=$('#qbar'),fl=$('#qfloat');if(!top||!fl)return;document.documentElement.classList.toggle('qtop',st.pos==='top');
+    setH(top,st.pos==='float'?'':buttons('top'));top.classList.toggle('qoff',st.pos==='off');
+    if(st.pos==='float'&&UI.tab==='con'){fl.hidden=false;fl.classList.toggle('vert',st.vert);setH(fl,'<span class="qgrip" title="Перетащить панель" aria-label="Перетащить панель" role="button">'+ICO.grip+'</span>'+buttons('float'));place(fl)}else fl.hidden=true}
+  function place(fl){var w=fl.offsetWidth,h=fl.offsetHeight,c=$('#canvas')||$('#plan')||document.body,r=c.getBoundingClientRect();
+    if(st.x==null||st.y==null){st.x=Math.round(r.left+36);st.y=Math.round(r.top+36)}
+    var x=Math.max(4,Math.min(innerWidth-w-4,st.x)),y=Math.max(4,Math.min(innerHeight-h-4,st.y));fl.style.left=x+'px';fl.style.top=y+'px'}
+  function setPos(p){st.pos=p;save();menuClose();render();label0(p==='top'?'Панель действий — в верхней строке':p==='float'?'Панель действий — на холсте: тяните за точки слева':'Панель действий скрыта. Вернуть — «Вид → Панель действий»')}
+  function label0(t){toast(t)}
+  function cfg(id){
+    if(id==='vert'){st.vert=!st.vert;save();render();return}
+    if(id&&id.indexOf('b:')===0){var k=id.slice(2);if(st.hide[k])delete st.hide[k];else st.hide[k]=1;save();render();return}}
+  function menu(it){var b=function(id,lab,on){return '<button type="button" class="mi'+(on?' on':'')+'" data-act="qset" data-id="'+id+'"><i class="mck" aria-hidden="true">'+(on?'✓':'')+'</i><span>'+lab+'</span></button>'};
+    return '<div class="mhd">Где стоит панель</div>'+b('pos:top','В верхней строке',st.pos==='top')+b('pos:float','На холсте, плавающая',st.pos==='float')+b('pos:off','Скрыть',st.pos==='off')+
+      (st.pos==='float'?b('vert','Вертикально',st.vert):'')+'<hr><div class="mhd">Кнопки</div>'+ALL.slice(2).map(function(x){return b('b:'+x[0],x[1],!st.hide[x[0]])}).join('')+'<div class="mhd">«Слой вперёд / назад» — в «Сцене»; «Закрепить», «Повернуть», «Несколько» — в «Сцене» и «Плане».</div>'}
+  /* drag by the grip */
+  var drag=null;
+  document.addEventListener('pointerdown',function(ev){var g=ev.target.closest&&ev.target.closest('#qfloat .qgrip');if(!g)return;ev.preventDefault();var fl=$('#qfloat'),r=fl.getBoundingClientRect();drag={dx:ev.clientX-r.left,dy:ev.clientY-r.top,id:ev.pointerId};try{g.setPointerCapture(ev.pointerId)}catch(e){}fl.classList.add('drag')});
+  document.addEventListener('pointermove',function(ev){if(!drag||ev.pointerId!==drag.id)return;st.x=Math.round(ev.clientX-drag.dx);st.y=Math.round(ev.clientY-drag.dy);place($('#qfloat'))});
+  var end=function(ev){if(!drag||ev.pointerId!==drag.id)return;drag=null;var fl=$('#qfloat');fl.classList.remove('drag');var r=fl.getBoundingClientRect();st.x=Math.round(r.left);st.y=Math.round(r.top);save()};
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+  window.addEventListener('resize',function(){var fl=$('#qfloat');if(fl&&!fl.hidden)place(fl)});
+  return {st:st,render:render,run:function(id){var q=now(id);if(q&&!q.dis&&q.run){q.run();try{QB.render()}catch(e){}}},setPos:setPos,cfg:cfg,menu:menu,now:now}
+})();
 function menuOpen(id,b){var m=$('#mpop');if(!m)return;if(!m.hidden&&m.dataset.id===id){menuClose();return}
-  m.innerHTML=V.mmenu(id);m.dataset.id=id;m.hidden=false;var r=b.getBoundingClientRect();m.style.left=Math.max(4,Math.min(innerWidth-m.offsetWidth-4,r.left))+'px';m.style.top=(r.bottom+2)+'px';
+  m.innerHTML=V.mmenu(id);m.dataset.id=id;m.hidden=false;var r=b.getBoundingClientRect(),mh=m.offsetHeight,tp=r.bottom+2;if(tp+mh>innerHeight-4)tp=r.top-mh-2>=4?r.top-mh-2:Math.max(4,innerHeight-mh-4);m.style.left=Math.max(4,Math.min(innerWidth-m.offsetWidth-4,r.left))+'px';m.style.top=tp+'px';
   $$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded',x.dataset.id===id)})}
 /* a transfer file from the other version: on the site a room is made first if there is none, so the projects have somewhere to live */
 function transferIn(B){var go=function(){toast('Переношу данные…');return IO.importAll(B).then(function(c){
@@ -1052,7 +1144,7 @@ function readInput(n){
 }
 function init(){
   $('#tabs').innerHTML=V.TABS.slice(1).map(function(t,i){return '<button type="button" class="tab" role="tab" data-act="tab" data-id="'+t[0]+'"><span class="n">'+(i+1)+'</span>'+t[1]+'</button>'}).join('');
-  $('#undo').innerHTML=U.ico.undo;$('#redo').innerHTML=U.ico.redo;$('#burger').innerHTML='<img src="'+U.LOGO+'" alt="" width="24" height="24" draggable="false">';try{var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.href=U.LOGO;document.head.appendChild(fi)}catch(e){}$('#photobtn').innerHTML=U.ico.cam+'<span>По фото</span>';$('#savebtn').innerHTML=U.ico.save+'<span>Сохранить</span>';$('.tclose').innerHTML=U.ico.x+'<span>К сцене</span>';themeBtn();
+  $('#burger').innerHTML='<img src="'+U.LOGO+'" alt="" width="24" height="24" draggable="false">';try{var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.href=U.LOGO;document.head.appendChild(fi)}catch(e){}$('#photobtn').innerHTML=U.ico.cam+'<span>По фото</span>';$('#savebtn').innerHTML=U.ico.save+'<span>Сохранить</span>';$('.tclose').innerHTML=U.ico.x+'<span>К сцене</span>';themeBtn();
   try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',themeBtn)}catch(e){}
   try{UI.mv=localStorage.getItem('fotozona.move.v1')==='floor'?'floor':'wall';localStorage.removeItem('fotozona.keepar.v1')}catch(e){UI.mv='wall'}
   var saved=IO.loadAuto();S=(saved&&M.normalize(saved))||M.normalize(M.template('three'))||M.template('three');if(!S.plan)S.plan=PG.newPlan();if(!S.photos)S.photos=[];   // a fresh start has a plan and a photo list too

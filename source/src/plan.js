@@ -174,6 +174,9 @@ var PL = (function () {
     if (s.t === 'corner' && !(s.c >= 0 && s.c < r.walls.length)) st.sel = { t: 'room', r: r.id };
   }
   function label(txt) { UI.nextLabel = 'План: ' + txt; commit(); }
+  const CLIPK = 'fotozona.pclip.v1';
+  function clipSet(o) { UI.pclip = o; try { localStorage.setItem(CLIPK, JSON.stringify(o)); } catch (e) {} }
+  function clipGet() { if (UI.pclip) return UI.pclip; try { const t = localStorage.getItem(CLIPK); if (t) return (UI.pclip = JSON.parse(t)); } catch (e) {} return null; }
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('planhost'); }
@@ -876,6 +879,16 @@ var PL = (function () {
           if (c.grp) c.grp = gmap[it.grp] = gmap[it.grp] || 'g' + G.uid(); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); made.push(c.id); });
         st.multi = made; st.sel = null; label('копия — ' + made.length + ' объект' + plural(made.length)); toast('Копии стоят справа и выделены — перетащите их на место.'); return; }
       case 'm-rot': { st.multi.map(item).filter((it) => it && !it.lock).forEach((it) => { it.rot = G.normDeg((it.rot || 0) + 90); }); label('повёрнуто на 90° — ' + st.multi.length); return; }
+      case 'clip-copy': {   // the chosen objects to a clipboard that outlives the project (Вставить works in another plan too)
+        const L = (st.multi.length > 1 ? st.multi.map(item) : s.t === 'item' ? [item(s.i)] : []).filter((it) => it && it.kind !== 'photo'); if (!L.length) { toast('Выберите стол или предмет.'); return; }
+        clipSet({ items: JSON.parse(JSON.stringify(L)) }); toast('Скопировано: ' + L.length + ' объект' + plural(L.length) + '. «Вставить» поставит копии.'); render(); return; }
+      case 'clip-paste': {
+        const cb = clipGet(); if (!cb || !cb.items || !cb.items.length) { toast('Буфер пуст — сначала «Копировать».'); return; }
+        const here = cb.items.some((it) => item(it.id)), bs = cb.items.map(G.fullBox), x0 = Math.min(...bs.map((b) => b.x0)), x1 = Math.max(...bs.map((b) => b.x1)), dx = here ? Math.round((x1 - x0 + 600) / 10) * 10 : 0, gmap = {}, made = [];
+        cb.items.slice().sort((a, b) => (+a.num || 0) - (+b.num || 0)).forEach((it) => { const c = JSON.parse(JSON.stringify(it)); c.id = G.uid(); c.x = Math.round((it.x + dx) * 10) / 10; delete c.lock;
+          if (c.grp) c.grp = gmap[it.grp] = gmap[it.grp] || 'g' + G.uid(); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); if (!!c.top !== (st.layer === 'top') && c.top) st.layer = 'top'; P().items.push(c); made.push(c.id); });
+        if (made.length > 1) { st.multi = made; st.sel = null; } else { st.multi = []; st.sel = { t: 'item', i: made[0] }; }
+        label('вставка — ' + made.length + ' объект' + plural(made.length)); return; }
       case 'm-lock': { const L = st.multi.map(item).filter(Boolean), on = L.some((it) => !it.lock); L.forEach((it) => { if (on) it.lock = true; else delete it.lock; }); label((on ? 'закреплено — ' : 'откреплено — ') + L.length); return; }
       case 'm-del': { const n = st.multi.length; P().items = P().items.filter((it) => st.multi.indexOf(it.id) < 0); st.multi = []; st.sel = null; label('удалено — ' + n + ' объект' + plural(n)); return; }
       case 'sum-copy': { const t = sumText(P()), done = () => toast('Сводка скопирована — вставьте в сообщение.');
@@ -982,6 +995,8 @@ var PL = (function () {
     }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.multi.length > 1) { ev.preventDefault(); act('m-dup'); return true; }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.sel && st.sel.t === 'item') { ev.preventDefault(); act('it-dup'); return true; }
+    if ((ev.ctrlKey || ev.metaKey) && (k === 'c' || k === 'C' || k === 'с' || k === 'С') && (st.multi.length > 1 || (st.sel && st.sel.t === 'item'))) { ev.preventDefault(); act('clip-copy'); return true; }
+    if ((ev.ctrlKey || ev.metaKey) && (k === 'v' || k === 'V' || k === 'м' || k === 'М')) { ev.preventDefault(); act('clip-paste'); return true; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
     if (k === 'Escape' && st.multi.length) { st.multi = []; render(); return true; }
     if (k === 'Escape') { if (st.draw) { st.draw = null; render(); return true; } if (st.tool) { st.tool = null; st.ruler = null; st.placed = 0; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } return false; }
@@ -1170,8 +1185,8 @@ var PL = (function () {
     const norms = '<div class="seatn full">' + G.SEAT.map((d) => '<span><b>' + T[d.id] + '</b> ' + d.ru + ' <small>' + d.w / 10 + ' см</small></span>').join('') + '</div>';
     const row = (nm, k, val, act, bind) => '<label class="fld"><span class="fl">' + nm + ' <small class="muted">до ' + lim.max[k] + '</small></span><span class="stp"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="-1" aria-label="Меньше"' + (val <= 0 ? ' disabled' : '') + '>−</button><input type="text" inputmode="numeric" data-pbind="' + bind + '" value="' + val + '"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="1" aria-label="Больше"' + (val >= lim.max[k] ? ' disabled' : '') + '>+</button></span></label>';
     return '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', seatNow(it)) + '</div>' + (over ? note('bad', 'Стульев больше, чем помещается даже при плотной посадке (50 см на человека). Уменьшите число или увеличьте стол.') : '') +
-      (it.shape === 'rect' ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => row(nm, k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k)).join('') : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
-      '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' «Сверху» и «снизу» — длинные стороны (до поворота).' : '') + '</p>' + norms;
+      (it.shape === 'rect' ? (() => { const sv = G.sideView(it.rot); return [0, 1, 2, 3].map((j) => { const k = sv.indexOf(j); return row(G.SIDE_NAMES[j], k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k); }).join(''); })() : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
+      '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' Стороны названы так, как стол стоит на плане сейчас: повернёте стол — «сверху», «справа» и остальные повернутся вместе с ним, стулья останутся у своих краёв.' : '') + '</p>' + norms;
   }
   const AL = { left: '<path d="M4 3v18M8 7h10v4H8zM8 14h6v4H8z"/>', cx: '<path d="M12 3v18M6 7h12v4H6zM8 14h8v4H8z"/>', right: '<path d="M20 3v18M6 7h10v4H6zM10 14h6v4h-6z"/>', top: '<path d="M3 4h18M7 8v10h4V8zM14 8v6h4V8z"/>', cy: '<path d="M3 12h18M7 6v12h4V6zM14 8v8h4V8z"/>', bottom: '<path d="M3 20h18M7 6v10h4V6zM14 10v6h4v-6z"/>', dx: '<path d="M3 4v16M21 4v16M7 9h3v6H7zM14 9h3v6h-3z"/>', dy: '<path d="M4 3h16M4 21h16M9 7v3h6V7zM9 14v3h6v-3z"/>' };
   function alIco(k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">' + AL[k] + '</svg>'; }
@@ -1297,7 +1312,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, validate, drop, sumText, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { canPaste: () => { const c = clipGet(); return !!(c && c.items && c.items.length); }, st, validate, drop, sumText, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */

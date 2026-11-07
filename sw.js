@@ -1,6 +1,6 @@
 /* Konfetti Deco — offline cache. The page itself: network first (a new version shows as soon as there is a connection),
    the cached copy when offline. Icons, fonts and the PDF library: from the cache, fetched once. */
-const CACHE = 'konfetti-202611070840';  // LA CHEF lives on the same address: only caches named konfetti-* are ever touched
+const CACHE = 'konfetti-202611070859';  // LA CHEF lives on the same address: only caches named konfetti-* are ever touched
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-64.png'];
 /* the browser keeps GitHub's pages in its own cache for up to 10 minutes: the page is always asked from the server
    (cache: 'no-cache' — a quick «has it changed?» check), so a new version shows on the next opening */

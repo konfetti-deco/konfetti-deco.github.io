@@ -1170,6 +1170,29 @@ html.glass .tools .tb{border-radius:10px}
 .tools .plyr{width:48px}
 .tools .plyr button{font-size:12.5px;min-height:32px;padding:7px 0;border-radius:8px}
 .msub>.mi{width:100%}
+/* v55: the actions panel — in the top bar, floating on the canvas, or hidden */
+.qbar{display:flex;align-items:center;gap:1px;flex:none;min-width:0}
+.qbar .qb{width:34px;height:34px;border-radius:7px}
+.qbar .qb svg{width:20px;height:20px}
+.qb[disabled]{opacity:.32;cursor:default}
+.qb[aria-pressed=true]{background:color-mix(in srgb,var(--acc) 20%,transparent);color:var(--acc)}
+.qb.dng:not([disabled]){color:var(--bad,#d9534f)}
+.qsep{flex:none;width:1px;height:20px;background:var(--wline);margin:0 3px}
+.qfloat{position:fixed;z-index:110;display:flex;align-items:center;gap:2px;padding:4px;background:var(--panel);border:1px solid var(--wline);border-radius:12px;box-shadow:var(--sh2);touch-action:none;user-select:none}
+.qfloat[hidden]{display:none}
+.qfloat .qb{width:44px;height:44px;border-radius:9px}
+.qfloat .qb svg{width:24px;height:24px}
+.qfloat.vert{flex-direction:column}
+.qfloat.vert .qsep{width:24px;height:1px;margin:3px 0}
+.qfloat .qgrip{flex:none;width:22px;height:44px;display:grid;place-items:center;color:var(--muted);cursor:grab;touch-action:none}
+.qfloat.vert .qgrip{width:44px;height:22px}
+.qfloat.vert .qgrip svg{transform:rotate(90deg)}
+.qfloat .qgrip svg{width:20px;height:20px}
+.qfloat.drag{opacity:.85;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.qfloat.drag .qgrip{cursor:grabbing}
+html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) saturate(1.7);backdrop-filter:blur(26px) saturate(1.7);border:1px solid var(--glb);border-radius:14px}
+.mpop .mhd{font-size:11px;color:var(--muted);padding:4px 10px 4px 26px;max-width:280px;white-space:normal;line-height:1.3}
+@media (max-width:1499px){html.qtop .appn{display:none}html.qtop #photobtn span{display:none}html.qtop #photobtn{padding:0 9px}html.qtop .qbar .qb{width:32px}}
 
 </style>
 </head>
@@ -1180,10 +1203,9 @@ html.glass .tools .tb{border-radius:10px}
   <nav class="mbar" id="mbar" aria-label="Меню"><button type="button" class="mb" data-act="mopen" data-id="file">Файл</button><button type="button" class="mb" data-act="mopen" data-id="edit">Правка</button><button type="button" class="mb" data-act="mopen" data-id="view">Вид</button><button type="button" class="mb" data-act="mopen" data-id="calc">Расчёты</button></nav>
   <label class="pn"><input id="pname" class="pname" data-bind="s.name" aria-label="Название проекта" autocomplete="off" spellcheck="false"><span class="pned" aria-hidden="true">✎</span></label>
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
-  <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
-  <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
+  <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 54</span>
+  <span class="ver" id="ver">версия 55</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -1194,6 +1216,7 @@ html.glass .tools .tb{border-radius:10px}
 </div>
 <div class="calcwin" id="calcwin" hidden><div class="cwin" role="dialog" aria-label="Расчёты"><div class="cbar"><nav class="ctabs" id="tabs" role="tablist"></nav><button type="button" class="pill tab tclose" data-act="tab" data-id="con"></button></div><div class="cbody" id="calcview"></div></div></div>
 <div class="mpop" id="mpop" hidden></div>
+<div class="qfloat" id="qfloat" role="toolbar" aria-label="Действия" hidden></div>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"><defs id="imgdefs"></defs></svg>
 <div id="modal"></div>
 <div id="toast" role="status" aria-live="polite"></div>
@@ -3652,13 +3675,24 @@ var PG = (function () {
     return { mm, sure };
   }
 
+  /* a rectangular table's chair sides as they look on the plan now: sides[k] is kept in the table's own frame
+     (0 top, 1 bottom, 2 left, 3 right before any turn); after a turn the names follow the picture — a quarter turn
+     clockwise makes the old top the right side. Returns, for each own side k, the side it shows as (same 0..3 meaning). */
+  const SIDE_CW = [3, 2, 0, 1];
+  function sideView(rot) {
+    let q = Math.round((((+rot || 0) % 360) + 360) % 360 / 90) % 4, m = [0, 1, 2, 3];
+    while (q-- > 0) m = m.map((j) => SIDE_CW[j]);
+    return m;
+  }
+  const SIDE_NAMES = ['Сверху', 'Снизу', 'Слева', 'Справа'];
+
   return {
     DEG, TOL_OK, TOL_WARN, UNIT, uid, clamp, hyp, nf, fmtLen, parseNum, parseSum, parseLen,
     unitVec, normDeg, signedArea, selfIntersects, triArea, pointInPoly, distSeg, bboxOf, labelPoint, labelAvoid,
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken,
+    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
@@ -5325,7 +5359,8 @@ V.MENUS = {file:'Файл',edit:'Правка',view:'Вид',calc:'Расчёт�
 V.mmenu = function(id){var it=function(act,lab,o){o=o||{};return '<button type="button" class="mi'+(o.on?' on':'')+'" data-act="'+act+'"'+(o.id?' data-id="'+o.id+'"':'')+(o.dis?' disabled':'')+'><i class="mck" aria-hidden="true">'+(o.on?'✓':'')+'</i><span>'+lab+'</span>'+(o.k?'<kbd>'+o.k+'</kbd>':'')+'</button>'},hr='<hr>',el=V.sel(),ms=V.multi().length>1;
   if(id==='file')return it('new-proj','Новый проект…')+it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('save-as','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+hr+V.fileSubs(it)+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
   if(id==='edit')return it('undo','Отменить',{k:'Ctrl+Z',dis:UI.hi<=0})+it('redo','Вернуть',{k:'Ctrl+Y',dis:UI.hi>=UI.hist.length-1})+it('dopen','История шагов',{id:'hist'})+hr+it(ms?'gdup':'dup','Дублировать',{k:'Ctrl+D',dis:!el&&!ms})+it(ms?'gdel':'del','Удалить',{k:'Del',dis:!el&&!ms})+it('lib-open','В мои шаблоны',{dis:!el&&!ms})+hr+it('copy','Копировать',{k:'Ctrl+C',dis:!el&&!ms})+it('cut','Вырезать',{k:'Ctrl+X',dis:!el&&!ms})+it('paste','Вставить',{k:'Ctrl+V',dis:!V.hasClip()})+hr+it('selall','Выделить всё',{k:'Ctrl+A',dis:!S.els.length})+it('multi','Выбирать несколько',{on:UI.mmode})+it('gclear','Снять выделение',{k:'Esc',dis:!el&&!ms});
-  if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()});
+  if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+'<button type="button" class="mi" data-act="qset" data-id="pos:top"><i class="mck" aria-hidden="true">'+(QB.st.pos==='top'?'✓':'')+'</i><span>Панель действий — сверху</span></button><button type="button" class="mi" data-act="qset" data-id="pos:float"><i class="mck" aria-hidden="true">'+(QB.st.pos==='float'?'✓':'')+'</i><span>Панель действий — на холсте</span></button><button type="button" class="mi" data-act="qset" data-id="pos:off"><i class="mck" aria-hidden="true">'+(QB.st.pos==='off'?'✓':'')+'</i><span>Панель действий — скрыть</span></button>'+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()});
+  if(id==='qbar')return QB.menu(it);
   if(id==='calc')return V.TABS.slice(1).map(function(t,i){return it('tab',t[1],{id:t[0],k:String(i+1),on:UI.tab===t[0]})}).join('');
   return ''};
 
@@ -5505,6 +5540,9 @@ var PL = (function () {
     if (s.t === 'corner' && !(s.c >= 0 && s.c < r.walls.length)) st.sel = { t: 'room', r: r.id };
   }
   function label(txt) { UI.nextLabel = 'План: ' + txt; commit(); }
+  const CLIPK = 'fotozona.pclip.v1';
+  function clipSet(o) { UI.pclip = o; try { localStorage.setItem(CLIPK, JSON.stringify(o)); } catch (e) {} }
+  function clipGet() { if (UI.pclip) return UI.pclip; try { const t = localStorage.getItem(CLIPK); if (t) return (UI.pclip = JSON.parse(t)); } catch (e) {} return null; }
 
   /* ---------- view ---------- */
   function host() { return document.getElementById('planhost'); }
@@ -6207,6 +6245,16 @@ var PL = (function () {
           if (c.grp) c.grp = gmap[it.grp] = gmap[it.grp] || 'g' + G.uid(); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); P().items.push(c); made.push(c.id); });
         st.multi = made; st.sel = null; label('копия — ' + made.length + ' объект' + plural(made.length)); toast('Копии стоят справа и выделены — перетащите их на место.'); return; }
       case 'm-rot': { st.multi.map(item).filter((it) => it && !it.lock).forEach((it) => { it.rot = G.normDeg((it.rot || 0) + 90); }); label('повёрнуто на 90° — ' + st.multi.length); return; }
+      case 'clip-copy': {   // the chosen objects to a clipboard that outlives the project (Вставить works in another plan too)
+        const L = (st.multi.length > 1 ? st.multi.map(item) : s.t === 'item' ? [item(s.i)] : []).filter((it) => it && it.kind !== 'photo'); if (!L.length) { toast('Выберите стол или предмет.'); return; }
+        clipSet({ items: JSON.parse(JSON.stringify(L)) }); toast('Скопировано: ' + L.length + ' объект' + plural(L.length) + '. «Вставить» поставит копии.'); render(); return; }
+      case 'clip-paste': {
+        const cb = clipGet(); if (!cb || !cb.items || !cb.items.length) { toast('Буфер пуст — сначала «Копировать».'); return; }
+        const here = cb.items.some((it) => item(it.id)), bs = cb.items.map(G.fullBox), x0 = Math.min(...bs.map((b) => b.x0)), x1 = Math.max(...bs.map((b) => b.x1)), dx = here ? Math.round((x1 - x0 + 600) / 10) * 10 : 0, gmap = {}, made = [];
+        cb.items.slice().sort((a, b) => (+a.num || 0) - (+b.num || 0)).forEach((it) => { const c = JSON.parse(JSON.stringify(it)); c.id = G.uid(); c.x = Math.round((it.x + dx) * 10) / 10; delete c.lock;
+          if (c.grp) c.grp = gmap[it.grp] = gmap[it.grp] || 'g' + G.uid(); if (c.kind === 'table' && !c.stand) c.num = G.nextNum(P()); if (!!c.top !== (st.layer === 'top') && c.top) st.layer = 'top'; P().items.push(c); made.push(c.id); });
+        if (made.length > 1) { st.multi = made; st.sel = null; } else { st.multi = []; st.sel = { t: 'item', i: made[0] }; }
+        label('вставка — ' + made.length + ' объект' + plural(made.length)); return; }
       case 'm-lock': { const L = st.multi.map(item).filter(Boolean), on = L.some((it) => !it.lock); L.forEach((it) => { if (on) it.lock = true; else delete it.lock; }); label((on ? 'закреплено — ' : 'откреплено — ') + L.length); return; }
       case 'm-del': { const n = st.multi.length; P().items = P().items.filter((it) => st.multi.indexOf(it.id) < 0); st.multi = []; st.sel = null; label('удалено — ' + n + ' объект' + plural(n)); return; }
       case 'sum-copy': { const t = sumText(P()), done = () => toast('Сводка скопирована — вставьте в сообщение.');
@@ -6313,6 +6361,8 @@ var PL = (function () {
     }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.multi.length > 1) { ev.preventDefault(); act('m-dup'); return true; }
     if ((ev.ctrlKey || ev.metaKey) && (k === 'd' || k === 'D' || k === 'в' || k === 'В') && st.sel && st.sel.t === 'item') { ev.preventDefault(); act('it-dup'); return true; }
+    if ((ev.ctrlKey || ev.metaKey) && (k === 'c' || k === 'C' || k === 'с' || k === 'С') && (st.multi.length > 1 || (st.sel && st.sel.t === 'item'))) { ev.preventDefault(); act('clip-copy'); return true; }
+    if ((ev.ctrlKey || ev.metaKey) && (k === 'v' || k === 'V' || k === 'м' || k === 'М')) { ev.preventDefault(); act('clip-paste'); return true; }
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return false;
     if (k === 'Escape' && st.multi.length) { st.multi = []; render(); return true; }
     if (k === 'Escape') { if (st.draw) { st.draw = null; render(); return true; } if (st.tool) { st.tool = null; st.ruler = null; st.placed = 0; render(); return true; } if (st.sel) { st.sel = null; render(); return true; } return false; }
@@ -6501,8 +6551,8 @@ var PL = (function () {
     const norms = '<div class="seatn full">' + G.SEAT.map((d) => '<span><b>' + T[d.id] + '</b> ' + d.ru + ' <small>' + d.w / 10 + ' см</small></span>').join('') + '</div>';
     const row = (nm, k, val, act, bind) => '<label class="fld"><span class="fl">' + nm + ' <small class="muted">до ' + lim.max[k] + '</small></span><span class="stp"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="-1" aria-label="Меньше"' + (val <= 0 ? ' disabled' : '') + '>−</button><input type="text" inputmode="numeric" data-pbind="' + bind + '" value="' + val + '"><button type="button" class="sb" data-pact="' + act + '"' + (act === 'it-side' ? ' data-k="' + k + '"' : '') + ' data-v="1" aria-label="Больше"' + (val >= lim.max[k] ? ' disabled' : '') + '>+</button></span></label>';
     return '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', seatNow(it)) + '</div>' + (over ? note('bad', 'Стульев больше, чем помещается даже при плотной посадке (50 см на человека). Уменьшите число или увеличьте стол.') : '') +
-      (it.shape === 'rect' ? ['Сверху', 'Снизу', 'Слева', 'Справа'].map((nm, k) => row(nm, k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k)).join('') : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
-      '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' «Сверху» и «снизу» — длинные стороны (до поворота).' : '') + '</p>' + norms;
+      (it.shape === 'rect' ? (() => { const sv = G.sideView(it.rot); return [0, 1, 2, 3].map((j) => { const k = sv.indexOf(j); return row(G.SIDE_NAMES[j], k, (it.sides || [])[k] || 0, 'it-side', 'it.side' + k); }).join(''); })() : row('Мест за столом', 0, it.seats || 0, 'it-seats', 'it.seats').replace('class="fld"', 'class="fld full"')) +
+      '<p class="muted small full">Сколько людей поместится за таким столом: ширина места на человека вдоль края.' + (it.shape === 'rect' ? ' Стороны названы так, как стол стоит на плане сейчас: повернёте стол — «сверху», «справа» и остальные повернутся вместе с ним, стулья останутся у своих краёв.' : '') + '</p>' + norms;
   }
   const AL = { left: '<path d="M4 3v18M8 7h10v4H8zM8 14h6v4H8z"/>', cx: '<path d="M12 3v18M6 7h12v4H6zM8 14h8v4H8z"/>', right: '<path d="M20 3v18M6 7h10v4H6zM10 14h6v4h-6z"/>', top: '<path d="M3 4h18M7 8v10h4V8zM14 8v6h4V8z"/>', cy: '<path d="M3 12h18M7 6v12h4V6zM14 8v8h4V8z"/>', bottom: '<path d="M3 20h18M7 6v10h4V6zM14 10v6h4v-6z"/>', dx: '<path d="M3 4v16M21 4v16M7 9h3v6H7zM14 9h3v6h-3z"/>', dy: '<path d="M4 3h16M4 21h16M9 7v3h6V7zM9 14v3h6v-3z"/>' };
   function alIco(k) { return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round">' + AL[k] + '</svg>'; }
@@ -6628,7 +6678,7 @@ var PL = (function () {
     document.addEventListener('wheel', wheel, { passive: false });
     window.addEventListener('resize', () => { if (UI.mode === 'plan' && st.v && !st.v.user) { st.v = null; } if (UI.mode === 'plan') paint(); });
   }
-  return { st, validate, drop, sumText, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
+  return { canPaste: () => { const c = clipGet(); return !!(c && c.items && c.items.length); }, st, validate, drop, sumText, paint, down, move, up, act, bind, key, wheel, setMode, placeFly, syncTop, init, vTools, vFly, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, fit };
 })();
 
 /* the plan's panels take the place of the scene's in «План» mode */
@@ -6793,6 +6843,9 @@ var PF = (function () {
     return best ? best.e.slice() : q;
   }
   function label(t) { UI.nextLabel = 'Фото: ' + t; commit(); }
+  function clampX(ph, x) { return Math.round(Math.max(0, Math.min(ph.w, x)) * 10) / 10; }
+  function clampY(ph, y) { return Math.round(Math.max(0, Math.min(ph.h, y)) * 10) / 10; }
+  function fclip() { if (UI.fclip) return UI.fclip; try { const t = localStorage.getItem('fotozona.fclip.v1'); if (t) return (UI.fclip = JSON.parse(t)); } catch (e) {} return null; }
   function validate() { if (st.open && !cur()) { st.open = null; st.sel = null; } if (st.sel && !mark(st.sel)) st.sel = null; }
   function src(ph) { const im = IMG[ph.im]; return im ? im.src : ''; }
   /* a size without a number: its length on the plane of the reference (null when there is no full reference) */
@@ -7110,6 +7163,12 @@ var PF = (function () {
       case 'send': { const w = m && wallPick(m, ph); if (!w || !(m.v > 0)) return; if (G.sendToWall(S.plan, m, w.rid, w.wid)) { label('замер ' + fl(m.v) + ' → стена ' + G.wallName(w.r, w.i)); toast('Стена ' + G.wallName(w.r, w.i) + ' в плане = ' + fl(m.v) + ' ' + uLab() + '.'); } return; }
       case 'showwall': if (m && m.wid) { PL.setMode('plan'); PL.st.layer = 'floor'; PL.st.sel = { t: 'wall', r: m.rid, w: m.wid }; render(); } return;
       case 'openmark': { const q = String(v).split('|'); openPhoto(q[0]); st.sel = q[1]; render(); requestAnimationFrame(() => { fit(); paint(); }); return; }
+      case 'm-dup': if (ph && m) { const c = JSON.parse(JSON.stringify(m)), d = Math.round(Math.max(ph.w, ph.h) * 0.03); c.id = G.uid(); delete c.poly; delete c.rid; delete c.wid;
+          const mv = (q) => [clampX(ph, q[0] + d), clampY(ph, q[1] + d)]; c.a = mv(c.a); if (c.b) c.b = mv(c.b); ph.marks.push(c); st.sel = c.id; label('копия: ' + markName(m).toLowerCase()); } return;
+      case 'clip-copy': if (ph && m) { const o = { mark: JSON.parse(JSON.stringify(m)), w: ph.w, h: ph.h, ph: ph.id }; UI.fclip = o; try { localStorage.setItem('fotozona.fclip.v1', JSON.stringify(o)); } catch (e) {} toast('Скопировано: ' + markName(m).toLowerCase() + '. «Вставить» — на это или другое фото.'); render(); } return;
+      case 'clip-paste': { const o = fclip(); if (!o) { toast('Буфер пуст — сначала «Копировать».'); return; } if (!ph) { toast('Откройте фото, куда вставить.'); return; }
+        const k = ph.w / (o.w || ph.w), d = o.ph === ph.id ? Math.round(Math.max(ph.w, ph.h) * 0.03) : 0, c = JSON.parse(JSON.stringify(o.mark)); c.id = G.uid(); delete c.poly; delete c.rid; delete c.wid;
+        const mv = (q) => [clampX(ph, q[0] * k + d), clampY(ph, q[1] * k + d)]; c.a = mv(c.a); if (c.b) c.b = mv(c.b); ph.marks.push(c); st.sel = c.id; label('вставка: ' + markName(c).toLowerCase()); return; }
       case 'm-del': if (ph && m) { ph.marks = ph.marks.filter((x) => x.id !== m.id); st.sel = null; label('удалено: ' + markName(m).toLowerCase()); } return;
       case 'p-del': if (ph) { const i = L().indexOf(ph); L().splice(i, 1); if (S.plan) S.plan.items = S.plan.items.filter((it) => !(it.kind === 'photo' && it.photo === ph.id)); st.open = null; st.sel = null; label('фото удалено'); } return;
       case 'png': exportPng(); return;
@@ -7224,7 +7283,7 @@ var PF = (function () {
     document.addEventListener('contextmenu', (e) => { if (e.target && e.target.closest && e.target.closest('#photohost,#planhost,#stagewrap')) e.preventDefault(); });   // no «copy / download image» on a long press
     window.addEventListener('resize', () => { if (UI.mode === 'photo') { if (st.v && !st.v.user) st.v = null; paint(); } });
   }
-  return { st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
+  return { canPaste: () => !!fclip(), cur, mark: (id) => mark(id), st, validate, vFly, placeFly, paint, down, move, up, act, bind, key, upload, init, vTools, vInsp, vLayers, vChecks, vSettings, vOptbar, vStatbar, SKEL, openPhoto, exportPng, pinOf, ICO, refreshCut, layer, drawFit, cut: () => cut, photoCanvas, fitOn };
 })();
 
 /* the photo mode's panels take the place of the others in «Фото» mode */
@@ -7903,6 +7962,7 @@ function renderNow(){
   var cw=$('#calcwin');
   if(UI.tab!=='con'&&V[UI.tab]){cw.hidden=false;renderSecs($('#calcview'),V[UI.tab],UI.tab);if(UI.tab==='client')IO.drawOffer($('#offer'))}
   else{cw.hidden=true;if($('#calcview').dataset.view){$('#calcview').innerHTML='';$('#calcview').dataset.view=''}}
+  try{QB.render()}catch(e){renderErr('qbar',e)}
   $$('[data-act=undo]').forEach(function(b){b.disabled=UI.hi<=0});$$('[data-act=redo]').forEach(function(b){b.disabled=UI.hi>=UI.hist.length-1});
   renderModal();
   showSelRow();
@@ -8261,7 +8321,8 @@ function addEl(ne){UI.multi=null;UI.fly=false;
   UI.sel=ne.id;UI.ced=null;commit();
 }
 function addPic(id,more){var im=IMG[id];if(!im)return;var mn=M.main(S),w=Math.round(Math.min(1100,Math.max(300,mn?mn.w*.6:800))/50)*50,d={im:id,ar:im.h/im.w,w:w,mount:'wall'};for(var k in (more||{}))d[k]=more[k];addEl(M.make(S,'pic',d))}
-function act(name,a){if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
+function act(name,a){if(name==='qset'){var qi=a&&a.dataset.id||'';if(qi.indexOf('pos:')===0){QB.setPos(qi.slice(4));return}QB.cfg(qi);var mp=$('#mpop');if(mp&&!mp.hidden&&mp.dataset.id==='qbar')mp.innerHTML=V.mmenu('qbar');return}
+  if(name==='msub'){var w=a&&a.closest&&a.closest('.msub'),was=w&&w.classList.contains('open');$$('#mpop .msub.open').forEach(function(x){x.classList.remove('open');x.querySelector('.msb').setAttribute('aria-expanded','false')});if(w&&!was){w.classList.add('open');a.setAttribute('aria-expanded','true');UI.msub=a.dataset.id;V.subPlace(w)}else UI.msub=null;return}
   if(a&&a.closest&&a.closest('#mpop')&&name!=='mopen')menuClose();
   var el=V.sel(),i=el?S.els.indexOf(el):-1,id=a&&a.dataset.id;
   switch(name){
@@ -8373,6 +8434,8 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-png':IO.exportOfferPng();break;
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
+    case 'qa':QB.run(id);break;
+    case 'qcfg':menuOpen('qbar',a);break;
     case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photos-pdf':RP.photosPdf();break;
@@ -8783,8 +8846,96 @@ function glassNow(){return document.documentElement.classList.contains('glass')}
 function setGlass(on){document.documentElement.classList.toggle('glass',on);try{localStorage.setItem('fotozona.glass.v1',on?'on':'off')}catch(e){}menuClose();requestAnimationFrame(function(){fitStage();zoomApply();placeFly();placeOv()})}
 function themeNow(){var t=document.documentElement.getAttribute('data-theme');return t==='light'?'light':'dark'}
 /* menus: a word in the bar opens its list under it; while one is open, moving to the next word opens that one, as in Photoshop */
+/* ===== QB: the actions panel — undo, redo, duplicate, copy, paste, delete, layer forward/back, lock, turn 90°, choose several.
+   In the top bar (default), floating over the canvas (dragged by its grip, place remembered), or hidden (then only undo/redo
+   stay in the top bar). Each button does the same thing as its menu item or key in the current tab; what the tab has no use
+   for is not shown, what has nothing to act on is greyed. Which buttons show is the user's choice (⋯ → Кнопки). ===== */
+var QB=(function(){
+  var KEY='fotozona.qbar.v1',st={pos:'top',x:null,y:null,vert:false,hide:{}};
+  try{var t=JSON.parse(localStorage.getItem(KEY)||'null');if(t&&typeof t==='object'){if(/^(top|float|off)$/.test(t.pos))st.pos=t.pos;if(isFinite(t.x))st.x=+t.x;if(isFinite(t.y))st.y=+t.y;st.vert=!!t.vert;if(t.hide&&typeof t.hide==='object')st.hide=t.hide}}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(st))}catch(e){}}
+  var I=function(d){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+d+'</svg>'};
+  var ICO={
+    dup:I('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/><path d="M14 11.5v5M11.5 14h5"/>'),
+    copy:I('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/>'),
+    paste:I('<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4V3h6v1M9 4v2h6V4"/><path d="M9 12h6M9 16h4"/>'),
+    up:I('<path d="M4 15l8 4 8-4" opacity=".55"/><path d="M4 11l8 4 8-4"/><path d="M12 11V3M8.5 6.5 12 3l3.5 3.5"/>'),
+    down:I('<path d="M4 7l8-4 8 4" opacity=".55"/><path d="M4 11l8-4 8 4"/><path d="M12 11v10M8.5 17.5 12 21l3.5-3.5"/>'),
+    rot:I('<path d="M4 12a8 8 0 1 0 2.4-5.7"/><path d="M4 4v5h5"/><text x="12" y="15.2" font-size="7" font-weight="700" text-anchor="middle" fill="currentColor" stroke="none" font-family="system-ui,sans-serif">90</text>'),
+    more:I('<circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/>'),
+    grip:I('<circle cx="9" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="6" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="12" r="1.2" fill="currentColor" stroke="none"/><circle cx="9" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="18" r="1.2" fill="currentColor" stroke="none"/>'),
+    turn:I('<path d="M7 7h10v10"/><path d="M7 17 17 7"/>')};
+  var ALL=[['undo','Отменить','Ctrl+Z'],['redo','Вернуть','Ctrl+Y'],['dup','Дублировать','Ctrl+D'],['copy','Копировать','Ctrl+C'],['paste','Вставить','Ctrl+V'],['del','Удалить','Del'],['up','Слой вперёд',''],['down','Слой назад',''],['lock','Закрепить',''],['rot','Повернуть на 90°',''],['multi','Выбирать несколько','']];
+  var SEP={paste:1,del:1,down:1};   // a thin gap after these
+  /* what each button does now: null = not in this tab; {dis, on, title, run} */
+  function scene(id){var el=V.sel(),ms=V.multi(),many=ms.length>1,any=!!el||many;
+    switch(id){
+      case 'dup':return {dis:!any,run:function(){act(many?'gdup':'dup')}};
+      case 'copy':return {dis:!any,run:function(){act('copy')}};
+      case 'paste':return {dis:!V.hasClip(),run:function(){act('paste')}};
+      case 'del':return {dis:!any,run:function(){act(many?'gdel':'del')}};
+      case 'up':case 'down':{if(!el||many)return {dis:true,run:null};var ord=SC.order(S),i=ord.indexOf(S.els.indexOf(el));return {dis:id==='up'?i>=S.els.length-1:i<=0,run:function(){act(id)}}}
+      case 'lock':{if(many){var all=ms.every(function(e){return e.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){act('glock')}}}if(!el)return {dis:true};return {on:!!el.lock,title:el.lock?'Открепить':'Закрепить',run:function(){act('llock',{dataset:{id:el.id}})}}}
+      case 'rot':return {dis:!el||many||!M.canRot(el),title:el&&!many&&!M.canRot(el)?'Этот элемент не поворачивается':'',run:function(){act('rot',{dataset:{id:'90'}})}};
+      case 'multi':return {on:!!UI.mmode,run:function(){act('multi')}};
+    }return null}
+  function plan(id){var s=PL.st.sel||{},many=PL.st.multi.length>1,isIt=s.t==='item',it=isIt?(S.plan.items||[]).find(function(x){return x.id===s.i}):null,pa=function(n,v){PL.act(n,v==null?null:{dataset:{v:v}})};
+    switch(id){
+      case 'dup':return {dis:!many&&!isIt,run:function(){pa(many?'m-dup':'it-dup')}};
+      case 'copy':return {dis:!many&&!isIt,run:function(){pa('clip-copy')}};
+      case 'paste':return {dis:!PL.canPaste(),run:function(){pa('clip-paste')}};
+      case 'del':{var dn=many?'m-del':({guide:'g-del',op:'op-del',item:'it-del',corner:'c-del',room:'r-del'})[s.t];return {dis:!dn,run:function(){pa(dn)}}}
+      case 'lock':{if(many){var L=PL.st.multi.map(function(i){return S.plan.items.find(function(x){return x.id===i})}).filter(Boolean),all=L.length&&L.every(function(x){return x.lock});return {on:all,title:all?'Открепить':'Закрепить',run:function(){pa('m-lock')}}}
+        var o=it||(s.t==='room'?S.plan.rooms.find(function(r){return r.id===s.r}):null);if(!o)return {dis:true};return {on:!!o.lock,title:o.lock?'Открепить':'Закрепить',run:function(){pa('lyr-lock',(it?'i|':'r|')+o.id)}}}
+      case 'rot':return {dis:!many&&!isIt,run:function(){pa(many?'m-rot':'it-rot90')}};
+      case 'multi':return {on:PL.st.tool==='multi',run:function(){pa('ptool',PL.st.tool==='multi'?'':'multi')}};
+    }return null}
+  function photo(id){var ph=PF.cur(),m=ph&&PF.st.sel?PF.mark(PF.st.sel):null,pa=function(n){PF.act(n,null)};
+    switch(id){
+      case 'dup':return {dis:!m,run:function(){pa('m-dup')}};
+      case 'copy':return {dis:!m,run:function(){pa('clip-copy')}};
+      case 'paste':return {dis:!ph||!PF.canPaste(),title:!ph?'Откройте фото, куда вставить':'',run:function(){pa('clip-paste')}};
+      case 'del':return {dis:!m,run:function(){pa('m-del')}};
+    }return null}
+  function now(id){
+    if(id==='undo')return {dis:UI.hi<=0,run:function(){act('undo')}};
+    if(id==='redo')return {dis:UI.hi>=UI.hist.length-1,run:function(){act('redo')}};
+    try{return UI.mode==='plan'?plan(id):UI.mode==='photo'?photo(id):scene(id)}catch(e){return null}}
+  function buttons(where){
+    var h='',prev=false,list=st.pos==='off'&&where==='top'?ALL.slice(0,2):ALL;
+    list.forEach(function(b){var id=b[0];if(st.pos!=='off'&&st.hide[id])return;var q=now(id);if(!q)return;
+      var t=(q.title||b[1])+(b[2]?' ('+b[2]+')':''),ic=id==='undo'||id==='redo'?U.ico[id]:id==='lock'?U.ico[q.on?'lock':'unlock']:id==='multi'?U.ico.multi:id==='del'?U.ico.del:ICO[id];
+      if(prev&&where!=='top-off'){h+='';}
+      h+='<button type="button" class="ib qb'+(id==='del'?' dng':'')+'" data-act="qa" data-id="'+id+'"'+(q.on!=null?' aria-pressed="'+!!q.on+'"':'')+(q.dis?' disabled':'')+' title="'+U.esc(t)+'" aria-label="'+U.esc(t)+'">'+ic+'</button>'+(SEP[id]?'<i class="qsep" aria-hidden="true"></i>':'');prev=true});
+    h=h.replace(/(<i class="qsep" aria-hidden="true"><\/i>)+$/,'');
+    if(where==='float'||st.pos!=='off')h+='<button type="button" class="ib qb qmore" data-act="qcfg" title="Панель действий: где стоит и какие кнопки" aria-label="Настроить панель действий">'+ICO.more+'</button>';
+    return h}
+  function render(){
+    var top=$('#qbar'),fl=$('#qfloat');if(!top||!fl)return;document.documentElement.classList.toggle('qtop',st.pos==='top');
+    setH(top,st.pos==='float'?'':buttons('top'));top.classList.toggle('qoff',st.pos==='off');
+    if(st.pos==='float'&&UI.tab==='con'){fl.hidden=false;fl.classList.toggle('vert',st.vert);setH(fl,'<span class="qgrip" title="Перетащить панель" aria-label="Перетащить панель" role="button">'+ICO.grip+'</span>'+buttons('float'));place(fl)}else fl.hidden=true}
+  function place(fl){var w=fl.offsetWidth,h=fl.offsetHeight,c=$('#canvas')||$('#plan')||document.body,r=c.getBoundingClientRect();
+    if(st.x==null||st.y==null){st.x=Math.round(r.left+36);st.y=Math.round(r.top+36)}
+    var x=Math.max(4,Math.min(innerWidth-w-4,st.x)),y=Math.max(4,Math.min(innerHeight-h-4,st.y));fl.style.left=x+'px';fl.style.top=y+'px'}
+  function setPos(p){st.pos=p;save();menuClose();render();label0(p==='top'?'Панель действий — в верхней строке':p==='float'?'Панель действий — на холсте: тяните за точки слева':'Панель действий скрыта. Вернуть — «Вид → Панель действий»')}
+  function label0(t){toast(t)}
+  function cfg(id){
+    if(id==='vert'){st.vert=!st.vert;save();render();return}
+    if(id&&id.indexOf('b:')===0){var k=id.slice(2);if(st.hide[k])delete st.hide[k];else st.hide[k]=1;save();render();return}}
+  function menu(it){var b=function(id,lab,on){return '<button type="button" class="mi'+(on?' on':'')+'" data-act="qset" data-id="'+id+'"><i class="mck" aria-hidden="true">'+(on?'✓':'')+'</i><span>'+lab+'</span></button>'};
+    return '<div class="mhd">Где стоит панель</div>'+b('pos:top','В верхней строке',st.pos==='top')+b('pos:float','На холсте, плавающая',st.pos==='float')+b('pos:off','Скрыть',st.pos==='off')+
+      (st.pos==='float'?b('vert','Вертикально',st.vert):'')+'<hr><div class="mhd">Кнопки</div>'+ALL.slice(2).map(function(x){return b('b:'+x[0],x[1],!st.hide[x[0]])}).join('')+'<div class="mhd">«Слой вперёд / назад» — в «Сцене»; «Закрепить», «Повернуть», «Несколько» — в «Сцене» и «Плане».</div>'}
+  /* drag by the grip */
+  var drag=null;
+  document.addEventListener('pointerdown',function(ev){var g=ev.target.closest&&ev.target.closest('#qfloat .qgrip');if(!g)return;ev.preventDefault();var fl=$('#qfloat'),r=fl.getBoundingClientRect();drag={dx:ev.clientX-r.left,dy:ev.clientY-r.top,id:ev.pointerId};try{g.setPointerCapture(ev.pointerId)}catch(e){}fl.classList.add('drag')});
+  document.addEventListener('pointermove',function(ev){if(!drag||ev.pointerId!==drag.id)return;st.x=Math.round(ev.clientX-drag.dx);st.y=Math.round(ev.clientY-drag.dy);place($('#qfloat'))});
+  var end=function(ev){if(!drag||ev.pointerId!==drag.id)return;drag=null;var fl=$('#qfloat');fl.classList.remove('drag');var r=fl.getBoundingClientRect();st.x=Math.round(r.left);st.y=Math.round(r.top);save()};
+  document.addEventListener('pointerup',end);document.addEventListener('pointercancel',end);
+  window.addEventListener('resize',function(){var fl=$('#qfloat');if(fl&&!fl.hidden)place(fl)});
+  return {st:st,render:render,run:function(id){var q=now(id);if(q&&!q.dis&&q.run){q.run();try{QB.render()}catch(e){}}},setPos:setPos,cfg:cfg,menu:menu,now:now}
+})();
 function menuOpen(id,b){var m=$('#mpop');if(!m)return;if(!m.hidden&&m.dataset.id===id){menuClose();return}
-  m.innerHTML=V.mmenu(id);m.dataset.id=id;m.hidden=false;var r=b.getBoundingClientRect();m.style.left=Math.max(4,Math.min(innerWidth-m.offsetWidth-4,r.left))+'px';m.style.top=(r.bottom+2)+'px';
+  m.innerHTML=V.mmenu(id);m.dataset.id=id;m.hidden=false;var r=b.getBoundingClientRect(),mh=m.offsetHeight,tp=r.bottom+2;if(tp+mh>innerHeight-4)tp=r.top-mh-2>=4?r.top-mh-2:Math.max(4,innerHeight-mh-4);m.style.left=Math.max(4,Math.min(innerWidth-m.offsetWidth-4,r.left))+'px';m.style.top=tp+'px';
   $$('.mbar .mb').forEach(function(x){x.setAttribute('aria-expanded',x.dataset.id===id)})}
 /* a transfer file from the other version: on the site a room is made first if there is none, so the projects have somewhere to live */
 function transferIn(B){var go=function(){toast('Переношу данные…');return IO.importAll(B).then(function(c){
@@ -8853,7 +9004,7 @@ function readInput(n){
 }
 function init(){
   $('#tabs').innerHTML=V.TABS.slice(1).map(function(t,i){return '<button type="button" class="tab" role="tab" data-act="tab" data-id="'+t[0]+'"><span class="n">'+(i+1)+'</span>'+t[1]+'</button>'}).join('');
-  $('#undo').innerHTML=U.ico.undo;$('#redo').innerHTML=U.ico.redo;$('#burger').innerHTML='<img src="'+U.LOGO+'" alt="" width="24" height="24" draggable="false">';try{var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.href=U.LOGO;document.head.appendChild(fi)}catch(e){}$('#photobtn').innerHTML=U.ico.cam+'<span>По фото</span>';$('#savebtn').innerHTML=U.ico.save+'<span>Сохранить</span>';$('.tclose').innerHTML=U.ico.x+'<span>К сцене</span>';themeBtn();
+  $('#burger').innerHTML='<img src="'+U.LOGO+'" alt="" width="24" height="24" draggable="false">';try{var fi=document.createElement('link');fi.rel='icon';fi.type='image/png';fi.href=U.LOGO;document.head.appendChild(fi)}catch(e){}$('#photobtn').innerHTML=U.ico.cam+'<span>По фото</span>';$('#savebtn').innerHTML=U.ico.save+'<span>Сохранить</span>';$('.tclose').innerHTML=U.ico.x+'<span>К сцене</span>';themeBtn();
   try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',themeBtn)}catch(e){}
   try{UI.mv=localStorage.getItem('fotozona.move.v1')==='floor'?'floor':'wall';localStorage.removeItem('fotozona.keepar.v1')}catch(e){UI.mv='wall'}
   var saved=IO.loadAuto();S=(saved&&M.normalize(saved))||M.normalize(M.template('three'))||M.template('three');if(!S.plan)S.plan=PG.newPlan();if(!S.photos)S.photos=[];   // a fresh start has a plan and a photo list too
