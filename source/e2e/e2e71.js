@@ -68,10 +68,13 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await tap(4500,0);
  ok(await ev(()=>{const d=S.plan.dims[0];return d&&d.a.ref&&d.a.ref.t==='r'&&d.b.ref&&Math.abs(PG.dimGeom(S.plan,d).L-9000)<1&&PG.dimGeom(S.plan,d).A2[1]<0}),'tap on wall A–B: 9,000, outside the room');
  ok(await ev(()=>/9,000/.test(document.getElementById('plab').textContent)),'its text on the plan');
+ ok(await ev(()=>PL.st.tool===null&&document.getElementById('pbanner').hidden),'after one dimension the tool is off, no banner');
+ await p.click('.tools [data-pact=ptool][data-v=dim]');await p.waitForTimeout(60);
  // pulled from corner to corner of the table
  await dragMM(3500-900+40,1500-400+40,3500+900-40,1500+400-40);
  ok(await ev(()=>{const d=S.plan.dims[1];return d&&d.a.ref&&d.a.ref.id==='TT'&&d.b.ref&&d.b.ref.id==='TT'&&Math.abs(PG.dimGeom(S.plan,d).L-Math.hypot(1800,800))<1}),'two taps near the table corners: diagonal, stuck to the corners');
  // a free point and a corner
+ await p.click('.tools [data-pact=ptool][data-v=dim]');await p.waitForTimeout(60);
  await dragMM(1000,2600,40,5960);ok(await ev(()=>{const d=S.plan.dims[2];return d&&!d.a.ref&&d.b.ref&&d.b.ref.t==='r'}),'free start, corner end');
  // the table moves → its dimension follows
  await p.click('.tools [data-pact=ptool][data-v=""]');await p.waitForTimeout(60);
@@ -110,7 +113,10 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  ok(await ev(()=>{const it=S.plan.items.filter(i=>i.ref==='g_wall').pop();return it&&Math.abs(it.w-3000)<15&&Math.abs(it.rot)<0.01&&it.d===100}),'partition start to end: 3 m, straight (15° steps)');
  await p.click('.tools [data-pact=ptool][data-v=dim]');const nd=await ev(()=>S.plan.dims.length);await dragMM(4300,2600,5600,2600);
  ok(await ev((n)=>{const d=S.plan.dims[n];return d&&!d.a.ref&&!d.b.ref&&Math.abs(PG.dimGeom(S.plan,d).L-1300)<1},nd),'dimension pulled between free points: 1,300');
- await tap(5000,3300);ok(await ev((n)=>S.plan.dims.length===n+1,nd),'a tap in the open makes no dimension');
+ await p.click('.tools [data-pact=ptool][data-v=dim]');await tap(5000,3300);ok(await ev((n)=>S.plan.dims.length===n+1&&PL.st.tool==='dim',nd),'a tap in the open makes no dimension, tool stays');
+ // the ruler: one measurement, then off; the line stays until the next touch
+ await p.click('.tools [data-pact=ptool][data-v=ruler]');await dragMM(1000,5800,4000,5800);ok(await ev(()=>PL.st.tool===null&&PL.st.ruler&&PL.st.ruler.b&&!!document.querySelector('#pover .pru')),'ruler: measured, tool off, line shown '+JSON.stringify(await ev(()=>[PL.st.tool,PL.st.ruler,!!document.querySelector('#pover .pru')])));
+ await tap(8000,5500);ok(await ev(()=>!PL.st.ruler),'next touch clears the ruler line');
  await p.click('.tools [data-pact=ptool][data-v=""]');
  ok(!(await ev(()=>/\bundefined\b|\bNaN\b/.test(document.body.innerText))),'no undefined on screen');
  ok(!errs.length,'no page errors: '+errs.join(' | '));

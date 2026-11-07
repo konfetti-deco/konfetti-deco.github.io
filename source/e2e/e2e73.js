@@ -27,5 +27,12 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  // «Несколько» still adds
  await tap(2500,3000);await p.click('.tools [data-pact=ptool][data-v=multi]');await p.waitForTimeout(60);await tap(2000,10000);
  ok(await ev(()=>PL.st.multi.length===5&&PL.st.multi.indexOf('S1')>=0),'with «Несколько» on, a tap adds to the group selection');
+ // photo: one size mark, then the tool is off and its banner gone
+ await p.click('.tools [data-pact=ptool][data-v=""]');
+ await p.click('#modesw [data-v=photo]');await p.setInputFiles('.fadd input >> nth=0','tmp/hall_test.jpg');await p.waitForFunction(()=>(S.photos||[]).length===1);await p.waitForTimeout(250);
+ await ev(()=>{PF.act('tool',{dataset:{v:'dim'}})});await p.waitForTimeout(80);ok(await p.isVisible('#fbanner'),'photo size tool: hint shown');
+ const fr=await ev(()=>{const r=document.querySelector('#fhost, .fhost, #photohost')||document.getElementById('fbanner').parentElement;const b=r.getBoundingClientRect();return [b.left+b.width*0.3,b.top+b.height*0.5,b.left+b.width*0.6,b.top+b.height*0.5]});
+ await p.mouse.move(fr[0],fr[1]);await p.mouse.down();await p.mouse.move(fr[2],fr[3],{steps:8});await p.mouse.up();await p.waitForTimeout(150);
+ ok(await ev(()=>S.photos[0].marks.length===1&&!PF.st.tool),'one size drawn, tool off');ok(await p.isHidden('#fbanner'),'no banner to press');
  ok(!errs.length,'no page errors: '+errs.join(' | '));
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();

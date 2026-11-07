@@ -268,12 +268,12 @@ var PF = (function () {
   function banner() {
     const b = document.getElementById('fbanner'); if (!b) return;
     let t = '';
-    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    if (cur() && (st.tool === 'dim' || st.tool === 'arrow')) t = '<span>' + (st.pend ? 'Вторая точка' : (st.tool === 'dim' ? 'Размер' : 'Стрелка') + ': от точки к точке') + '</span>' + U.help('Проведите пальцем от одной точки до другой — над пальцем будет лупа. Или коснитесь двух точек по очереди.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Отмена</button>';
     else if (cur() && st.tool === 'fit') t = '<span>Примерка: тяните углы</span>' + U.help('Нижние углы — на пол, где будет стоять фотозона, верхние — на её высоту. Внутри рамки — сдвиг целиком.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'ref') t = '<span>Эталон: поставьте 4 угла на предмет известного размера</span>' + U.help('Например, на дверь: левый верхний, правый верхний, правый нижний, левый нижний угол. Справа впишите его ширину и высоту — или выберите готовый размер.') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
     else if (cur() && st.tool === 'fit2') t = '<span>' + (st.f2 && st.f2.length ? 'Теперь правый край на полу' : 'Коснитесь пола там, где будет левый край фотозоны') + '</span><button type="button" class="btn sm" data-fact="tool" data-v="fit">Отмена</button>';
     else if (cur() && st.tool === 'poly') t = '<span>Контур: коснитесь углов по очереди' + (st.poly && st.poly.length ? ' · углов ' + st.poly.length : '') + '</span>' + U.help('Каждая сторона станет размером. Замкните — коснитесь первого угла или «Замкнуть»; затем впишите длины сторон по очереди, и справа появятся периметр и площадь.') + (st.poly && st.poly.length ? '<button type="button" class="btn sm" data-fact="poly-back">Убрать угол</button>' : '') + (st.poly && st.poly.length >= 3 ? '<button type="button" class="btn sm pri" data-fact="poly-close">Замкнуть</button>' : '') + '<button type="button" class="btn sm" data-fact="tool" data-v="">Отмена</button>';
-    else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Готово</button>';
+    else if (cur() && st.tool === 'text') t = '<span>Коснитесь места для заметки</span><button type="button" class="btn sm" data-fact="tool" data-v="">Отмена</button>';
     b.hidden = !t; if (b._h !== t) { b.innerHTML = t; b._h = t; }
   }
   /* the magnifier: a circle above the finger showing the photo under it, enlarged */
@@ -364,7 +364,7 @@ var PF = (function () {
       st.pend = null;
       if (Math.hypot(b[0] - d.a[0], b[1] - d.a[1]) * st.v.s < 12) { paint(); return true; }
       const m = { id: G.uid(), t: st.tool, a: d.a, b, col: st.col }; if (m.t === 'dim') m.v = null; else m.text = '';
-      ph.marks.push(m); st.sel = m.id; label(st.tool === 'dim' ? 'размер' : 'стрелка'); return true;
+      ph.marks.push(m); st.sel = m.id; const tl = st.tool; st.tool = ''; label(tl === 'dim' ? 'размер' : 'стрелка'); return true;
     }
     if (d.mode === 'poly') {
       if (d.moved) { paint(); return true; }

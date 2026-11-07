@@ -583,14 +583,14 @@ var PL = (function () {
   function banner() {
     if (st.draw) { const dk = st.draw.kind, need = dk === 'line' ? 2 : 3; return '<span>' + (dk === 'line' ? (st.draw.pts.length < 2 ? 'Линия: коснитесь точек по порядку' : 'Ещё точка — или «Готово»') : dk === 'free' ? (st.draw.pts.length < 3 ? 'Своя форма: коснитесь точек по порядку' : 'Ещё точка — или коснитесь первой, чтобы замкнуть') : (st.draw.pts.length < 3 ? 'Коснитесь углов зала по порядку' : 'Ещё угол — или коснитесь первой точки, чтобы замкнуть')) + ' · ' + st.draw.pts.length + ' т.</span>' +
       (st.draw.pts.length ? '<button type="button" class="btn sm" data-pact="draw-back">Убрать точку</button>' : '') + (st.draw.pts.length >= need ? '<button type="button" class="btn sm pri" data-pact="draw-done">Готово</button>' : '') + '<button type="button" class="btn sm" data-pact="draw-cancel">Отмена</button>'; }
-    if (st.tool && st.tool.indexOf('op:') === 0) return '<span>Коснитесь стены, куда поставить: ' + esc(G.OPENINGS[st.tool.slice(3)].label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool && st.tool.indexOf('op:') === 0) return '<span>Коснитесь стены: ' + esc(G.OPENINGS[st.tool.slice(3)].label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('col:') === 0) return '<span>Коснитесь места для колонны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
-    if (st.tool && /^it:g_(rect|oval|tri|wall)$/.test(st.tool)) { const g = st.tool.slice(3); return '<span>' + ({ g_rect: 'Прямоугольник: поставьте палец в угол и тяните по диагонали', g_oval: 'Круг: поставьте палец в центр и тяните — это радиус', g_tri: 'Треугольник: тяните по диагонали — он впишется в эту рамку', g_wall: 'Перегородка: поставьте палец в начало и тяните до конца' })[g] + ' · углы притягивают</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
-    if (st.tool && st.tool.indexOf('it:') === 0) { const c = G.CAT[st.tool.slice(3)]; return '<span>Коснитесь места, куда поставить: ' + esc(c.label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
+    if (st.tool && /^it:g_(rect|oval|tri|wall)$/.test(st.tool)) { const g = st.tool.slice(3); return '<span>' + ({ g_rect: 'Прямоугольник: тяните из угла по диагонали', g_oval: 'Круг: тяните из центра', g_tri: 'Треугольник: тяните по диагонали', g_wall: 'Перегородка: тяните от начала до конца' })[g] + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
+    if (st.tool && st.tool.indexOf('it:') === 0) { const c = G.CAT[st.tool.slice(3)]; return '<span>Коснитесь места: ' + esc(G.itemLabel({ ref: st.tool.slice(3), kind: c.kind })) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('combo:') === 0) return '<span>Коснитесь места для ' + (st.tool.slice(6) === 'P' ? 'П' : 'Т') + '-образного стола</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('pin:') === 0) { const ph = (S.photos || []).find((x) => x.id === st.tool.slice(4)); return '<span>Коснитесь места, откуда снято фото' + (ph ? ' «' + esc(ph.name) + '»' : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
-    if (st.tool === 'dim') return '<span>Размер: палец на точку и ведите до второй — углы притягивают (Shift — без). Касание стороны — вся сторона. План двигать — двумя пальцами</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
-    if (st.tool === 'ruler') return '<span>Линейка: тяните от точки к точке' + (st.ruler && st.ruler.b ? ' · ' + fl(G.hyp(st.ruler.b[0] - st.ruler.a[0], st.ruler.b[1] - st.ruler.a[1])) + ' ' + uLab() : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
+    if (st.tool === 'dim') return '<span>Размер: тяните от точки до точки или коснитесь стороны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool === 'ruler') return '<span>Линейка: тяните от точки до точки</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     return '';
   }
   /* ---------- pointer ---------- */
@@ -626,6 +626,7 @@ var PL = (function () {
     }
     try { svg().setPointerCapture(ev.pointerId); } catch (e) {}
     const p = toMM(ev), ref = refOf(ev), hand = st.tool === 'hand' || UI.spaceHand || ev.button === 1;
+    if (st.ruler && st.tool !== 'ruler') st.ruler = null;
     const d = st.drag = { pid: ev.pointerId, x0: ev.clientX, y0: ev.clientY, p0: p, moved: false, mode: 'pan', v0: Object.assign({}, st.v), ref };
     if (hand) return true;
     if (st.draw) { d.mode = 'draw'; return true; }
@@ -703,7 +704,7 @@ var PL = (function () {
     const e = nearKey(p, 14 / s) ? null : nearEdge(p, 11 / s);
     if (!e) { toast('Поставьте палец на точку и ведите до второй — углы притягивают. Касание стороны — размер всей стороны.'); return; }
     const dm = G.normDim({ a: { x: e.A[0], y: e.A[1], ref: e.a }, b: { x: e.B[0], y: e.B[1], ref: e.b }, off: 0 }), g = G.dimGeom(pl, dm), L = g.L || 1, n = [(g.B[1] - g.A[1]) / L, -(g.B[0] - g.A[0]) / L];
-    dm.off = Math.round((n[0] * e.out[0] + n[1] * e.out[1] >= 0 ? 1 : -1) * 30 / s); pl.dims.push(dm); st.sel = { t: 'dim', d: dm.id }; label('размер стороны — ' + fl(g.L));
+    dm.off = Math.round((n[0] * e.out[0] + n[1] * e.out[1] >= 0 ? 1 : -1) * 30 / s); pl.dims.push(dm); st.sel = { t: 'dim', d: dm.id }; st.tool = null; label('размер стороны — ' + fl(g.L));
   }
 
   function snapPoint(p) {   // the ruler sticks to corners
@@ -869,9 +870,9 @@ var PL = (function () {
       if (!prev || G.hyp(q[0] - prev[0], q[1] - prev[1]) >= 50) st.draw.pts.push(q);
       st.draw.hover = null; paint(); return true;
     }
-    if (d.mode === 'ruler') { paint(); return true; }
+    if (d.mode === 'ruler') { if (st.ruler && st.ruler.b) st.tool = null; render(); return true; }   // measured: the tool is off, the line stays until the next touch
     if (d.mode === 'dimtap') { dimTap(p); return true; }
-    if (d.mode === 'dimdraw') { const dm = dimOf(d.did); if (!dm) return true; const L = G.dimGeom(P(), dm).L; if (L < 10) { P().dims = P().dims.filter((x) => x.id !== dm.id); st.sel = null; paint(); return true; } st.sel = { t: 'dim', d: dm.id }; label('размер — ' + fl(L)); return true; }
+    if (d.mode === 'dimdraw') { const dm = dimOf(d.did); if (!dm) return true; const L = G.dimGeom(P(), dm).L; if (L < 10) { P().dims = P().dims.filter((x) => x.id !== dm.id); st.sel = null; paint(); return true; } st.sel = { t: 'dim', d: dm.id }; st.tool = null; label('размер — ' + fl(L)); return true; }
     if (d.mode === 'pvert' && !d.moved) { const it = item(d.ref[1]); if (d.ins && it) { G.recenterPoly(it); st.vsel = null; label('точка добавлена — ' + G.itemLabel(it)); return true; } render(); return true; }
     if ((d.mode === 'doff' || d.mode === 'dend') && !d.moved) { st.sel = { t: 'dim', d: d.ref[1] }; st.multi = []; render(); return true; }
     if (d.mode === 'gdraw') {
