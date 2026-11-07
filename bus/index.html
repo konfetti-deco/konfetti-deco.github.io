@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#7a4b94">
-<meta name="app-version" content="bus-v3">
+<meta name="app-version" content="bus-v4">
 <title>Автобус Schanz</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -84,13 +84,14 @@ const ROUTES = [
 ];
 
 const API = "https://api.transitous.org";
-const PLAN_VERSIONS = ["v6", "v5", "v4", "v3", "v2", "v1"]; // пробуем по очереди
+const VERSIONS = ["v6", "v5", "v4", "v3", "v2", "v1"]; // версия API: пробуем по очереди, рабочую запоминаем
 const AACHEN = "50.7753,6.0839";
 const TZ = "Europe/Berlin";
 const REFRESH_MS = 60_000;          // автообновление раз в минуту
-const AUTO_REFRESH_LIMIT_MS = 20 * 60_000; // после 20 мин без касаний — пауза (бережём лимиты API)
+const AUTO_REFRESH_LIMIT_MS = 20 * 60_000; // после 20 мин без касаний — пауза (бережём бесплатный сервер)
 const TIMEOUT_MS = 12_000;
 const STOP_CACHE_DAYS = 14;
+const WINDOW_MIN = 45;              // показываем отправления на ближайшие 45 мин (минимум 30 рейсов с остановки)
 
 // ===== Безопасный localStorage =====
 const store = {
@@ -100,21 +101,47 @@ const store = {
 };
 
 // ===== Сеть =====
+// Ошибки помечаются: network — нет связи/таймаут; status — HTTP-код; apiError — сервер ответил осмысленной ошибкой.
 async function getJSON(url) {
   let lastErr;
   for (let attempt = 0; attempt < 2; attempt++) {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    let r;
     try {
-      const r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
-      if (r.status === 404) { const e = new Error("404"); e.status = 404; throw e; }
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      return await r.json();
+      r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+    } catch (e) {
+      lastErr = Object.assign(new Error("network: " + e.message), { network: true });
+      clearTimeout(t);
+      if (attempt === 0) await new Promise(res => setTimeout(res, 1500));
+      continue;
+    }
+    clearTimeout(t);
+    if (r.ok) return await r.json();
+    const err = new Error("HTTP " + r.status);
+    err.status = r.status;
+    try { const body = await r.json(); if (body && body.error) { err.apiError = true; err.message += ": " + body.error; } } catch {}
+    if (r.status < 500) throw err;              // 4xx не повторяем
+    lastErr = err;
+    if (attempt === 0) await new Promise(res => setTimeout(res, 1500));
+  }
+  throw lastErr;
+}
+
+async function apiGet(endpoint, params) {
+  const vk = "ver:" + endpoint;
+  const known = store.get(vk);
+  const order = known ? [known, ...VERSIONS.filter(v => v !== known)] : VERSIONS;
+  let lastErr;
+  for (const v of order) {
+    try {
+      const data = await getJSON(`${API}/api/${v}/${endpoint}?${params}`);
+      if (v !== known) store.set(vk, v);
+      return data;
     } catch (e) {
       lastErr = e;
-      if (e.status === 404) throw e;           // не повторяем
-      await new Promise(res => setTimeout(res, 1500));
-    } finally { clearTimeout(t); }
+      if (!(e.status === 404 && !e.apiError)) break;   // другая версия поможет только при «нет такого адреса»
+    }
   }
   throw lastErr;
 }
@@ -136,60 +163,75 @@ async function resolveStop(key, force) {
   return hit.id;
 }
 
-// ===== Запрос поездок =====
-async function plan(fromId, toId, time, cursor) {
+// ===== Способ 1 (основной): табло отправлений + следующие остановки каждого рейса =====
+// Один запрос. Рейс берём, только если он после нашей остановки доезжает до остановки назначения.
+async function boardTrips(fromId, fromKey, toKey, time) {
   const params = new URLSearchParams({
-    fromPlace: fromId, toPlace: toId, time,
-    maxTransfers: "0",           // только прямые
-    transitModes: "BUS",         // только автобусы
-    searchWindow: "3600",        // отправления на ближайший час
-    numItineraries: "10",
+    stopId: fromId, time, n: "30", window: String(WINDOW_MIN * 60), mode: "BUS", fetchStops: "true",
   });
-  if (cursor) params.set("pageCursor", cursor);
-  const known = store.get("planVersion");
-  const order = known ? [known, ...PLAN_VERSIONS.filter(v => v !== known)] : PLAN_VERSIONS;
-  let lastErr;
-  for (const v of order) {
-    try {
-      const data = await getJSON(`${API}/api/${v}/plan?${params}`);
-      if (v !== known) store.set("planVersion", v);
-      return data;
-    } catch (e) { lastErr = e; if (e.status !== 404) break; }
+  const data = await apiGet("stoptimes", params);
+  const list = (data && data.stopTimes) || [];
+  if (list.length && !list.some(x => Array.isArray(x.nextStops))) {
+    throw Object.assign(new Error("сервер не вернул следующие остановки"), { noStops: true });
   }
-  throw lastErr;
-}
-
-const TRANSIT = m => !["WALK", "BIKE", "CAR", "RENTAL", "FLEX", "ODM", "CAR_PARKING", "CAR_DROPOFF", "DEBUG_BUS_ROUTE", "DEBUG_RAILWAY_ROUTE", "DEBUG_FERRY_ROUTE"].includes(m);
-
-// Оставляем только прямой автобус ровно от остановки A до остановки B
-// (без «4 мин пешком до соседней остановки» и без выхода на соседней остановке).
-function toTrips(data, fromKey, toKey) {
   const out = [];
-  for (const it of (data && data.itineraries) || []) {
-    const legs = it.legs || [];
-    const tl = legs.filter(l => TRANSIT(l.mode));
-    if (tl.length !== 1) continue;
-    if (!STOPS[fromKey].match.test(tl[0].from && tl[0].from.name || "")) continue;
-    if (!STOPS[toKey].match.test(tl[0].to && tl[0].to.name || "")) continue;
-    const first = tl[0], last = tl[tl.length - 1];
-    const walkBefore = legs[0] && !TRANSIT(legs[0].mode) ? Math.round(legs[0].duration / 60) : 0;
+  for (const x of list) {
+    const p = x.place || {};
+    if (!STOPS[fromKey].match.test(p.name || "")) continue;     // только наша остановка
+    if (x.pickupDropoffType === "NOT_ALLOWED") continue;          // посадки нет
+    const d = (x.nextStops || []).find(n => STOPS[toKey].match.test(n.name || ""));
+    if (!d || !p.departure) continue;                             // не доезжает
     out.push({
-      key: tl.map(l => l.tripId || l.startTime).join("|"),
-      lines: tl.map(l => l.routeShortName || l.displayName || l.mode),
-      dep: first.startTime, depSched: first.scheduledStartTime,
-      arr: last.endTime,
-      realTime: tl.some(l => l.realTime),
-      cancelled: tl.some(l => l.cancelled || (l.from && l.from.cancelled)),
-      headsign: first.headsign || "",
-      fromStop: first.from && first.from.name,
-      walkBefore,
-      transfers: tl.length - 1,
+      key: (x.routeShortName || "") + "|" + (p.scheduledDeparture || p.departure),
+      line: x.routeShortName || x.displayName || "Bus",
+      dep: p.departure, depSched: p.scheduledDeparture || p.departure,
+      arr: d.arrival || d.departure,
+      realTime: !!x.realTime,
+      cancelled: !!(x.cancelled || x.tripCancelled || d.cancelled),
+      headsign: x.headsign || "",
+      track: p.track || p.scheduledTrack || "",
     });
   }
-  // убрать дубликаты и сортировать по отправлению
+  return finalize(out);
+}
+
+// ===== Способ 2 (запасной): поиск маршрутов, только прямые автобусы =====
+async function planTrips(fromKey, toKey, time) {
+  const [fromId, toId] = await Promise.all([resolveStop(fromKey, false), resolveStop(toKey, false)]);
+  const params = new URLSearchParams({
+    fromPlace: fromId, toPlace: toId, time,
+    maxTransfers: "0", transitModes: "BUS", searchWindow: String(WINDOW_MIN * 60), numItineraries: "10",
+  });
+  const data = await apiGet("plan", params);
+  const out = [];
+  for (const it of (data && data.itineraries) || []) {
+    const tl = (it.legs || []).filter(l => l.mode !== "WALK");
+    if (tl.length !== 1) continue;
+    const l = tl[0];
+    if (!STOPS[fromKey].match.test(l.from && l.from.name || "")) continue;
+    if (!STOPS[toKey].match.test(l.to && l.to.name || "")) continue;
+    out.push({
+      key: (l.routeShortName || "") + "|" + l.scheduledStartTime,
+      line: l.routeShortName || l.displayName || "Bus",
+      dep: l.startTime, depSched: l.scheduledStartTime, arr: l.endTime,
+      realTime: !!l.realTime, cancelled: !!l.cancelled,
+      headsign: l.headsign || "", track: (l.from && (l.from.track || l.from.scheduledTrack)) || "",
+    });
+  }
+  return finalize(out);
+}
+
+// Дубликаты (один рейс в нескольких наборах данных) убираем; рейсы «в обход по кольцу»
+// (едут намного дольше самого быстрого) не показываем; сортируем по отправлению.
+function finalize(out) {
   const seen = new Set();
-  return out.filter(t => !seen.has(t.key) && seen.add(t.key))
-            .sort((a, b) => new Date(a.dep) - new Date(b.dep));
+  const uniq = out.filter(t => t.dep && t.arr && !seen.has(t.key) && seen.add(t.key));
+  const ride = t => (new Date(t.arr) - new Date(t.dep)) / 60000;
+  const rides = uniq.filter(t => !t.cancelled).map(ride).filter(m => m > 0);
+  const min = rides.length ? Math.min(...rides) : 0;
+  const limit = Math.max(2 * min, min + 8);
+  return uniq.filter(t => !min || ride(t) <= limit)
+             .sort((a, b) => new Date(a.dep) - new Date(b.dep));
 }
 
 // ===== Отображение =====
@@ -218,7 +260,7 @@ function renderList() {
   const now = Date.now();
   const trips = st.trips.filter(t => new Date(t.dep).getTime() > now - 60_000);
   if (!trips.length) {
-    list.innerHTML = `<div class="empty">Ближайших прямых поездок не найдено.<br>Нажмите «Обновить».</div>`;
+    list.innerHTML = `<div class="empty">В ближайшие 45 минут прямых автобусов нет.<br>Нажмите «Обновить» позже.</div>`;
     return;
   }
   list.innerHTML = trips.map(t => {
@@ -231,14 +273,11 @@ function renderList() {
     else if (delay > 0) rt = `<span class="rt-late">● +${delay} мин (план ${hm(t.depSched)})</span>`;
     else if (delay < 0) rt = `<span class="rt-ok">● ${delay} мин (план ${hm(t.depSched)})</span>`;
     else rt = `<span class="rt-ok">● вовремя</span>`;
-    const extra = [];
-    if (t.transfers) extra.push(`пересадка: ${t.lines.join(" → ")}`);
-    if (t.walkBefore) extra.push(`сначала ${t.walkBefore} мин пешком до ${esc(t.fromStop || "")}`);
     return `<li class="${t.cancelled ? "cancelled" : ""}">
-      <span class="badge">${esc(t.lines[0])}</span>
+      <span class="badge">${esc(t.line)}</span>
       <span class="when">${hm(t.dep)}</span>
       <span class="in">${inTxt}</span>
-      <span class="sub">${rt} · прибытие ${hm(t.arr)}${t.headsign ? " · → " + esc(t.headsign) : ""}${extra.length ? "<br>" + extra.join(" · ") : ""}</span>
+      <span class="sub">${rt} · прибытие ${hm(t.arr)}${t.headsign ? " · → " + esc(t.headsign) : ""}${t.track ? " · стоянка " + esc(t.track) : ""}</span>
     </li>`;
   }).join("");
 }
@@ -252,33 +291,30 @@ function load(i) {
   return inflight[i];
 }
 
-async function doLoad(i, retryStops = true) {
+async function doLoad(i) {
   const [a, b] = ROUTES[i];
   try {
-    let ids = await Promise.all([resolveStop(a, false), resolveStop(b, false)]);
     const time = new Date(Date.now() - 60_000).toISOString();
-    let data;
-    try { data = await plan(ids[0], ids[1], time); }
-    catch (e) {
-      if (!retryStops) throw e;
-      // возможно, ID остановок поменялись — ищем заново
-      ids = await Promise.all([resolveStop(a, true), resolveStop(b, true)]);
-      data = await plan(ids[0], ids[1], time);
-    }
-    let trips = toTrips(data, a, b);
-    // мало прямых рейсов в первом часе — берём ещё один час
-    if (trips.length < 4 && data && data.nextPageCursor) {
-      try {
-        const more = await plan(ids[0], ids[1], time, data.nextPageCursor);
-        trips = toTrips({ itineraries: [...(data.itineraries || []), ...(more.itineraries || [])] }, a, b);
-      } catch (e) { console.warn("page 2", e); }
+    let trips;
+    try {
+      trips = await boardTrips(await resolveStop(a, false), a, b, time);
+    } catch (e1) {
+      if (e1.network) throw e1;                      // нет связи — сразу показываем сохранённое
+      console.warn("способ 1:", e1);
+      try {                                          // возможно, ID остановки поменялся — ищем заново
+        trips = await boardTrips(await resolveStop(a, true), a, b, time);
+      } catch (e2) {
+        if (e2.network) throw e2;
+        console.warn("способ 1, повтор:", e2);
+        trips = await planTrips(a, b, time);         // запасной способ
+      }
     }
     state[i] = { trips, at: Date.now() };
-    store.set("cache:" + i, state[i]);
+    store.set("cache2:" + i, state[i]);
     if (i === current) setBanner("");
   } catch (e) {
     if (i !== current) { console.error(e); return; }
-    const cached = state[i] || store.get("cache:" + i);
+    const cached = state[i] || store.get("cache2:" + i);
     if (cached) {
       state[i] = cached;
       setBanner(`Нет связи с сервером данных. Показаны данные от ${fmt.format(new Date(cached.at))} — время могло измениться.`);
@@ -314,7 +350,7 @@ function schedule() {
 function select(i) {
   current = i; store.set("route", i); lastTouch = Date.now();
   renderTabs();
-  if (!state[i]) { const c = store.get("cache:" + i); if (c) state[i] = c; }
+  if (!state[i]) { const c = store.get("cache2:" + i); if (c) state[i] = c; }
   renderList(); updateStatus();
   load(i);
 }
