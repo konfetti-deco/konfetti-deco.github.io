@@ -24,4 +24,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.click('#pctx .cxi >> text=Дублировать');await p.waitForTimeout(120);ok(await ev(()=>S.plan.items.length)===10,'menu → two more copies');
  await p.keyboard.press('Control+z');await p.waitForTimeout(100);ok(await ev(()=>S.plan.items.length)===8,'undo removes the copies');
  ok(!errs.length,'no page errors: '+errs.join(' | '));
+ // no «undefined» anywhere on screen with a selection (v53 showed it next to the delete button)
+ await ev(()=>{PL.st.multi=S.plan.items.slice(0,2).map(i=>i.id);PL.st.sel=null;render()});await p.waitForTimeout(120);
+ ok(await ev(()=>!/undefined|NaN/.test(document.body.innerText)&&!!document.querySelector('[data-pact=m-dup] svg')),'no «undefined» on screen; the duplicate button has its icon');
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();

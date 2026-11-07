@@ -1183,7 +1183,7 @@ html.glass .tools .tb{border-radius:10px}
   <button type="button" class="ib" id="undo" data-act="undo" title="Отменить (Ctrl+Z)" aria-label="Отменить"></button>
   <button type="button" class="ib" id="redo" data-act="redo" title="Вернуть (Ctrl+Y)" aria-label="Вернуть"></button>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 53</span>
+  <span class="ver" id="ver">версия 54</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -6593,7 +6593,7 @@ var PL = (function () {
   function vOptbar() {
     const s = st.sel;
     if (st.draw) return '<span class="ohint">Рисование помещения: коснитесь углов по порядку</span>';
-    if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s" data-pact="m-dup" title="Дублировать выделенные (Ctrl+D)" aria-label="Дублировать выделенные">' + U.ico.dup + '</button><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
+    if (st.multi.length > 1) return '<span class="onm">Выделено: ' + st.multi.length + '</span><span class="sep"></span><span class="ohint">тяните любой из них — двигаются все · Esc — снять</span><span class="sp"></span><button type="button" class="ib s" data-pact="m-dup" title="Дублировать выделенные (Ctrl+D)" aria-label="Дублировать выделенные">' + U.ico.copy + '</button><button type="button" class="ib s dng" data-pact="m-del" title="Удалить выделенные" aria-label="Удалить выделенные">' + U.ico.del + '</button><button type="button" class="ib s" data-pact="m-none" title="Снять выделение" aria-label="Снять выделение">' + U.ico.x + '</button>';
     if (s && s.t === 'guide') { const g = (P().guides || []).find((q) => q.id === s.g); return g ? '<span class="onm">Направляющая</span><span class="sep"></span><span class="ohint">от угла A: ' + fl(g.at - G.gridOrigin(P())[g.vert ? 0 : 1]) + ' ' + uLab() + ' · утащите на линейку, чтобы убрать</span><span class="sp"></span><button type="button" class="ib s dng" data-pact="g-del" title="Убрать направляющую" aria-label="Убрать направляющую">' + U.ico.del + '</button>' : ''; }
     if (!s) return '<span class="ohint">План: коснитесь помещения, стены, угла, проёма или стола · один палец по пустому месту двигает план, два — масштаб</span>';
     const r = selRoom(), ib = (act, ico, t, cls) => '<button type="button" class="ib s' + (cls ? ' ' + cls : '') + '" data-pact="' + act + '" title="' + t + '" aria-label="' + t + '">' + U.ico[ico] + '</button>';

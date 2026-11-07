@@ -35,7 +35,8 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
    };
    const keys=Object.keys(A);
    for(let i=0;i<STEPS;i++){const k=pick(keys);try{A[k]()}catch(e){out.push(i+' '+k+': '+e.message)}
-     if((window.__renderErrors||[]).length){out.push(i+' '+k+' render: '+window.__renderErrors.join(' / '));window.__renderErrors=[]}}
+     if((window.__renderErrors||[]).length){out.push(i+' '+k+' render: '+window.__renderErrors.join(' / '));window.__renderErrors=[]}
+     if(!window.__undef&&/\bundefined\b|\bNaN\b/.test(document.body.innerText)){window.__undef=1;const m=document.body.innerText.match(/.{0,40}(\bundefined\b|\bNaN\b).{0,40}/);out.push(i+' '+k+' text on screen: '+(m?m[0]:''))}}
    return out},{STEPS,SEED});
  ok(log.length===0,'random walk ('+STEPS+' steps, seed '+SEED+') without errors: '+log.slice(0,6).join(' || '));
  ok(!errs.length,'no page errors: '+errs.slice(0,4).join(' | '));
