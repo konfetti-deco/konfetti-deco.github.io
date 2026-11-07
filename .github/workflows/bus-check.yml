@@ -1,0 +1,59 @@
+name: bus-check
+# Checks the /bus/ page: data source answers, CORS is open, and the live page shows departures in a real browser.
+on:
+  push:
+    branches: [main]
+    paths: ['bus/**', '.github/workflows/bus-check.yml']
+  workflow_dispatch:
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Stops in the data source
+        run: |
+          for q in "Schanz (Jakobstraße) Aachen" "Bushof Aachen" "Kaiserplatz Aachen"; do
+            echo "=== $q"
+            curl -sS -G "https://api.transitous.org/api/v1/geocode" -H "Referer: https://konfetti-deco.github.io/bus/" \
+              --data-urlencode "text=$q" --data-urlencode "type=STOP" --data-urlencode "place=50.7753,6.0839" \
+              | jq -c '.[:5][] | {name,id,areas:[.areas[]?.name]}'
+          done
+      - name: CORS
+        run: |
+          curl -sS -D - -o /dev/null -H "Origin: https://konfetti-deco.github.io" \
+            "https://api.transitous.org/api/v1/geocode?text=Bushof%20Aachen&type=STOP" | grep -i -E "^(HTTP|access-control)"
+      - name: Wait for the deployed page
+        run: |
+          for i in $(seq 1 40); do
+            if curl -sS "https://konfetti-deco.github.io/bus/?t=$(date +%s)" | grep -q 'bus-v1'; then echo "live"; exit 0; fi
+            sleep 15
+          done
+          echo "page not live"; exit 1
+      - name: Open the page in Chromium
+        run: |
+          npm i --no-save playwright@1 >/dev/null 2>&1
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+          cat > check.mjs <<'JS'
+          import { chromium } from 'playwright';
+          const b = await chromium.launch();
+          const p = await b.newPage({ viewport:{width:390,height:844}, timezoneId:'Europe/Berlin', locale:'ru-RU' });
+          p.on('console', m => console.log('[console]', m.type(), m.text()));
+          p.on('requestfailed', r => console.log('[failed]', r.url(), r.failure()?.errorText));
+          p.on('response', r => { if (r.url().includes('transitous')) console.log('[api]', r.status(), r.url().slice(0,160)); });
+          await p.goto('https://konfetti-deco.github.io/bus/?t=' + Date.now());
+          const tabs = await p.locator('.tab').count();
+          for (let i = 0; i < tabs; i++) {
+            await p.locator('.tab').nth(i).click();
+            await p.waitForFunction(() => !/Обновление|Загрузка/.test(document.getElementById('status').textContent), null, {timeout:45000}).catch(()=>{});
+            const name = await p.locator('.tab').nth(i).innerText();
+            console.log('\n##### ' + name);
+            console.log('status:', await p.locator('#status').innerText());
+            console.log('banner:', await p.locator('#banner').innerText());
+            console.log((await p.locator('#list').innerText()).slice(0, 1500));
+            await p.screenshot({ path: `shot-${i}.png`, fullPage: true });
+          }
+          await b.close();
+          JS
+          node check.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: screenshots, path: 'shot-*.png' }

@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#7a4b94">
+<meta name="app-version" content="bus-v1">
+<title>Автобус Schanz</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<style>
+  :root { --bg:#f3f3f5; --card:#fff; --text:#1d1d1f; --muted:#6b6b72; --accent:#7a4b94;
+          --ok:#2e7d32; --late:#c62828; --warn:#a15c00; --line:#e3e3e8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#141416; --card:#1f1f23; --text:#f2f2f5; --muted:#a0a0a8; --line:#33333a;
+            --ok:#66bb6a; --late:#ef5350; --warn:#ffb74d; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--text); -webkit-tap-highlight-color:transparent; }
+  header { padding:14px 14px 6px; }
+  h1 { font-size:18px; margin:0 0 10px; }
+  .tabs { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .tab { border:1px solid var(--line); background:var(--card); color:var(--text);
+         border-radius:12px; padding:12px 8px; font-size:15px; font-weight:600; cursor:pointer; }
+  .tab.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .status { display:flex; justify-content:space-between; align-items:center; gap:8px;
+            padding:10px 14px; font-size:13px; color:var(--muted); }
+  .status button { border:1px solid var(--line); background:var(--card); color:var(--text);
+                   border-radius:10px; padding:8px 12px; font-size:14px; cursor:pointer; }
+  .banner { margin:0 14px 8px; padding:10px 12px; border-radius:10px; font-size:14px;
+            background:#fff4e5; color:#7a4300; display:none; }
+  @media (prefers-color-scheme: dark) { .banner { background:#3a2a10; color:#ffcc80; } }
+  ul { list-style:none; margin:0; padding:0 14px 14px; }
+  li { background:var(--card); border-radius:14px; padding:12px 14px; margin-bottom:8px;
+       display:grid; grid-template-columns:auto 1fr auto; gap:4px 12px; align-items:center; }
+  li.cancelled { opacity:.55; }
+  li.cancelled .when { text-decoration:line-through; }
+  .badge { background:var(--accent); color:#fff; font-weight:700; border-radius:8px;
+           padding:6px 8px; min-width:44px; text-align:center; font-size:15px; grid-row:span 2; }
+  .when { font-size:20px; font-weight:700; }
+  .in { font-size:20px; font-weight:700; text-align:right; }
+  .sub { font-size:13px; color:var(--muted); grid-column:2 / 4; }
+  .rt-ok { color:var(--ok); } .rt-late { color:var(--late); } .rt-none { color:var(--muted); }
+  .empty { text-align:center; color:var(--muted); padding:30px 14px; }
+  footer { font-size:12px; color:var(--muted); padding:4px 14px 24px; line-height:1.5; }
+  footer a { color:var(--muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>🚌 Автобусы Aachen</h1>
+  <div class="tabs" id="tabs"></div>
+</header>
+<div class="status">
+  <span id="status">Загрузка…</span>
+  <button id="refresh" type="button">↻ Обновить</button>
+</div>
+<div class="banner" id="banner"></div>
+<ul id="list"></ul>
+<footer>
+  Данные: <a href="https://transitous.org/sources/" target="_blank" rel="noopener">Transitous</a>
+  (расписание и реальное время DELFI / AVV). Время в Германии.<br>
+  <span class="rt-ok">●</span> реальное время &nbsp; <span class="rt-none">●</span> только расписание<br>
+  Исходный код: <a href="https://github.com/konfetti-deco/konfetti-deco.github.io/tree/main/bus" target="_blank" rel="noopener">github.com/konfetti-deco/…/bus</a>
+</footer>
+
+<script>
+"use strict";
+
+// ===== Настройки: остановки и направления =====
+// name    — как показывать;
+// query   — что искать в справочнике остановок;
+// match   — имя найденной остановки обязано подходить под это правило
+//           (так "Schanz (Jakobstraße)" не перепутается с другой "Schanz").
+const STOPS = {
+  schanz:      { name: "Schanz",      query: "Schanz (Jakobstraße) Aachen", match: /schanz.*jakob/i },
+  bushof:      { name: "Bushof",      query: "Bushof Aachen",               match: /bushof/i },
+  kaiserplatz: { name: "Kaiserplatz", query: "Kaiserplatz Aachen",          match: /kaiserplatz/i },
+};
+const ROUTES = [
+  ["schanz", "bushof"], ["bushof", "schanz"],
+  ["schanz", "kaiserplatz"], ["kaiserplatz", "schanz"],
+];
+
+const API = "https://api.transitous.org";
+const PLAN_VERSIONS = ["v6", "v5", "v4", "v3", "v2", "v1"]; // пробуем по очереди
+const AACHEN = "50.7753,6.0839";
+const TZ = "Europe/Berlin";
+const REFRESH_MS = 60_000;          // автообновление раз в минуту
+const AUTO_REFRESH_LIMIT_MS = 20 * 60_000; // после 20 мин без касаний — пауза (бережём лимиты API)
+const TIMEOUT_MS = 12_000;
+const STOP_CACHE_DAYS = 14;
+
+// ===== Безопасный localStorage =====
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+// ===== Сеть =====
+async function getJSON(url) {
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
+    try {
+      const r = await fetch(url, { signal: ctrl.signal, cache: "no-store" });
+      if (r.status === 404) { const e = new Error("404"); e.status = 404; throw e; }
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return await r.json();
+    } catch (e) {
+      lastErr = e;
+      if (e.status === 404) throw e;           // не повторяем
+      await new Promise(res => setTimeout(res, 1500));
+    } finally { clearTimeout(t); }
+  }
+  throw lastErr;
+}
+
+// ===== Поиск ID остановки (с кэшем) =====
+async function resolveStop(key, force) {
+  const ck = "stop2:" + key;
+  const cached = store.get(ck);
+  if (!force && cached && Date.now() - cached.t < STOP_CACHE_DAYS * 864e5) return cached.id;
+  const s = STOPS[key];
+  const url = `${API}/api/v1/geocode?type=STOP&place=${AACHEN}&text=${encodeURIComponent(s.query)}`;
+  const res = await getJSON(url);
+  const inAachen = m => !m.areas || !m.areas.length || m.areas.some(a => /aachen/i.test(a.name));
+  const hit = (res || []).find(m => s.match.test(m.name) && inAachen(m));
+  if (!hit) throw new Error(`Остановка «${s.name}» не найдена`);
+  store.set(ck, { id: hit.id, name: hit.name, t: Date.now() });
+  return hit.id;
+}
+
+// ===== Запрос поездок =====
+async function plan(fromId, toId) {
+  const params = new URLSearchParams({
+    fromPlace: fromId, toPlace: toId,
+    time: new Date(Date.now() - 60_000).toISOString(),
+    numItineraries: "8",
+    maxTransfers: "1",
+  });
+  const known = store.get("planVersion");
+  const order = known ? [known, ...PLAN_VERSIONS.filter(v => v !== known)] : PLAN_VERSIONS;
+  let lastErr;
+  for (const v of order) {
+    try {
+      const data = await getJSON(`${API}/api/${v}/plan?${params}`);
+      if (v !== known) store.set("planVersion", v);
+      return data;
+    } catch (e) { lastErr = e; if (e.status !== 404) break; }
+  }
+  throw lastErr;
+}
+
+const TRANSIT = m => !["WALK", "BIKE", "CAR", "RENTAL", "FLEX", "ODM", "CAR_PARKING", "CAR_DROPOFF", "DEBUG_BUS_ROUTE", "DEBUG_RAILWAY_ROUTE", "DEBUG_FERRY_ROUTE"].includes(m);
+
+function toTrips(data) {
+  const out = [];
+  for (const it of (data && data.itineraries) || []) {
+    const legs = it.legs || [];
+    const tl = legs.filter(l => TRANSIT(l.mode));
+    if (!tl.length) continue;                         // только пешком — пропускаем
+    const first = tl[0], last = tl[tl.length - 1];
+    const walkBefore = legs[0] && !TRANSIT(legs[0].mode) ? Math.round(legs[0].duration / 60) : 0;
+    out.push({
+      key: tl.map(l => l.tripId || l.startTime).join("|"),
+      lines: tl.map(l => l.routeShortName || l.displayName || l.mode),
+      dep: first.startTime, depSched: first.scheduledStartTime,
+      arr: last.endTime,
+      realTime: tl.some(l => l.realTime),
+      cancelled: tl.some(l => l.cancelled || (l.from && l.from.cancelled)),
+      headsign: first.headsign || "",
+      fromStop: first.from && first.from.name,
+      walkBefore,
+      transfers: tl.length - 1,
+    });
+  }
+  // убрать дубликаты и сортировать по отправлению
+  const seen = new Set();
+  return out.filter(t => !seen.has(t.key) && seen.add(t.key))
+            .sort((a, b) => new Date(a.dep) - new Date(b.dep));
+}
+
+// ===== Отображение =====
+const $ = id => document.getElementById(id);
+const fmt = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
+const fmtS = new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit", timeZone: TZ });
+const hm = iso => fmt.format(new Date(iso));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+let current = Math.min(Math.max(+store.get("route") || 0, 0), ROUTES.length - 1);
+const state = {};       // по индексу направления: { trips, at }
+let lastTouch = Date.now();
+let timer = null;
+let loading = false;
+
+function renderTabs() {
+  $("tabs").innerHTML = ROUTES.map(([a, b], i) =>
+    `<button type="button" class="tab${i === current ? " active" : ""}" data-i="${i}">${STOPS[a].name} → ${STOPS[b].name}</button>`
+  ).join("");
+}
+
+function renderList() {
+  const st = state[current];
+  const list = $("list");
+  if (!st) { list.innerHTML = `<div class="empty">Загрузка…</div>`; return; }
+  const now = Date.now();
+  const trips = st.trips.filter(t => new Date(t.dep).getTime() > now - 60_000);
+  if (!trips.length) {
+    list.innerHTML = `<div class="empty">Ближайших прямых поездок не найдено.<br>Нажмите «Обновить».</div>`;
+    return;
+  }
+  list.innerHTML = trips.map(t => {
+    const depMs = new Date(t.dep).getTime();
+    const mins = Math.round((depMs - now) / 60000);
+    const inTxt = t.cancelled ? "отмена" : mins <= 0 ? "сейчас" : mins + " мин";
+    const delay = Math.round((depMs - new Date(t.depSched).getTime()) / 60000);
+    let rt;
+    if (!t.realTime) rt = `<span class="rt-none">● по расписанию</span>`;
+    else if (delay > 0) rt = `<span class="rt-late">● +${delay} мин (план ${hm(t.depSched)})</span>`;
+    else if (delay < 0) rt = `<span class="rt-ok">● ${delay} мин (план ${hm(t.depSched)})</span>`;
+    else rt = `<span class="rt-ok">● вовремя</span>`;
+    const extra = [];
+    if (t.transfers) extra.push(`пересадка: ${t.lines.join(" → ")}`);
+    if (t.walkBefore) extra.push(`сначала ${t.walkBefore} мин пешком до ${esc(t.fromStop || "")}`);
+    return `<li class="${t.cancelled ? "cancelled" : ""}">
+      <span class="badge">${esc(t.lines[0])}</span>
+      <span class="when">${hm(t.dep)}</span>
+      <span class="in">${inTxt}</span>
+      <span class="sub">${rt} · прибытие ${hm(t.arr)}${t.headsign ? " · → " + esc(t.headsign) : ""}${extra.length ? "<br>" + extra.join(" · ") : ""}</span>
+    </li>`;
+  }).join("");
+}
+
+function setStatus(text) { $("status").textContent = text; }
+function setBanner(text) { const b = $("banner"); b.textContent = text || ""; b.style.display = text ? "block" : "none"; }
+
+async function load(i, retryStops = true) {
+  if (loading) return;
+  loading = true;
+  setStatus("Обновление…");
+  const [a, b] = ROUTES[i];
+  try {
+    const [fromId, toId] = await Promise.all([resolveStop(a, false), resolveStop(b, false)]);
+    let data;
+    try { data = await plan(fromId, toId); }
+    catch (e) {
+      if (!retryStops) throw e;
+      // возможно, ID остановок поменялись — ищем заново
+      const [f2, t2] = await Promise.all([resolveStop(a, true), resolveStop(b, true)]);
+      data = await plan(f2, t2);
+    }
+    const trips = toTrips(data);
+    state[i] = { trips, at: Date.now() };
+    store.set("cache:" + i, state[i]);
+    setBanner("");
+  } catch (e) {
+    const cached = state[i] || store.get("cache:" + i);
+    if (cached) {
+      state[i] = cached;
+      setBanner(`Нет связи с сервером данных. Показаны данные от ${fmt.format(new Date(cached.at))} — время могло измениться.`);
+    } else {
+      setBanner("Не удалось загрузить данные. Проверьте интернет и нажмите «Обновить».");
+      state[i] = { trips: [], at: 0 };
+    }
+    console.error(e);
+  } finally {
+    loading = false;
+    if (i === current) { renderList(); updateStatus(); }
+  }
+}
+
+function updateStatus() {
+  const st = state[current];
+  if (!st || !st.at) { setStatus("Нет данных"); return; }
+  const paused = Date.now() - lastTouch > AUTO_REFRESH_LIMIT_MS;
+  setStatus(`Обновлено ${fmtS.format(new Date(st.at))}${paused ? " · автообновление на паузе" : ""}`);
+}
+
+function schedule() {
+  clearInterval(timer);
+  timer = setInterval(() => {
+    if (document.hidden) return;
+    renderList();                                    // пересчёт «через N мин»
+    const st = state[current];
+    const stale = !st || Date.now() - st.at >= REFRESH_MS;
+    if (stale && Date.now() - lastTouch < AUTO_REFRESH_LIMIT_MS) load(current);
+    else updateStatus();
+  }, 15_000);
+}
+
+function select(i) {
+  current = i; store.set("route", i); lastTouch = Date.now();
+  renderTabs();
+  if (!state[i]) { const c = store.get("cache:" + i); if (c) state[i] = c; }
+  renderList(); updateStatus();
+  load(i);
+}
+
+$("tabs").addEventListener("click", e => {
+  const btn = e.target.closest(".tab"); if (btn) select(+btn.dataset.i);
+});
+$("refresh").addEventListener("click", () => { lastTouch = Date.now(); load(current); });
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) { lastTouch = Date.now(); load(current); }
+});
+
+renderTabs();
+select(current);
+schedule();
+</script>
+</body>
+</html>
