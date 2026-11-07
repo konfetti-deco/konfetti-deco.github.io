@@ -1231,7 +1231,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 56</span>
+  <span class="ver" id="ver">версия 57</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -5653,7 +5653,7 @@ var PL = (function () {
     rig: ['u_hook', 'u_beam', 'u_truss'].map((k) => [k, G.CAT[k].label, 'высота и нагрузка — в свойствах']),
     light: ['u_spot', 'u_chand', 'u_glin'].map((k) => [k, G.CAT[k].label, 'высота — от потолка, можно изменить']),
     cdeco: ['u_cloud', 'u_drape', 'u_hang'].map((k) => [k, G.CAT[k].label, 'низ — от потолка, можно изменить']),
-    geo: [['g_rect', 'Прямоугольник', '2 × 1 м, размер и углы — пальцем или в свойствах'], ['g_oval', 'Круг / эллипс', 'Ø1,5 м, растягивается в эллипс'], ['g_tri', 'Треугольник', 'точки двигаются пальцем'], ['g_wall', 'Перегородка', '3 м × 10 см, мешает проходу'], ['free', 'Своя форма', 'коснитесь точек по порядку, замкните на первой'], ['line', 'Линия', 'точки по порядку, потом «Готово»']],
+    geo: [['g_rect', 'Прямоугольник', 'палец в угол — тянуть по диагонали'], ['g_oval', 'Круг / эллипс', 'палец в центр — тянуть, это радиус; потом можно в эллипс'], ['g_tri', 'Треугольник', 'тянуть по диагонали; точки двигаются'], ['g_wall', 'Перегородка', 'от начала до конца, 10 см, мешает проходу'], ['free', 'Своя форма', 'коснитесь точек по порядку, замкните на первой'], ['line', 'Линия', 'точки по порядку, потом «Готово»']],
     zones: Object.keys(G.CAT).filter((k) => G.CAT[k].g === 'zones').map((k) => [k, G.CAT[k].label, 'размер меняется пальцем или в свойствах']),
   };
 
@@ -6082,10 +6082,11 @@ var PL = (function () {
       (st.draw.pts.length ? '<button type="button" class="btn sm" data-pact="draw-back">Убрать точку</button>' : '') + (st.draw.pts.length >= need ? '<button type="button" class="btn sm pri" data-pact="draw-done">Готово</button>' : '') + '<button type="button" class="btn sm" data-pact="draw-cancel">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('op:') === 0) return '<span>Коснитесь стены, куда поставить: ' + esc(G.OPENINGS[st.tool.slice(3)].label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('col:') === 0) return '<span>Коснитесь места для колонны</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
+    if (st.tool && /^it:g_(rect|oval|tri|wall)$/.test(st.tool)) { const g = st.tool.slice(3); return '<span>' + ({ g_rect: 'Прямоугольник: поставьте палец в угол и тяните по диагонали', g_oval: 'Круг: поставьте палец в центр и тяните — это радиус', g_tri: 'Треугольник: тяните по диагонали — он впишется в эту рамку', g_wall: 'Перегородка: поставьте палец в начало и тяните до конца' })[g] + ' · углы притягивают</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('it:') === 0) { const c = G.CAT[st.tool.slice(3)]; return '<span>Коснитесь места, куда поставить: ' + esc(c.label) + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
     if (st.tool && st.tool.indexOf('combo:') === 0) return '<span>Коснитесь места для ' + (st.tool.slice(6) === 'P' ? 'П' : 'Т') + '-образного стола</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>';
     if (st.tool && st.tool.indexOf('pin:') === 0) { const ph = (S.photos || []).find((x) => x.id === st.tool.slice(4)); return '<span>Коснитесь места, откуда снято фото' + (ph ? ' «' + esc(ph.name) + '»' : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Отмена</button>'; }
-    if (st.tool === 'dim') return '<span>Размер: коснитесь стороны — размер всей стороны; или двух точек — углы притягивают' + (st.dimA ? ' · первая точка есть, теперь вторая' : '') + '</span>' + (st.dimA ? '<button type="button" class="btn sm" data-pact="dim-undo">Убрать точку</button>' : '') + '<button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
+    if (st.tool === 'dim') return '<span>Размер: палец на точку и ведите до второй — углы притягивают (Shift — без). Касание стороны — вся сторона. План двигать — двумя пальцами</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
     if (st.tool === 'ruler') return '<span>Линейка: тяните от точки к точке' + (st.ruler && st.ruler.b ? ' · ' + fl(G.hyp(st.ruler.b[0] - st.ruler.a[0], st.ruler.b[1] - st.ruler.a[1])) + ' ' + uLab() : '') + '</span><button type="button" class="btn sm" data-pact="ptool" data-v="">Готово</button>';
     return '';
   }
@@ -6115,6 +6116,8 @@ var PL = (function () {
     if (ids.length === 2) {   // two fingers: pinch and pan; a drag in progress is put back
       const a = st.tps[ids[0]], b = st.tps[ids[1]], r = svg().getBoundingClientRect();
       if (st.drag && st.drag.moved && st.drag.snap) restoreSnap(st.drag);
+      if (st.drag && st.drag.mode === 'dimdraw') P().dims = (P().dims || []).filter((x) => x.id !== st.drag.did);   // a second finger: what was being pulled out is dropped
+      if (st.drag && st.drag.mode === 'gdraw' && st.drag.gid) P().items = P().items.filter((x) => x.id !== st.drag.gid);
       st.drag = null; st.pinch = { d: G.hyp(a[0] - b[0], a[1] - b[1]), cx: (a[0] + b[0]) / 2 - r.left, cy: (a[1] + b[1]) / 2 - r.top, v: Object.assign({}, st.v) };
       return true;
     }
@@ -6124,7 +6127,8 @@ var PL = (function () {
     if (hand) return true;
     if (st.draw) { d.mode = 'draw'; return true; }
     if (st.tool === 'ruler') { st.ruler = { a: snapPoint(p), b: null }; d.mode = 'ruler'; return true; }
-    if (st.tool === 'dim' && !(ref && /^(d|de|dh)$/.test(ref[0]))) { d.mode = 'dimtap'; return true; }
+    if (st.tool === 'dim' && !(ref && /^(d|de|dh)$/.test(ref[0]))) { const kp = nearKey(p, 14 / st.v.s); d.mode = 'dimtap'; d.da = kp ? { x: kp.q[0], y: kp.q[1], ref: kp.ref } : { x: r10(p[0]), y: r10(p[1]) }; return true; }   // a dimension is pulled from point to point; a tap on a side measures all of it
+    if (st.tool && /^it:g_(rect|oval|tri|wall)$/.test(st.tool)) { const kp = nearKey(p, 10 / st.v.s); d.mode = 'gdraw'; d.gref = st.tool.slice(3); d.a = kp ? kp.q.slice() : [r10(p[0]), r10(p[1])]; return true; }   // a shape is pulled out of one point
     if (st.tool && /^(op|col|it|combo|pin):/.test(st.tool)) { d.mode = 'place'; return true; }
     /* «Несколько»: a tap adds or removes an object, a drag on an empty spot draws a frame, a drag on a chosen one moves them all */
     const multiOn = st.tool === 'multi' || ev.shiftKey;
@@ -6175,21 +6179,29 @@ var PL = (function () {
     if (d.dsnap) { const o = JSON.parse(d.dsnap), L = P().dims || [], i = L.findIndex((x) => x.id === o.id); if (i >= 0) L[i] = o; }
   }
   /* the nearest corner a dimension end (or a polygon point) can stick to; skip — an object whose own points are not wanted */
+  /* a shape out of two points: rectangle and triangle — corner to corner (Shift: equal sides), circle — centre and radius,
+     partition — start to end (its angle in 15° steps, Shift: free) */
+  function shapeFrom(it, ref, A, B, sq) {
+    let dx = B[0] - A[0], dy = B[1] - A[1];
+    if (ref === 'g_oval') { const r = Math.hypot(dx, dy); it.x = A[0]; it.y = A[1]; it.w = it.d = Math.max(100, r10(2 * r)); it.rot = 0; return; }
+    if (ref === 'g_wall') { let L = Math.hypot(dx, dy), a = Math.atan2(dy, dx) / G.DEG; if (!sq) a = Math.round(a / 15) * 15; L = Math.max(100, r10(L)); const u = G.unitVec(a), E = [A[0] + u[0] * L, A[1] + u[1] * L]; it.x = Math.round((A[0] + E[0]) / 2 * 10) / 10; it.y = Math.round((A[1] + E[1]) / 2 * 10) / 10; it.w = L; it.rot = G.normDeg(a); return; }
+    if (sq) { const m = Math.max(Math.abs(dx), Math.abs(dy)); dx = Math.sign(dx || 1) * m; dy = Math.sign(dy || 1) * m; }
+    const w = Math.max(50, Math.abs(r10(dx))), d = Math.max(50, Math.abs(r10(dy)));
+    it.x = A[0] + Math.sign(dx || 1) * w / 2; it.y = A[1] + Math.sign(dy || 1) * d / 2; it.w = w; it.d = d; it.rot = 0;
+    if (ref === 'g_tri') it.pts = dy < 0 ? [[0, d / 2], [w / 2, -d / 2], [-w / 2, -d / 2]] : [[0, -d / 2], [w / 2, d / 2], [-w / 2, d / 2]];   // the tip points the way the finger went
+  }
   function shiftVRefs(id, from, delta) { (P().dims || []).forEach((dm) => ['a', 'b'].forEach((e) => { const r = dm[e].ref; if (!r || r.t !== 'i' || r.id !== id || !/^v\d+$/.test(r.k)) return; const k = +r.k.slice(1); if (delta < 0 && k === from) delete dm[e].ref; else if (k >= from + (delta < 0 ? 1 : 0)) r.k = 'v' + (k + delta); })); }
   function nearKey(p, lim, skip) { let best = null; G.keyPoints(P()).forEach((k) => { if (skip && k.ref.t === 'i' && k.ref.id === skip) return; const d = Math.hypot(k.q[0] - p[0], k.q[1] - p[1]); if (d <= lim && (!best || d < best.d)) best = { q: k.q, ref: k.ref, d }; }); return best; }
   function nearEdge(p, lim) { let best = null; G.dimEdges(P()).forEach((e) => { const r = G.distSeg(p, e.A, e.B), L = Math.hypot(e.B[0] - e.A[0], e.B[1] - e.A[1]); if (r.d <= lim && r.t * L > 14 / st.v.s && (1 - r.t) * L > 14 / st.v.s && (!best || r.d < best.d)) best = Object.assign({ d: r.d }, e); }); return best; }
   /* a tap with «Размер»: a side → its whole length at once; otherwise the first point, then the second */
   function dimTap(p) {
     const pl = P(), s = st.v.s; if (!pl.dims) pl.dims = [];
-    const kp = nearKey(p, 14 / s); let pt = kp ? { x: kp.q[0], y: kp.q[1], ref: kp.ref } : null;
-    if (!pt && !st.dimA) { const e = nearEdge(p, 11 / s);
-      if (e) { const dm = G.normDim({ a: { x: e.A[0], y: e.A[1], ref: e.a }, b: { x: e.B[0], y: e.B[1], ref: e.b }, off: 0 }), g = G.dimGeom(pl, dm), L = g.L || 1, n = [(g.B[1] - g.A[1]) / L, -(g.B[0] - g.A[0]) / L];
-        dm.off = Math.round((n[0] * e.out[0] + n[1] * e.out[1] >= 0 ? 1 : -1) * 30 / s); pl.dims.push(dm); st.sel = { t: 'dim', d: dm.id }; label('размер стороны — ' + fl(g.L)); return; } }
-    if (!pt) pt = { x: r10(p[0]), y: r10(p[1]) };
-    if (!st.dimA) { st.dimA = pt; render(); return; }
-    const A = st.dimA; if (Math.hypot(pt.x - A.x, pt.y - A.y) < 10) { toast('Вторая точка совпала с первой — коснитесь другой.'); return; }
-    const dm = G.normDim({ a: A, b: pt, off: Math.round(26 / s) }); pl.dims.push(dm); st.dimA = null; st.sel = { t: 'dim', d: dm.id }; label('размер — ' + fl(G.dimGeom(pl, dm).L));
+    const e = nearKey(p, 14 / s) ? null : nearEdge(p, 11 / s);
+    if (!e) { toast('Поставьте палец на точку и ведите до второй — углы притягивают. Касание стороны — размер всей стороны.'); return; }
+    const dm = G.normDim({ a: { x: e.A[0], y: e.A[1], ref: e.a }, b: { x: e.B[0], y: e.B[1], ref: e.b }, off: 0 }), g = G.dimGeom(pl, dm), L = g.L || 1, n = [(g.B[1] - g.A[1]) / L, -(g.B[0] - g.A[0]) / L];
+    dm.off = Math.round((n[0] * e.out[0] + n[1] * e.out[1] >= 0 ? 1 : -1) * 30 / s); pl.dims.push(dm); st.sel = { t: 'dim', d: dm.id }; label('размер стороны — ' + fl(g.L));
   }
+
   function snapPoint(p) {   // the ruler sticks to corners
     let best = null, lim = 14 / st.v.s;
     P().rooms.forEach((r) => { G.roomGeom(r).raw.forEach((q) => { const d = G.hyp(q[0] - p[0], q[1] - p[1]); if (d < lim && (!best || d < best.d)) best = { q, d }; }); });
@@ -6214,7 +6226,20 @@ var PL = (function () {
     clearTimeout(d.lp); d.moved = true;
     const p = toMM(ev), mm = [p[0] - d.p0[0], p[1] - d.p0[1]], s = st.v.s, free = ev.shiftKey;
     if (d.locked) { if (!d.lockTold) { d.lockTold = true; toast('Объект закреплён — откройте замок в «Слоях», чтобы двигать.'); } return true; }   // neither moves nor pans the view
-    if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place' || d.mode === 'dimtap') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' || d.mode === 'dimtap' ? 'pan' : d.mode; applyView(); return true; }
+    if (d.mode === 'dimtap' || d.mode === 'dimdraw') {
+      const pl = P(); if (!pl.dims) pl.dims = [];
+      const kp = free ? null : nearKey(p, 14 / s), B = kp ? { x: kp.q[0], y: kp.q[1], ref: kp.ref } : { x: r10(p[0]), y: r10(p[1]) };
+      if (d.mode === 'dimtap') { const dm = G.normDim({ a: d.da, b: B, off: Math.round(26 / s) }); pl.dims.push(dm); d.did = dm.id; d.mode = 'dimdraw'; }
+      const dm = dimOf(d.did); dm.b = B; st.sel = { t: 'dim', d: dm.id };
+      tip(fl(G.dimGeom(pl, dm).L) + ' ' + uLab() + (kp ? ' · к углу' : '')); paint(); return true;
+    }
+    if (d.mode === 'pan' || d.mode === 'tap' || d.mode === 'place') { st.v = { s: d.v0.s, x: d.v0.x - dx / d.v0.s, y: d.v0.y - dy / d.v0.s, user: true }; d.mode = d.mode === 'tap' ? 'pan' : d.mode; applyView(); return true; }
+    if (d.mode === 'gdraw') {
+      const kp = free ? null : nearKey(p, 10 / s, d.gid), B = kp ? kp.q : [r10(p[0]), r10(p[1])];   // never to the shape's own points
+      if (!d.gid) { const it = G.makeItem(d.gref, d.a[0], d.a[1]); if (st.layer === 'top') it.top = true; P().items.push(it); d.gid = it.id; }
+      const it = item(d.gid); shapeFrom(it, d.gref, d.a, B, ev.shiftKey); st.sel = { t: 'item', i: it.id };
+      tip(d.gref === 'g_oval' ? 'Ø ' + fs(it.w) + ' ' + uLab() : d.gref === 'g_wall' ? fs(it.w) + ' ' + uLab() + ' · ' + G.nf(G.normDeg(it.rot), 0) + '°' : fs(it.w) + ' × ' + fs(it.d) + ' ' + uLab()); paint(); return true;
+    }
     if (d.mode === 'pvert') {
       const it = item(d.ref[1]); if (!it || !it.pts) return true; const kp = free ? null : nearKey(p, 10 / s, it.id), w = kp ? kp.q : free ? p : [r10(p[0]), r10(p[1])];
       const a = -(it.rot || 0) * G.DEG, vx = w[0] - it.x, vy = w[1] - it.y; it.pts[d.o.k] = [Math.round((vx * Math.cos(a) - vy * Math.sin(a)) * 10) / 10, Math.round((vx * Math.sin(a) + vy * Math.cos(a)) * 10) / 10];
@@ -6327,6 +6352,8 @@ var PL = (function () {
       if (onRuler) { pl.guides = pl.guides.filter((q) => q !== g); st.sel = null; if (d.mode === 'guide') label('направляющая убрана'); else render(); return true; }
       label(d.mode === 'guide' ? 'направляющая сдвинута' : 'направляющая'); return true;
     }
+    if (cancel && d.mode === 'dimdraw') { P().dims = (P().dims || []).filter((x) => x.id !== d.did); st.sel = null; paint(); return true; }
+    if (cancel && d.mode === 'gdraw') { if (d.gid) P().items = P().items.filter((x) => x.id !== d.gid); st.sel = null; paint(); return true; }
     if (cancel) { if (d.moved || d.ins) restoreSnap(d); if (d.moved && (d.mode === 'room' || d.mode === 'item' || d.mode === 'op' || d.mode === 'opend')) restore(UI.hi); paint(); return true; }
     const p = toMM(ev);
     if (d.locked && d.moved) { paint(); return true; }
@@ -6340,8 +6367,14 @@ var PL = (function () {
     }
     if (d.mode === 'ruler') { paint(); return true; }
     if (d.mode === 'dimtap') { dimTap(p); return true; }
+    if (d.mode === 'dimdraw') { const dm = dimOf(d.did); if (!dm) return true; const L = G.dimGeom(P(), dm).L; if (L < 10) { P().dims = P().dims.filter((x) => x.id !== dm.id); st.sel = null; paint(); return true; } st.sel = { t: 'dim', d: dm.id }; label('размер — ' + fl(L)); return true; }
     if (d.mode === 'pvert' && !d.moved) { const it = item(d.ref[1]); if (d.ins && it) { G.recenterPoly(it); st.vsel = null; label('точка добавлена — ' + G.itemLabel(it)); return true; } render(); return true; }
     if ((d.mode === 'doff' || d.mode === 'dend') && !d.moved) { st.sel = { t: 'dim', d: d.ref[1] }; st.multi = []; render(); return true; }
+    if (d.mode === 'gdraw') {
+      const it = d.gid ? item(d.gid) : null;
+      if (!it || (d.gref === 'g_oval' ? it.w < 100 : it.w < 50 || (d.gref !== 'g_wall' && it.d < 50))) { if (it) P().items = P().items.filter((x) => x.id !== it.id); st.sel = null; toast(d.gref === 'g_oval' ? 'Поставьте палец в центр круга и тяните — это радиус.' : d.gref === 'g_wall' ? 'Поставьте палец в начало перегородки и тяните до конца.' : 'Поставьте палец в один угол и тяните по диагонали.'); paint(); return true; }
+      st.tool = null; st.sel = { t: 'item', i: it.id }; label(G.itemLabel(it) + ' ' + (d.gref === 'g_oval' ? 'Ø' + fs(it.w) : d.gref === 'g_wall' ? fs(it.w) : fs(it.w) + '×' + fs(it.d))); return true;
+    }
     if (d.mode === 'place') { if (!d.moved) place(p); else paint(); return true; }
     if (d.moved) {
       const labs = { room: () => 'перемещение — ' + rname(room(d.ref[1])), item: () => 'перемещение — ' + G.itemLabel(item(d.ref[1])), op: () => 'проём сдвинут', opend: () => 'ширина проёма', corner: () => 'угол ' + G.cornerName(d.o.k) + ' перенесён', wallmove: () => 'стена сдвинута', isize: () => { const it = item(d.ref[1]); if (G.fitSeats(it)) toast('Стол стал меньше — лишние стулья убраны: плотнее 50 см на человека не сесть.'); return 'размер — ' + G.itemLabel(it); }, irot: () => 'поворот — ' + G.itemLabel(item(d.ref[1])), pvert: () => { const it = item(d.ref[1]); G.recenterPoly(it); return (d.ins ? 'точка добавлена — ' : 'точка — ') + G.itemLabel(it); }, doff: () => 'размер: отступ', dend: () => 'размер: конец' };

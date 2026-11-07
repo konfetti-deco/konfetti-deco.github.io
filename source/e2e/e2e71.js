@@ -14,8 +14,10 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  // the «Фигуры» tool lists the shapes
  await p.click('.tools [data-ptool=geo]');await p.waitForTimeout(100);
  ok(await ev(()=>[...document.querySelectorAll('[data-pact=fly-pick][data-g=geo]')].map(b=>b.dataset.v).join(','))==='g_rect,g_oval,g_tri,g_wall,free,line','Фигуры: rectangle, circle, triangle, partition, own form, line');
- await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_rect]');await p.waitForTimeout(80);await tap(6000,1500);
- ok(await ev(()=>{const it=S.plan.items[0];return it&&it.kind==='shape'&&it.shape==='rect'&&Math.abs(it.x-6000)<20&&PL.st.tool===null}),'rectangle placed by one tap, tool off');
+ await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_rect]');await p.waitForTimeout(80);
+ await tap(6000,1500);ok(await ev(()=>S.plan.items.length===0&&PL.st.tool==='it:g_rect'),'a tap alone makes nothing (hint), tool stays');
+ await dragMM(5000,1000,7000,2000);
+ ok(await ev(()=>{const it=S.plan.items[0];return it&&it.kind==='shape'&&it.shape==='rect'&&Math.abs(it.x-6000)<1&&Math.abs(it.y-1500)<1&&Math.abs(it.w-2000)<1&&Math.abs(it.d-1000)<1&&PL.st.tool===null}),'rectangle pulled corner to corner: 2 × 1 m, tool off');
  ok(await ev(()=>!!document.querySelector('#dock .swc')&&/Заливка/.test(document.getElementById('dock').textContent)),'shape properties: colours, fill');
  // style
  await p.click('#dock [data-pact=sh-col][data-v="#FF5FA2"]');await p.click('#dock [data-pact=sh-set][data-k=fill][data-v=hatch]');await p.click('#dock [data-pact=sh-set][data-k=lw][data-v="3"]');await p.waitForTimeout(80);
@@ -55,7 +57,8 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await p.click('#pbanner [data-pact=draw-done]');await p.waitForTimeout(100);
  ok(await ev(()=>{const it=S.plan.items.find(i=>i.ref==='g_line');return it&&it.open&&it.pts.length===3&&PG.shapeLength(it)>3500}),'line of 3 points');
  // on the upper layer a shape is a hanging piece
- await p.click('.tools .plyr [data-v=top]');await p.waitForTimeout(80);await p.click('.tools [data-ptool=geo]');await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_oval]');await tap(7000,3000);
+ await p.click('.tools .plyr [data-v=top]');await p.waitForTimeout(80);await p.click('.tools [data-ptool=geo]');await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_oval]');await dragMM(7000,3000,7600,3000);
+ ok(await ev(()=>{const it=S.plan.items.find(i=>i.ref==='g_oval');return it&&Math.abs(it.x-7000)<1&&Math.abs(it.y-3000)<1&&Math.abs(it.w-1200)<1&&it.w===it.d}),'circle: centre where the finger went down, radius 0,6 → Ø1,2');
  ok(await ev(()=>{const it=S.plan.items.find(i=>i.ref==='g_oval');return it&&it.top===true}),'circle on «Верх»: a hanging piece');
  await p.click('.tools .plyr [data-v=floor]');await p.waitForTimeout(80);
  // dimensions: a side in one tap
@@ -65,11 +68,11 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await tap(4500,0);
  ok(await ev(()=>{const d=S.plan.dims[0];return d&&d.a.ref&&d.a.ref.t==='r'&&d.b.ref&&Math.abs(PG.dimGeom(S.plan,d).L-9000)<1&&PG.dimGeom(S.plan,d).A2[1]<0}),'tap on wall A–B: 9,000, outside the room');
  ok(await ev(()=>/9,000/.test(document.getElementById('plab').textContent)),'its text on the plan');
- // two corners of the table
- await tap(3500-900+40,1500-400+40);await tap(3500+900-40,1500+400-40);
+ // pulled from corner to corner of the table
+ await dragMM(3500-900+40,1500-400+40,3500+900-40,1500+400-40);
  ok(await ev(()=>{const d=S.plan.dims[1];return d&&d.a.ref&&d.a.ref.id==='TT'&&d.b.ref&&d.b.ref.id==='TT'&&Math.abs(PG.dimGeom(S.plan,d).L-Math.hypot(1800,800))<1}),'two taps near the table corners: diagonal, stuck to the corners');
  // a free point and a corner
- await tap(1000,2600);await tap(0,6000);ok(await ev(()=>{const d=S.plan.dims[2];return d&&!d.a.ref&&d.b.ref&&d.b.ref.t==='r'}),'free start, corner end');
+ await dragMM(1000,2600,40,5960);ok(await ev(()=>{const d=S.plan.dims[2];return d&&!d.a.ref&&d.b.ref&&d.b.ref.t==='r'}),'free start, corner end');
  // the table moves → its dimension follows
  await p.click('.tools [data-pact=ptool][data-v=""]');await p.waitForTimeout(60);
  const before=await ev(()=>PG.dimGeom(S.plan,S.plan.dims[1]).A);
@@ -99,6 +102,16 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  ok(await ev(()=>{const n=PG.normalize(JSON.parse(JSON.stringify(S.plan)));return n.dims.length===3&&n.items.filter(i=>i.kind==='shape').length===S.plan.items.filter(i=>i.kind==='shape').length&&n.items.find(i=>i.ref==='g_line').open===true}),'normalize keeps shapes and dimensions');
  // the PDF plan draws them
  ok(await ev(()=>{const cv=RP.planCanvas(0.5),c=cv.getContext('2d'),d=c.getImageData(0,0,cv.width,cv.height).data;let blue=0,pink=0;for(let i=0;i<d.length;i+=4){if(d[i]<80&&d[i+1]>90&&d[i+1]<140&&d[i+2]>200)blue++;if(d[i]>230&&d[i+1]<130&&d[i+2]>140)pink++}return blue>50&&pink>50}),'PDF/PNG plan: dimensions (blue) and the pink shape drawn');
+ // triangle and partition pulled out; a dimension pulled to an empty spot ends free
+ await p.click('.tools [data-pact=ptool][data-v=""]');await ev(()=>{PL.st.sel=null;render()});
+ await p.click('.tools [data-ptool=geo]');await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_tri]');await dragMM(1000,1000,2500,2200);
+ ok(await ev(()=>{const it=S.plan.items.filter(i=>i.ref==='g_tri').pop();return it&&Math.abs(it.w-1500)<1&&Math.abs(it.d-1200)<1&&it.pts[0][1]<0}),'triangle in the frame, tip up');
+ await p.click('.tools [data-ptool=geo]');await p.click('[data-pact=fly-pick][data-g=geo][data-v=g_wall]');await dragMM(2000,5500,5000,5520);
+ ok(await ev(()=>{const it=S.plan.items.filter(i=>i.ref==='g_wall').pop();return it&&Math.abs(it.w-3000)<15&&Math.abs(it.rot)<0.01&&it.d===100}),'partition start to end: 3 m, straight (15° steps)');
+ await p.click('.tools [data-pact=ptool][data-v=dim]');const nd=await ev(()=>S.plan.dims.length);await dragMM(4300,2600,5600,2600);
+ ok(await ev((n)=>{const d=S.plan.dims[n];return d&&!d.a.ref&&!d.b.ref&&Math.abs(PG.dimGeom(S.plan,d).L-1300)<1},nd),'dimension pulled between free points: 1,300');
+ await tap(5000,3300);ok(await ev((n)=>S.plan.dims.length===n+1,nd),'a tap in the open makes no dimension');
+ await p.click('.tools [data-pact=ptool][data-v=""]');
  ok(!(await ev(()=>/\bundefined\b|\bNaN\b/.test(document.body.innerText))),'no undefined on screen');
  ok(!errs.length,'no page errors: '+errs.join(' | '));
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();
