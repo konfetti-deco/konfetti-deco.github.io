@@ -645,6 +645,7 @@ var PL = (function () {
       if (!multiOn) { const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; st.multi = ids.slice(); st.sel = null; ctxOpen(rf, cx, cy); }; if (ev.button === 2) { open(); return true; } d.lp = setTimeout(open, 550); }   // long press on a chosen one: the menu for all of them
       return true;
     }
+    if (ref && st.multi.length && st.tool !== 'multi' && !ev.shiftKey && !/^[RG]$/.test(ref[0])) { st.multi = []; }   // a selection of several: touching anything else chooses that one instead
     if (ref && (ref[0] === 'i' || ref[0] === 'r') && st.tool !== 'multi') {
       const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; ctxOpen(rf, cx, cy); };
       if (ev.button === 2) { open(); return true; }

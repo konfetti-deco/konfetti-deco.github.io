@@ -1231,7 +1231,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 58</span>
+  <span class="ver" id="ver">версия 59</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -6151,6 +6151,7 @@ var PL = (function () {
       if (!multiOn) { const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; st.multi = ids.slice(); st.sel = null; ctxOpen(rf, cx, cy); }; if (ev.button === 2) { open(); return true; } d.lp = setTimeout(open, 550); }   // long press on a chosen one: the menu for all of them
       return true;
     }
+    if (ref && st.multi.length && st.tool !== 'multi' && !ev.shiftKey && !/^[RG]$/.test(ref[0])) { st.multi = []; }   // a selection of several: touching anything else chooses that one instead
     if (ref && (ref[0] === 'i' || ref[0] === 'r') && st.tool !== 'multi') {
       const cx = ev.clientX, cy = ev.clientY, rf = ref.slice(), open = () => { if (st.drag !== d || d.moved) return; d.ctx = true; ctxOpen(rf, cx, cy); };
       if (ev.button === 2) { open(); return true; }

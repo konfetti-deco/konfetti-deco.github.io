@@ -6,13 +6,13 @@ const srv=http.createServer((q,r)=>{let f=path.join(root,decodeURIComponent(q.ur
 (async()=>{const b=await chromium.launch();const ctx=await b.newContext({viewport:{width:1280,height:854}});const p=await ctx.newPage();const errs=[];p.on('pageerror',e=>errs.push(e.message));
  await ctx.route(/fonts\.(googleapis|gstatic)\.com|cdnjs|jsdelivr/,r=>r.abort());
  await p.goto('http://localhost:8765/');await p.waitForSelector('#canvas');
- ok(/версия 58/.test(await p.textContent('#ver')),'site shows version 37');
+ ok(/версия 59/.test(await p.textContent('#ver')),'site shows version 37');
  await p.evaluate(()=>caches.open('chef-cache-v1').then(c=>c.put('/x',new Response('chef'))));
  const reg=await p.evaluate(()=>navigator.serviceWorker.ready.then(r=>!!r.active));ok(reg,'service worker active');
  await p.waitForTimeout(800);await p.reload();await p.waitForSelector('#canvas');
  ok(await p.evaluate(()=>!!navigator.serviceWorker.controller),'page controlled by the worker');
  const keys=await p.evaluate(()=>caches.keys());ok(keys.includes('chef-cache-v1'),'foreign cache untouched: '+keys.join(','));ok(keys.some(k=>/^konfetti-/.test(k)),'own cache konfetti-*');
- await ctx.setOffline(true);await p.reload();await p.waitForSelector('#canvas',{timeout:15000});ok(/версия 58/.test(await p.textContent('#ver')),'opens offline');
+ await ctx.setOffline(true);await p.reload();await p.waitForSelector('#canvas',{timeout:15000});ok(/версия 59/.test(await p.textContent('#ver')),'opens offline');
  ok(await p.evaluate(()=>typeof RP==='object'&&typeof PF.photoCanvas==='function'),'report and try-on code on the site');
  await ctx.setOffline(false);
  const man=JSON.parse(fs.readFileSync(path.join(root,'manifest.webmanifest'),'utf8'));ok(man.start_url&&man.icons&&man.icons.length,'manifest with icons');
