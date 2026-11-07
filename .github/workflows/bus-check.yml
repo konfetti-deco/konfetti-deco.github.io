@@ -27,7 +27,7 @@ jobs:
             set -- $pair
             echo "=== $1 -> $2"
             curl -sS -G "https://api.transitous.org/api/$V/plan" -H "Referer: https://konfetti-deco.github.io/bus/" \
-              --data-urlencode "fromPlace=$1" --data-urlencode "toPlace=$2" --data-urlencode "numItineraries=8" --data-urlencode "maxTransfers=1" \
+              --data-urlencode "fromPlace=$1" --data-urlencode "toPlace=$2" --data-urlencode "numItineraries=10" --data-urlencode "maxTransfers=0" --data-urlencode "transitModes=BUS" --data-urlencode "searchWindow=3600" \
               | jq -r '.itineraries[] | [.legs[] | select(.mode!="WALK") | "\(.routeShortName // .mode) \(.from.name) \(.startTime) (plan \(.scheduledStartTime)) rt=\(.realTime) -> \(.to.name) \(.endTime)"] | join(" | ")'
           done
       - name: CORS
@@ -37,7 +37,7 @@ jobs:
       - name: Wait for the deployed page
         run: |
           for i in $(seq 1 40); do
-            if curl -sS "https://konfetti-deco.github.io/bus/?t=$(date +%s)" | grep -q 'bus-v2'; then echo "live"; exit 0; fi
+            if curl -sS "https://konfetti-deco.github.io/bus/?t=$(date +%s)" | grep -q 'bus-v3'; then echo "live"; exit 0; fi
             sleep 15
           done
           echo "page not live"; exit 1

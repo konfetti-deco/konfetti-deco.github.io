@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#7a4b94">
-<meta name="app-version" content="bus-v2">
+<meta name="app-version" content="bus-v3">
 <title>Автобус Schanz</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -137,13 +137,15 @@ async function resolveStop(key, force) {
 }
 
 // ===== Запрос поездок =====
-async function plan(fromId, toId) {
+async function plan(fromId, toId, time, cursor) {
   const params = new URLSearchParams({
-    fromPlace: fromId, toPlace: toId,
-    time: new Date(Date.now() - 60_000).toISOString(),
-    numItineraries: "8",
-    maxTransfers: "1",
+    fromPlace: fromId, toPlace: toId, time,
+    maxTransfers: "0",           // только прямые
+    transitModes: "BUS",         // только автобусы
+    searchWindow: "3600",        // отправления на ближайший час
+    numItineraries: "10",
   });
+  if (cursor) params.set("pageCursor", cursor);
   const known = store.get("planVersion");
   const order = known ? [known, ...PLAN_VERSIONS.filter(v => v !== known)] : PLAN_VERSIONS;
   let lastErr;
@@ -159,12 +161,16 @@ async function plan(fromId, toId) {
 
 const TRANSIT = m => !["WALK", "BIKE", "CAR", "RENTAL", "FLEX", "ODM", "CAR_PARKING", "CAR_DROPOFF", "DEBUG_BUS_ROUTE", "DEBUG_RAILWAY_ROUTE", "DEBUG_FERRY_ROUTE"].includes(m);
 
-function toTrips(data) {
+// Оставляем только прямой автобус ровно от остановки A до остановки B
+// (без «4 мин пешком до соседней остановки» и без выхода на соседней остановке).
+function toTrips(data, fromKey, toKey) {
   const out = [];
   for (const it of (data && data.itineraries) || []) {
     const legs = it.legs || [];
     const tl = legs.filter(l => TRANSIT(l.mode));
-    if (!tl.length) continue;                         // только пешком — пропускаем
+    if (tl.length !== 1) continue;
+    if (!STOPS[fromKey].match.test(tl[0].from && tl[0].from.name || "")) continue;
+    if (!STOPS[toKey].match.test(tl[0].to && tl[0].to.name || "")) continue;
     const first = tl[0], last = tl[tl.length - 1];
     const walkBefore = legs[0] && !TRANSIT(legs[0].mode) ? Math.round(legs[0].duration / 60) : 0;
     out.push({
@@ -249,16 +255,24 @@ function load(i) {
 async function doLoad(i, retryStops = true) {
   const [a, b] = ROUTES[i];
   try {
-    const [fromId, toId] = await Promise.all([resolveStop(a, false), resolveStop(b, false)]);
+    let ids = await Promise.all([resolveStop(a, false), resolveStop(b, false)]);
+    const time = new Date(Date.now() - 60_000).toISOString();
     let data;
-    try { data = await plan(fromId, toId); }
+    try { data = await plan(ids[0], ids[1], time); }
     catch (e) {
       if (!retryStops) throw e;
       // возможно, ID остановок поменялись — ищем заново
-      const [f2, t2] = await Promise.all([resolveStop(a, true), resolveStop(b, true)]);
-      data = await plan(f2, t2);
+      ids = await Promise.all([resolveStop(a, true), resolveStop(b, true)]);
+      data = await plan(ids[0], ids[1], time);
     }
-    const trips = toTrips(data);
+    let trips = toTrips(data, a, b);
+    // мало прямых рейсов в первом часе — берём ещё один час
+    if (trips.length < 4 && data && data.nextPageCursor) {
+      try {
+        const more = await plan(ids[0], ids[1], time, data.nextPageCursor);
+        trips = toTrips({ itineraries: [...(data.itineraries || []), ...(more.itineraries || [])] }, a, b);
+      } catch (e) { console.warn("page 2", e); }
+    }
     state[i] = { trips, at: Date.now() };
     store.set("cache:" + i, state[i]);
     if (i === current) setBanner("");
