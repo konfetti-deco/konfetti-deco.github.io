@@ -9,16 +9,15 @@ jobs:
     steps:
       - run: |
           A="https://api.transitous.org"
-          for s in be-tec_tec:s-aachenbushof de-AVV-Aachen_de:05334:1011:1:1 de-DELFI_de:05334:1015:1:1_G; do
-            echo "=== platforms seen at $s"
-            curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$s" --data-urlencode "n=60" | jq -c '[.stopTimes[].place | {stopId,parentId,name}] | unique'
-          done
-          plan() { curl -sS -G "$A/api/v6/plan" --data-urlencode "fromPlace=$1" --data-urlencode "toPlace=$2" --data-urlencode "maxTransfers=0" --data-urlencode "transitModes=BUS" --data-urlencode "searchWindow=3600" --data-urlencode "numItineraries=10" \
-              | jq -r 'if .itineraries then (.itineraries[] | [.legs[] | select(.mode!="WALK") | "\(.routeShortName) \(.from.name) \(.startTime[11:16]) -> \(.to.name) \(.endTime[11:16])"] | join(" | ")) else . end'; }
-          S=de-DELFI_de:05334:1015:1:1_G
-          for K in de-DELFI_de:05334:1011 de-AVV-Aachen_de:05334:1011 de-DELFI_de:05334:1011:1:1_G de-DELFI_de:05334:1011_G; do
-            echo "=== plan S -> $K"; plan $S $K | head -14
-          done
-          for B in de-DELFI_de:05334:1001 de-DELFI_de:05334:1001:1:1_G de-DELFI_de:05334:1001_G; do
-            echo "=== plan S -> $B"; plan $S $B | head -14
-          done
+          S=de-DELFI_de:05334:1015:1:1_G; B=be-tec_tec:s-aachenbushof; K=de-AVV-Aachen_de:05334:1011:1:1
+          echo "=== raw nextStops sample"
+          curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$S" --data-urlencode "n=2" --data-urlencode "fetchStops=true" | jq -c '.stopTimes[0].nextStops[0:2]' | cut -c1-800
+          board() {  # $1 origin id, $2 destination name regex
+            curl -sS -G "$A/api/v6/stoptimes" --data-urlencode "stopId=$1" --data-urlencode "n=60" --data-urlencode "window=5400" --data-urlencode "mode=BUS" --data-urlencode "fetchStops=true" \
+            | jq -r --arg re "$2" '"departures: \(.stopTimes|length)", (.stopTimes[] | . as $s | ([.nextStops[]? | select(.name|test($re))][0]) as $d | select($d) |
+                "\($s.routeShortName) \($s.place.departure[11:16]) (plan \($s.place.scheduledDeparture[11:16])) rt=\($s.realTime) canc=\($s.cancelled) -> \($d.name) \(($d.arrival // $d.departure)[11:16]) | \($s.headsign) | \($s.tripId[0:40])")'
+          }
+          echo "=== Schanz -> Kaiserplatz"; board $S "Kaiserplatz"
+          echo "=== Kaiserplatz -> Schanz"; board $K "Schanz \\\\(Jakob"
+          echo "=== Schanz -> Bushof"; board $S "Bushof"
+          echo "=== Bushof -> Schanz"; board $B "Schanz \\\\(Jakob"
