@@ -1231,7 +1231,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 57</span>
+  <span class="ver" id="ver">версия 58</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -5963,7 +5963,12 @@ var PL = (function () {
     validate(); ensureView(); if (!st.v) return;
     const s = st.v.s, p = P(), sel = st.sel || {}, geoms = p.rooms.map(G.roomGeom), cf = conflicts();
     let fill = '', walls = '', labels = '', hit = '', over = '', hnd = '';
-    const boxes = p.items.map(G.itemBBox);
+    const boxes = p.items.filter((it) => !it.top && it.kind !== 'photo').map(G.fullBox);   // the room's name keeps clear of tables with their chairs
+    /* labels do not sit on each other: each placed label keeps its box (in mm); a wall's length moves outside the room when an object
+       is in the way inside; a passage width that would cover another label is left out (the line stays) */
+    const taken = [], ibx = p.items.filter((it) => !it.top && it.kind !== 'photo').map(G.fullBox);
+    const tbox = (x, y, str, px, rot) => { const w = (String(str).length * px * 0.62 + 4) / s, h = (px * 1.25 + 2) / s, a = (rot || 0) * G.DEG, c = Math.abs(Math.cos(a)), sn = Math.abs(Math.sin(a)), W = (w * c + h * sn) / 2, H = (w * sn + h * c) / 2; return { x0: x - W, y0: y - H, x1: x + W, y1: y + H }; };
+    const clash = (b, L) => L.some((q) => b.x0 < q.x1 && q.x0 < b.x1 && b.y0 < q.y1 && q.y0 < b.y1);
     p.rooms.forEach((r, ri) => {
       const g = geoms[ri], n = g.n, rs = sel.r === r.id && sel.t !== 'item';
       fill += '<polygon class="prf' + (rs && sel.t === 'room' ? ' on' : rs ? ' half' : '') + '" data-r="r|' + r.id + '" points="' + pts(g.raw.slice(0, n)) + '"/>';
@@ -5987,8 +5992,11 @@ var PL = (function () {
         hit = '<line class="hw" data-r="w|' + r.id + '|' + w.id + '" x1="' + n1(a[0]) + '" y1="' + n1(a[1]) + '" x2="' + n1(b[0]) + '" y2="' + n1(b[1]) + '"/>' + hit;
         const lab = G.wallLabelAt(w, L);
         if (ws || L * s >= 46) {
-          const m = at(lab.t), off = 15 / s;
-          labels += text(m[0] - nO[0] * off, m[1] - nO[1] * off, (w.m ? '' : '≈') + fl(g.lens[i]), 11.5, ws && sel.t === 'wall' ? 'pd on' : w.m ? 'pd' : 'pd est', upright(g.dirs[i]));
+          const m = at(lab.t), off = 15 / s, str = (w.m ? '' : '≈') + fl(g.lens[i]), ang = upright(g.dirs[i]);
+          let q = [m[0] - nO[0] * off, m[1] - nO[1] * off], bx = tbox(q[0], q[1], str, 11.5, ang);
+          if (clash(bx, ibx) || clash(bx, taken)) { q = [m[0] + nO[0] * off, m[1] + nO[1] * off]; bx = tbox(q[0], q[1], str, 11.5, ang); }   // something inside: the length goes outside the wall
+          taken.push(bx);
+          labels += text(q[0], q[1], str, 11.5, ws && sel.t === 'wall' ? 'pd on' : w.m ? 'pd' : 'pd est', ang);
         }
         /* a handle in the middle of the wall: pull it to move the wall */
         if (rs && L * s >= 34) { const m = at(lab.room > 0 ? lab.t : L / 2), q = 9.5 / s, e = 4 / s;
@@ -6002,8 +6010,9 @@ var PL = (function () {
           hnd += handle('pcd' + (cs ? ' on' : ''), 'c|' + r.id + '|' + i, v[0], v[1], (cs ? 7 : 5.5) / s);
         }
       }
-      const nm = r.name || ('Помещение ' + (ri + 1)), c = G.labelAvoid(g, Math.min(nm.length, 16) * 13 * 0.3 / s, 26 / s, boxes);
+      const nm = r.name || ('Помещение ' + (ri + 1)), c = G.labelAvoid(g, Math.min(nm.length, 16) * 13.5 * 0.33 / s, 24 / s, boxes.concat(taken));
       if (Math.min(g.bbox.w, g.bbox.h * 3) * s > 60) {
+        { const hw = Math.min(nm.length, 16) * 13.5 * 0.33 / s; taken.push({ x0: c[0] - hw, y0: c[1] - 22 / s, x1: c[0] + hw, y1: c[1] + 18 / s }); }
         labels += text(c[0], c[1] - 9 / s, nm, 13.5, 'pn');
         labels += text(c[0], c[1] + 9 / s, (g.allM ? '' : '≈') + m2(g.area) + ' м²', 11.5, 'pa' + (g.status === 'bad' ? ' bad' : ''));
       }
@@ -6014,12 +6023,12 @@ var PL = (function () {
     if (it) {
       G.itemClearances(it, geoms).forEach((q) => {
         if (q.dist <= 0) return; over += '<line class="pcl" x1="' + n1(q.from[0]) + '" y1="' + n1(q.from[1]) + '" x2="' + n1(q.to[0]) + '" y2="' + n1(q.to[1]) + '"/>';
-        labels += text((q.from[0] + q.to[0]) / 2, (q.from[1] + q.to[1]) / 2, fl(q.dist), 11, 'pcl-t');
+        { const x = (q.from[0] + q.to[0]) / 2, y = (q.from[1] + q.to[1]) / 2, t = fl(q.dist), bx = tbox(x, y, t, 11, 0); if (!clash(bx, taken)) { taken.push(bx); labels += text(x, y, t, 11, 'pcl-t'); } }
       });
       if (!st.drag || st.drag.mode !== 'item') {   // the two nearest objects, edge to edge (chairs included)
         const H = hullish(G.footprint(it)), bb = G.itemBBox(it), near = [];
         p.items.forEach((o) => { if (o.id === it.id || !!o.top !== !!it.top) return; const ob = G.itemBBox(o); if (ob.x0 > bb.x1 + 15000 || ob.x1 < bb.x0 - 15000 || ob.y0 > bb.y1 + 15000 || ob.y1 < bb.y0 - 15000) return; const cl = closest(H, hullish(G.footprint(o))); if (cl.d > 0.5) near.push(cl); });
-        near.sort((a, b) => a.d - b.d).slice(0, 2).forEach((cl) => { over += '<line class="pnb" x1="' + n1(cl.a[0]) + '" y1="' + n1(cl.a[1]) + '" x2="' + n1(cl.b[0]) + '" y2="' + n1(cl.b[1]) + '"/>'; labels += text((cl.a[0] + cl.b[0]) / 2, (cl.a[1] + cl.b[1]) / 2, fl(cl.d), 11, 'pnb-t'); });
+        near.sort((a, b) => a.d - b.d).slice(0, 2).forEach((cl) => { over += '<line class="pnb" x1="' + n1(cl.a[0]) + '" y1="' + n1(cl.a[1]) + '" x2="' + n1(cl.b[0]) + '" y2="' + n1(cl.b[1]) + '"/>'; const x = (cl.a[0] + cl.b[0]) / 2, y = (cl.a[1] + cl.b[1]) / 2, t = fl(cl.d), bx = tbox(x, y, t, 11, 0); if (!clash(bx, taken)) { taken.push(bx); labels += text(x, y, t, 11, 'pnb-t'); } });
       }
       /* handles: size at the corners, a ring to turn */
       const hw = it.w / 2, hd = (it.shape === 'round' ? it.w : it.d) / 2, W = (x, y) => G.toWorld(it, x, y), r = 5.5 / s;
@@ -6052,7 +6061,7 @@ var PL = (function () {
     const set = (id, h) => { const n = document.getElementById(id); if (n && n._h !== h) { n.innerHTML = h; n._h = h; } };
     const DM = dimsSvg(s, sel); hit += DM.hit; labels += DM.lab; hnd += DM.hnd; set('pdim', DM.g0); set('pdefs', hatchDefs(s));
     (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'isize' || st.drag.mode === 'gmove') && st.guides || []).forEach((g) => { over += g.vert ? '<line class="pgd" x1="' + n1(g.at) + '" y1="' + n1(g.a) + '" x2="' + n1(g.at) + '" y2="' + n1(g.b) + '"/>' : '<line class="pgd" x1="' + n1(g.a) + '" y1="' + n1(g.at) + '" x2="' + n1(g.b) + '" y2="' + n1(g.at) + '"/>'; });
-    if (st.layer === 'floor') gaps().forEach((q) => { const mx = (q.p[0] + q.q[0]) / 2, my = (q.p[1] + q.q[1]) / 2; over += '<line class="pna" x1="' + n1(q.p[0]) + '" y1="' + n1(q.p[1]) + '" x2="' + n1(q.q[0]) + '" y2="' + n1(q.q[1]) + '"/>'; labels += text(mx, my - 9 / s, fl(q.d), 10.5, 'pna-t'); });
+    if (st.layer === 'floor') gaps().slice().sort((a, b) => a.d - b.d).forEach((q) => { const mx = (q.p[0] + q.q[0]) / 2, my = (q.p[1] + q.q[1]) / 2; over += '<line class="pna" x1="' + n1(q.p[0]) + '" y1="' + n1(q.p[1]) + '" x2="' + n1(q.q[0]) + '" y2="' + n1(q.q[1]) + '"/>'; const t = fl(q.d), bx = tbox(mx, my - 9 / s, t, 10.5, 0); if (clash(bx, taken)) return; taken.push(bx); labels += text(mx, my - 9 / s, t, 10.5, 'pna-t'); });   // the narrowest is labelled; one that would cover it keeps only its line
     if (st.drag && (st.drag.mode === 'item' || st.drag.mode === 'gmove')) (st.spacing || []).forEach((m) => {   // equal steps: a dimension per gap, all at once
       const tk = 7 / s, A = m.vert ? [m.at, m.from] : [m.from, m.at], B = m.vert ? [m.at, m.to] : [m.to, m.at];
       over += '<line class="psp" x1="' + n1(A[0]) + '" y1="' + n1(A[1]) + '" x2="' + n1(B[0]) + '" y2="' + n1(B[1]) + '"/>' + (m.vert ? '<line class="psp" x1="' + n1(A[0] - tk) + '" y1="' + n1(A[1]) + '" x2="' + n1(A[0] + tk) + '" y2="' + n1(A[1]) + '"/><line class="psp" x1="' + n1(B[0] - tk) + '" y1="' + n1(B[1]) + '" x2="' + n1(B[0] + tk) + '" y2="' + n1(B[1]) + '"/>' : '<line class="psp" x1="' + n1(A[0]) + '" y1="' + n1(A[1] - tk) + '" x2="' + n1(A[0]) + '" y2="' + n1(A[1] + tk) + '"/><line class="psp" x1="' + n1(B[0]) + '" y1="' + n1(B[1] - tk) + '" x2="' + n1(B[0]) + '" y2="' + n1(B[1] + tk) + '"/>');
