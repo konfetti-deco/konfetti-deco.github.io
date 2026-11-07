@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#7a4b94">
-<meta name="app-version" content="bus-v4">
+<meta name="app-version" content="bus-v5">
 <title>Автобус Schanz</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
@@ -225,7 +225,16 @@ async function planTrips(fromKey, toKey, time) {
 // (едут намного дольше самого быстрого) не показываем; сортируем по отправлению.
 function finalize(out) {
   const seen = new Set();
-  const uniq = out.filter(t => t.dep && t.arr && !seen.has(t.key) && seen.add(t.key));
+  let uniq = out.filter(t => t.dep && t.arr && !seen.has(t.key) && seen.add(t.key));
+  // один и тот же автобус, проходящий две платформы нашей остановки (одна линия, одно время прибытия):
+  // оставляем более позднее отправление
+  const byArr = new Map();
+  for (const t of uniq) {
+    const k = t.line + "|" + t.arr;
+    const prev = byArr.get(k);
+    if (!prev || new Date(t.dep) > new Date(prev.dep)) byArr.set(k, t);
+  }
+  uniq = [...byArr.values()];
   const ride = t => (new Date(t.arr) - new Date(t.dep)) / 60000;
   const rides = uniq.filter(t => !t.cancelled).map(ride).filter(m => m > 0);
   const min = rides.length ? Math.min(...rides) : 0;
