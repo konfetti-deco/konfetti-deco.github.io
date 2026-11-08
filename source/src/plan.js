@@ -1396,7 +1396,12 @@ var PL = (function () {
     const L = st.multi.map(item).filter(Boolean), T = L.filter((it) => it.kind === 'table' && !it.stand), lk = L.some((it) => !it.lock);
     const ab = (v, t) => '<button type="button" class="ib alb" data-pact="m-align" data-v="' + v + '" title="' + t + '" aria-label="' + t + '">' + alIco(v) + '</button>';
     const isG = L.every((it) => it.grp && it.grp === L[0].grp);
-    return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') +
+    const SS = G.selectionSummary(L), ALL = G.seatingSummary(P()), Tn = (n) => G.ruN(n, 'стол', 'стола', 'столов'), Mn = (n) => G.ruN(n, 'место', 'места', 'мест');
+    const info = SS.tables || SS.stand ? '<div class="sumsel"><div class="sel"><small>В выделении</small><b>' + [SS.tables ? Tn(SS.tables) : '', SS.stand ? SS.stand + ' коктейльн.' : ''].filter(Boolean).join(' + ') + ' · ' + Mn(SS.seats) + '</b></div>' +
+      (SS.groups > 1 || (SS.groups && SS.parts > SS.groups) ? '<div class="sub"><span>' + (SS.parts > SS.groups ? G.ruN(SS.groups, 'группа', 'группы', 'групп') + ' + ' + G.ruN(SS.parts - SS.groups, 'отдельный предмет', 'отдельных предмета', 'отдельных предметов') : G.ruN(SS.groups, 'группа', 'группы', 'групп')) + '</span></div>' : '') +
+      (SS.bare ? '<div class="sub"><span>без стульев: ' + Tn(SS.bare) + '</span></div>' : '') +
+      '<div class="all">Всего в зале: <b>' + Tn(ALL.tables) + ' · ' + Mn(ALL.seats) + '</b></div></div>' : '';
+    return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + (SS.tables && SS.tables === L.length ? Tn(L.length) : G.ruN(L.length, 'объект', 'объекта', 'объектов')) + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') + info +
       grp('Выровнять и распределить', '<div class="fl full">Поставить в одну линию</div><div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
         '<p class="muted small full">Поставить в одну линию — если выделенные столы стоят «лесенкой», они встают ровно по одному краю или по центру. Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>' +
         '<div class="fl full">Равные промежутки</div><div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
@@ -1405,13 +1410,14 @@ var PL = (function () {
       '<div class="pacts">' + btn('m-dup', 'Дублировать ' + L.length) + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }
   function fallbackCopy(t) { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
-  function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + r.n + ' шт.' + (r.stand ? '' : ', мест ' + r.seats)).join('\n') + '\nВсего: столов ' + S2.tables + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', мест ' + S2.seats + ' (стульев ' + S2.chairs + ')'; }
+  function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + (r.stand ? r.n + ' шт.' : G.ruN(r.n, 'стол', 'стола', 'столов') + ', ' + G.ruN(r.seats, 'место', 'места', 'мест')) + (r.bare ? ' (без стульев: ' + r.bare + ')' : '')).join('\n') + '\nВсего в зале: ' + G.ruN(S2.tables, 'стол', 'стола', 'столов') + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', ' + G.ruN(S2.seats, 'место', 'места', 'мест'); }
   function sumHtml(p) {
-    const S2 = G.seatingSummary(p);
-    return '<div class="sumt full">' + S2.list.map((r) => '<div><span>' + esc(r.label) + '</span><b>' + r.n + ' шт.</b><small>' + (r.stand ? 'стоя' : r.seats + ' мест') + '</small></div>').join('') +
-      '<div class="tot"><span>Всего</span><b>' + S2.tables + ' стол.' + (S2.stand ? ' + ' + S2.stand : '') + '</b><small>' + S2.seats + ' мест</small></div></div>' +
+    const S2 = G.seatingSummary(p), T = (n) => G.ruN(n, 'стол', 'стола', 'столов'), M = (n) => G.ruN(n, 'место', 'места', 'мест');
+    return '<div class="sumt full">' + S2.list.map((r) => '<div><span>' + esc(r.label) + (r.bare ? '<em>' + (r.bare === r.n ? 'все без стульев' : 'из них ' + r.bare + ' без стульев') + '</em>' : '') + '</span><span class="nm"><b>' + (r.stand ? r.n + ' шт.' : T(r.n)) + '</b><small>' + (r.stand ? 'стоя' : M(r.seats)) + '</small></span></div>').join('') +
+      '<div class="tot"><span>Всего в зале</span><span class="nm"><b>' + T(S2.tables) + (S2.stand ? ' + ' + S2.stand + ' коктейльн.' : '') + '</b><b>' + M(S2.seats) + '</b></span></div></div>' +
       '<div class="pacts full">' + btn('sum-copy', 'Скопировать списком') + '</div>';
   }
+
   function ctxOpen(ref, cx, cy) {
     if (ref[0] === 'i') { if (!(st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0)) { st.multi = []; st.sel = { t: 'item', i: ref[1] }; } }
     else { st.multi = []; st.sel = { t: 'room', r: ref[1] }; }

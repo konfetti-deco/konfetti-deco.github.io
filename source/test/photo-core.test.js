@@ -280,5 +280,16 @@ ok(PG.refLen({ q: [[0, 0], [10, 10], [10, 0], [0, 10]], w: 900, h: 2100 }, [0, 0
   ok(!PG.conflicts(P2).length, 'a table on a plain shape: no conflict'); sh.solid = true; ok(PG.conflicts(P2).some((q) => q.t === 'item'), 'on an obstacle shape: conflict');
   const wall = PG.makeItem('g_wall', 0, 0); ok(wall.solid === true && wall.fill === 'full', 'partition is an obstacle by default'); }
 
+/* 34. seat summary: tables and places counted apart; a selection's tables, places, groups; counts in words */
+{ const P = PG.newPlan(); const L = []; let n = 1;
+  ['g1', 'g2', 'g3', 'g4'].forEach((g) => { for (let k = 0; k < 4; k++) { const t = PG.makeItem('t_q180', 1000 * k, 0); t.sides = [0, 0, 2, 2]; t.grp = g; t.num = n++; L.push(t); } });
+  for (let k = 0; k < 2; k++) { const t = PG.makeItem('t_q180', 0, 5000 + k * 2000); t.sides = [0, 0, 0, 0]; L.push(t); } P.items = L;
+  const S2 = PG.seatingSummary(P); ok(S2.tables === 18 && S2.seats === 64 && S2.bare === 2 && S2.list[0].n === 18 && S2.list[0].seats === 64 && S2.list[0].bare === 2, '18 tables, 64 places, 2 bare');
+  const g1 = PG.selectionSummary(L.filter((t) => t.grp === 'g1')); ok(g1.tables === 4 && g1.seats === 16 && g1.groups === 1 && g1.parts === 1, 'one group: 4 tables, 16 places');
+  const mix = PG.selectionSummary(L.filter((t) => t.grp === 'g1' || t.grp === 'g2' || !t.grp)); ok(mix.tables === 10 && mix.seats === 32 && mix.groups === 2 && mix.parts === 4 && mix.bare === 2, 'two groups + 2 loose: 10 tables, 32 places');
+  // the parts always add up to the hall
+  const all = PG.selectionSummary(L); ok(all.tables === S2.tables && all.seats === S2.seats, 'everything chosen = the hall');
+  [[1, 'стол'], [2, 'стола'], [4, 'стола'], [5, 'столов'], [11, 'столов'], [12, 'столов'], [14, 'столов'], [21, 'стол'], [22, 'стола'], [25, 'столов'], [101, 'стол'], [111, 'столов'], [0, 'столов']].forEach(([k, w]) => ok(PG.ruN(k, 'стол', 'стола', 'столов') === k + ' ' + w, k + ' ' + w)); }
+
 console.log(passes + ' checks passed, ' + fails + ' failed');
 process.exit(fails ? 1 : 0);

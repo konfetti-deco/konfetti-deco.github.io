@@ -1220,6 +1220,19 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
 .dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
 .dock .fld.stk>.seg button svg{display:block;margin:auto}
 .dock .tog.chtog{min-height:36px;font-size:13.5px;font-weight:600;gap:9px}.dock .tog.chtog input{width:20px;height:20px}
+.sumt span em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:1px}
+.sumt>div{grid-template-columns:1fr auto}
+.sumt .nm{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.sumt .nm small{min-width:0}
+.sumsel{margin:4px 10px 8px;border:1px solid var(--wline);border-radius:9px;overflow:hidden;font-size:13px}
+.sumsel>div{padding:6px 10px}
+.sumsel .sel{display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.sumsel .sel small{color:var(--muted);font-size:11.5px}
+.sumsel .sel b{font-size:15px;font-weight:700}
+.sumsel .sub{color:var(--muted);font-size:12px;padding-top:4px;padding-bottom:0}
+.sumsel .sub+.all,.sumsel .sel+.all{margin-top:0}
+.sumsel .all{border-top:1px solid var(--wline);color:var(--muted);font-size:12.5px;margin-top:6px}
+.sumsel .all b{color:var(--ink);font-weight:600}
 
 </style>
 </head>
@@ -1232,7 +1245,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 61</span>
+  <span class="ver" id="ver">версия 62</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -3346,11 +3359,20 @@ var PG = (function () {
     const rows = {}, tot = totals(p);
     p.items.forEach((it) => { if (it.kind !== 'table' && it.kind !== 'chairs') return;
       const sz = it.shape === 'round' ? 'Ø' + nf(it.w / 1000, 2) + ' м' : nf(it.w / 1000, 2) + '×' + nf(it.d / 1000, 2) + ' м', key = (it.stand ? 'stand|' : 'table|') + it.shape + '|' + sz;
-      const r = rows[key] = rows[key] || { label: (it.stand ? 'Коктейльный' : it.shape === 'round' ? 'Круглый' : it.shape === 'oval' ? 'Овальный' : 'Прямоугольный') + ' ' + sz, n: 0, seats: 0, stand: !!it.stand };
-      r.n++; r.seats += seatCount(it); });
+      const r = rows[key] = rows[key] || { label: (it.stand ? 'Коктейльный' : it.shape === 'round' ? 'Круглый' : it.shape === 'oval' ? 'Овальный' : 'Прямоугольный') + ' ' + sz, n: 0, seats: 0, bare: 0, stand: !!it.stand };
+      r.n++; r.seats += seatCount(it); if (!it.stand && it.kind === 'table' && seatCount(it) === 0) r.bare++; });
     const list = Object.keys(rows).map((k) => rows[k]).sort((a, b) => (a.stand - b.stand) || b.n - a.n);
-    return { list, tables: tot.tables, stand: tot.stand, seats: tot.seats, chairs: tot.seats };
+    return { list, tables: tot.tables, stand: tot.stand, seats: tot.seats, chairs: tot.seats, bare: list.reduce((a, r) => a + r.bare, 0) };
   }
+  /* what is in a selection: tables, places, cocktail tables, how many groups (a group counts once, a loose table counts as itself) */
+  function selectionSummary(list) {
+    const T = list.filter((it) => it && it.kind === 'table'), seated = T.filter((it) => !it.stand), keys = {};
+    list.forEach((it) => { if (it) keys[it.grp ? 'g' + it.grp : 'i' + it.id] = 1; });
+    return { tables: seated.length, stand: T.length - seated.length, seats: seated.reduce((a, it) => a + seatCount(it), 0), bare: seated.filter((it) => seatCount(it) === 0).length,
+      groups: Object.keys(keys).filter((k) => k[0] === 'g').length, parts: Object.keys(keys).length, objects: list.filter(Boolean).length };
+  }
+  /* Russian count words: 1 стол, 2 стола, 5 столов */
+  function ruN(n, one, few, many) { const a = Math.abs(n) % 100, b = a % 10; return n + ' ' + (a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many); }
   /* ---------- several objects at once: line up, spread evenly, number again, one seating for many tables ---------- */
   function moveBy(it, dx, dy) { it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; }
   /* how: left, cx, right (by the table bodies), top, cy, bottom; the reference is the outermost body of the set (or the middle for cx/cy) */
@@ -3847,7 +3869,7 @@ var PG = (function () {
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
+    newPlan, normalize, summary, NAMES, parseSpoken, selectionSummary, ruN, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
@@ -6917,7 +6939,12 @@ var PL = (function () {
     const L = st.multi.map(item).filter(Boolean), T = L.filter((it) => it.kind === 'table' && !it.stand), lk = L.some((it) => !it.lock);
     const ab = (v, t) => '<button type="button" class="ib alb" data-pact="m-align" data-v="' + v + '" title="' + t + '" aria-label="' + t + '">' + alIco(v) + '</button>';
     const isG = L.every((it) => it.grp && it.grp === L[0].grp);
-    return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + L.length + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') +
+    const SS = G.selectionSummary(L), ALL = G.seatingSummary(P()), Tn = (n) => G.ruN(n, 'стол', 'стола', 'столов'), Mn = (n) => G.ruN(n, 'место', 'места', 'мест');
+    const info = SS.tables || SS.stand ? '<div class="sumsel"><div class="sel"><small>В выделении</small><b>' + [SS.tables ? Tn(SS.tables) : '', SS.stand ? SS.stand + ' коктейльн.' : ''].filter(Boolean).join(' + ') + ' · ' + Mn(SS.seats) + '</b></div>' +
+      (SS.groups > 1 || (SS.groups && SS.parts > SS.groups) ? '<div class="sub"><span>' + (SS.parts > SS.groups ? G.ruN(SS.groups, 'группа', 'группы', 'групп') + ' + ' + G.ruN(SS.parts - SS.groups, 'отдельный предмет', 'отдельных предмета', 'отдельных предметов') : G.ruN(SS.groups, 'группа', 'группы', 'групп')) + '</span></div>' : '') +
+      (SS.bare ? '<div class="sub"><span>без стульев: ' + Tn(SS.bare) + '</span></div>' : '') +
+      '<div class="all">Всего в зале: <b>' + Tn(ALL.tables) + ' · ' + Mn(ALL.seats) + '</b></div></div>' : '';
+    return '<div class="phead"><h3>' + (isG ? 'Группа: ' : 'Выделено: ') + (SS.tables && SS.tables === L.length ? Tn(L.length) : G.ruN(L.length, 'объект', 'объекта', 'объектов')) + '</h3></div>' + (isG ? '<p class="muted small pad0">Группа двигается целиком. Один предмет из неё — выберите в «Слоях».</p>' : '') + info +
       grp('Выровнять и распределить', '<div class="fl full">Поставить в одну линию</div><div class="albar full">' + ab('left', 'По левому краю') + ab('cx', 'По центру') + ab('right', 'По правому краю') + '<span class="sep"></span>' + ab('top', 'По верху') + ab('cy', 'По середине') + ab('bottom', 'По низу') + '</div>' +
         '<p class="muted small full">Поставить в одну линию — если выделенные столы стоят «лесенкой», они встают ровно по одному краю или по центру. Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>' +
         '<div class="fl full">Равные промежутки</div><div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
@@ -6926,13 +6953,14 @@ var PL = (function () {
       '<div class="pacts">' + btn('m-dup', 'Дублировать ' + L.length) + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }
   function fallbackCopy(t) { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
-  function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + r.n + ' шт.' + (r.stand ? '' : ', мест ' + r.seats)).join('\n') + '\nВсего: столов ' + S2.tables + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', мест ' + S2.seats + ' (стульев ' + S2.chairs + ')'; }
+  function sumText(p) { const S2 = G.seatingSummary(p); return (S.name ? S.name + '\n' : '') + S2.list.map((r) => r.label + ' — ' + (r.stand ? r.n + ' шт.' : G.ruN(r.n, 'стол', 'стола', 'столов') + ', ' + G.ruN(r.seats, 'место', 'места', 'мест')) + (r.bare ? ' (без стульев: ' + r.bare + ')' : '')).join('\n') + '\nВсего в зале: ' + G.ruN(S2.tables, 'стол', 'стола', 'столов') + (S2.stand ? ', коктейльных ' + S2.stand : '') + ', ' + G.ruN(S2.seats, 'место', 'места', 'мест'); }
   function sumHtml(p) {
-    const S2 = G.seatingSummary(p);
-    return '<div class="sumt full">' + S2.list.map((r) => '<div><span>' + esc(r.label) + '</span><b>' + r.n + ' шт.</b><small>' + (r.stand ? 'стоя' : r.seats + ' мест') + '</small></div>').join('') +
-      '<div class="tot"><span>Всего</span><b>' + S2.tables + ' стол.' + (S2.stand ? ' + ' + S2.stand : '') + '</b><small>' + S2.seats + ' мест</small></div></div>' +
+    const S2 = G.seatingSummary(p), T = (n) => G.ruN(n, 'стол', 'стола', 'столов'), M = (n) => G.ruN(n, 'место', 'места', 'мест');
+    return '<div class="sumt full">' + S2.list.map((r) => '<div><span>' + esc(r.label) + (r.bare ? '<em>' + (r.bare === r.n ? 'все без стульев' : 'из них ' + r.bare + ' без стульев') + '</em>' : '') + '</span><span class="nm"><b>' + (r.stand ? r.n + ' шт.' : T(r.n)) + '</b><small>' + (r.stand ? 'стоя' : M(r.seats)) + '</small></span></div>').join('') +
+      '<div class="tot"><span>Всего в зале</span><span class="nm"><b>' + T(S2.tables) + (S2.stand ? ' + ' + S2.stand + ' коктейльн.' : '') + '</b><b>' + M(S2.seats) + '</b></span></div></div>' +
       '<div class="pacts full">' + btn('sum-copy', 'Скопировать списком') + '</div>';
   }
+
   function ctxOpen(ref, cx, cy) {
     if (ref[0] === 'i') { if (!(st.multi.length > 1 && st.multi.indexOf(ref[1]) >= 0)) { st.multi = []; st.sel = { t: 'item', i: ref[1] }; } }
     else { st.multi = []; st.sel = { t: 'room', r: ref[1] }; }

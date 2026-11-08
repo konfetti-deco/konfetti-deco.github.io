@@ -797,11 +797,20 @@ var PG = (function () {
     const rows = {}, tot = totals(p);
     p.items.forEach((it) => { if (it.kind !== 'table' && it.kind !== 'chairs') return;
       const sz = it.shape === 'round' ? 'Ø' + nf(it.w / 1000, 2) + ' м' : nf(it.w / 1000, 2) + '×' + nf(it.d / 1000, 2) + ' м', key = (it.stand ? 'stand|' : 'table|') + it.shape + '|' + sz;
-      const r = rows[key] = rows[key] || { label: (it.stand ? 'Коктейльный' : it.shape === 'round' ? 'Круглый' : it.shape === 'oval' ? 'Овальный' : 'Прямоугольный') + ' ' + sz, n: 0, seats: 0, stand: !!it.stand };
-      r.n++; r.seats += seatCount(it); });
+      const r = rows[key] = rows[key] || { label: (it.stand ? 'Коктейльный' : it.shape === 'round' ? 'Круглый' : it.shape === 'oval' ? 'Овальный' : 'Прямоугольный') + ' ' + sz, n: 0, seats: 0, bare: 0, stand: !!it.stand };
+      r.n++; r.seats += seatCount(it); if (!it.stand && it.kind === 'table' && seatCount(it) === 0) r.bare++; });
     const list = Object.keys(rows).map((k) => rows[k]).sort((a, b) => (a.stand - b.stand) || b.n - a.n);
-    return { list, tables: tot.tables, stand: tot.stand, seats: tot.seats, chairs: tot.seats };
+    return { list, tables: tot.tables, stand: tot.stand, seats: tot.seats, chairs: tot.seats, bare: list.reduce((a, r) => a + r.bare, 0) };
   }
+  /* what is in a selection: tables, places, cocktail tables, how many groups (a group counts once, a loose table counts as itself) */
+  function selectionSummary(list) {
+    const T = list.filter((it) => it && it.kind === 'table'), seated = T.filter((it) => !it.stand), keys = {};
+    list.forEach((it) => { if (it) keys[it.grp ? 'g' + it.grp : 'i' + it.id] = 1; });
+    return { tables: seated.length, stand: T.length - seated.length, seats: seated.reduce((a, it) => a + seatCount(it), 0), bare: seated.filter((it) => seatCount(it) === 0).length,
+      groups: Object.keys(keys).filter((k) => k[0] === 'g').length, parts: Object.keys(keys).length, objects: list.filter(Boolean).length };
+  }
+  /* Russian count words: 1 стол, 2 стола, 5 столов */
+  function ruN(n, one, few, many) { const a = Math.abs(n) % 100, b = a % 10; return n + ' ' + (a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many); }
   /* ---------- several objects at once: line up, spread evenly, number again, one seating for many tables ---------- */
   function moveBy(it, dx, dy) { it.x = Math.round((it.x + dx) * 10) / 10; it.y = Math.round((it.y + dy) * 10) / 10; }
   /* how: left, cx, right (by the table bodies), top, cy, bottom; the reference is the outermost body of the set (or the middle for cx/cy) */
@@ -1298,7 +1307,7 @@ var PG = (function () {
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
+    newPlan, normalize, summary, NAMES, parseSpoken, selectionSummary, ruN, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();

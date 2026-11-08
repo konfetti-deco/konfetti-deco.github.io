@@ -1201,3 +1201,16 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
 .dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
 .dock .fld.stk>.seg button svg{display:block;margin:auto}
 .dock .tog.chtog{min-height:36px;font-size:13.5px;font-weight:600;gap:9px}.dock .tog.chtog input{width:20px;height:20px}
+.sumt span em{display:block;font-style:normal;font-size:11.5px;color:var(--muted);margin-top:1px}
+.sumt>div{grid-template-columns:1fr auto}
+.sumt .nm{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.sumt .nm small{min-width:0}
+.sumsel{margin:4px 10px 8px;border:1px solid var(--wline);border-radius:9px;overflow:hidden;font-size:13px}
+.sumsel>div{padding:6px 10px}
+.sumsel .sel{display:flex;flex-direction:column;gap:2px;background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.sumsel .sel small{color:var(--muted);font-size:11.5px}
+.sumsel .sel b{font-size:15px;font-weight:700}
+.sumsel .sub{color:var(--muted);font-size:12px;padding-top:4px;padding-bottom:0}
+.sumsel .sub+.all,.sumsel .sel+.all{margin-top:0}
+.sumsel .all{border-top:1px solid var(--wline);color:var(--muted);font-size:12.5px;margin-top:6px}
+.sumsel .all b{color:var(--ink);font-weight:600}

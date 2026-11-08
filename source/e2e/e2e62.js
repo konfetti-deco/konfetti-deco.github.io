@@ -39,7 +39,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await ev(()=>{S.plan.aisle=0;commit()});await p.waitForTimeout(80);ok(await ev(()=>document.querySelectorAll('#pover .pna').length)===0,'minimum 0: not checked');await ev(()=>{S.plan.aisle=900;commit()});
  // summary
  await ev(()=>{PL.st.sel=null;PL.st.multi=[];act('dtab',{dataset:{id:'props'}});render()});await p.waitForTimeout(80);const dock=await p.textContent('#dock');ok(dock.includes('Сводка рассадки')&&dock.includes('Прямоугольный 1,80×0,80 м')&&dock.includes('12 мест'),'summary in the panel');
- ok(await ev(()=>PL.sumText(S.plan)).then(t=>/Всего: столов 2, мест 12/.test(t)),'summary text: Всего: столов 2, мест 12');
+ ok(await ev(()=>PL.sumText(S.plan)).then(t=>/Всего в зале: 2 стола, 12 мест/.test(t)),'summary text: Всего в зале: 2 стола, 12 мест');
  await p.click('#dock [data-pact=sum-copy]');await p.waitForTimeout(150);ok((await p.textContent('body')).includes('Сводка скопирована'),'copy → confirmation');
  ok(!errs.length,'no page errors: '+errs.slice(0,3).join(' | '));
  console.log(pass+' checks passed, '+fails+' failed');await b.close();process.exit(fails?1:0)})();
