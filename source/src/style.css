@@ -618,7 +618,7 @@ main#view{max-width:none;margin:0;padding:0;min-height:0;overflow:hidden}
 .fly .tilew{display:block} .fly .tilex{top:5px;right:4px;min-width:24px;height:24px;font-size:15px;padding:0 6px;box-shadow:none}
 .fnote{color:var(--muted);font-size:12px;padding:8px 6px;margin:0}
 /* ---------- dock ---------- */
-.dock{background:var(--panel);border-left:1px solid var(--wline);display:grid;grid-template-rows:var(--dsplit,56%) 6px minmax(0,1fr);grid-template-columns:minmax(0,1fr);min-height:0;min-width:0;overflow:hidden}
+.dock{background:var(--panel);border-left:1px solid var(--wline);display:grid;grid-template-rows:clamp(90px,var(--dsplit,56%),calc(100% - 116px)) 6px minmax(0,1fr);grid-template-columns:minmax(0,1fr);min-height:0;min-width:0;overflow:hidden}
 .dg{display:flex;flex-direction:column;min-height:0;min-width:0}
 .dtabs{display:flex;align-items:flex-end;gap:1px;padding:3px 4px 0;background:var(--chrome);border-bottom:1px solid var(--wline);height:29px;flex:none}
 .dt{border:0;background:transparent;padding:5px 9px;border-radius:4px 4px 0 0;font-weight:500;color:var(--muted);font-size:12px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
