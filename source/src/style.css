@@ -1227,3 +1227,4 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
 .dgchip{width:64px;height:64px;border-radius:12px;background:var(--accent);color:#fff;display:grid;place-items:center;font-size:12px;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
 .dgbtn{display:flex;gap:8px;margin-bottom:8px}
 .dglog{font:12px/1.45 var(--f-mono,ui-monospace,monospace);background:var(--surface);border-radius:8px;padding:8px 10px;min-height:120px;max-height:240px;overflow:auto;white-space:pre-wrap;margin:0}
+.dgrec{display:flex;gap:9px;align-items:flex-start;font-size:13px;margin:4px 0 10px}.dgrec input{width:20px;height:20px;flex:none;margin-top:1px}
