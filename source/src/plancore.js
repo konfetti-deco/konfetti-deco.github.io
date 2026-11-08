@@ -836,6 +836,19 @@ var PG = (function () {
     return T.length;
   }
   /* one seating for a table: the sides that already have chairs (or the long ones when none) get as many as that density allows */
+  /* chairs off and back on: the chairs taken away are remembered on the table (chOff), so switching back brings the same ones;
+     a table that never had any gets its catalogue chairs, cut to what fits */
+  function setChairs(it, on) {
+    if (it.kind !== 'table' || it.stand) return false;
+    if (!on) { if (seatCount(it) === 0) return false; it.chOff = it.shape === 'rect' ? { sides: (it.sides || [0, 0, 0, 0]).slice() } : { seats: +it.seats || 0 }; if (it.shape === 'rect') it.sides = [0, 0, 0, 0]; else it.seats = 0; return true; }
+    if (seatCount(it) > 0) { delete it.chOff; return false; }
+    const o = it.chOff, c = CAT[it.ref] || {};
+    if (it.shape === 'rect') it.sides = o && Array.isArray(o.sides) && o.sides.some((v) => v > 0) ? o.sides.slice() : (Array.isArray(c.sides) ? c.sides.slice() : [1, 1, 0, 0]);
+    else it.seats = o && o.seats > 0 ? o.seats : (c.seats > 0 ? c.seats : 0);
+    delete it.chOff; fitSeats(it);
+    if (seatCount(it) === 0) applySeating(it, 'normal');
+    return true;
+  }
   function applySeating(it, density) {
     if (it.kind !== 'table' || it.stand) return false;
     const lim = seatLimits(it);
@@ -1073,7 +1086,8 @@ var PG = (function () {
     o.dims = (Array.isArray(o.dims) ? o.dims : []).map(normDim).filter(Boolean).slice(0, 500);
     o.items = (Array.isArray(o.items) ? o.items : []).filter((it) => it && it.kind && isFinite(+it.x) && isFinite(+it.y) && +it.w > 0).map((it) => {
       it.id = it.id || uid(); it.x = +it.x; it.y = +it.y; it.w = clamp(Math.round(+it.w), 50, 60000); it.d = clamp(Math.round(+it.d || it.w), 50, 60000); it.rot = normDeg(+it.rot || 0);
-      if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1); }
+      if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1);
+        if (it.chOff && typeof it.chOff === 'object') it.chOff = Array.isArray(it.chOff.sides) ? { sides: [0, 1, 2, 3].map((k) => clamp(Math.round(+it.chOff.sides[k] || 0), 0, 60)) } : { seats: clamp(Math.round(+it.chOff.seats || 0), 0, 40) }; else delete it.chOff; }
       it.name = String(it.name || '').slice(0, 60);
       if (it.kind === 'shape') {
         it.shape = ['rect', 'oval', 'poly'].indexOf(it.shape) >= 0 ? it.shape : 'rect';
@@ -1284,7 +1298,7 @@ var PG = (function () {
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
+    newPlan, normalize, summary, NAMES, parseSpoken, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();

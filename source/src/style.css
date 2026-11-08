@@ -1200,3 +1200,4 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
 .dock .fld.stk>.seg{display:flex;width:100%}
 .dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
 .dock .fld.stk>.seg button svg{display:block;margin:auto}
+.dock .tog.chtog{min-height:36px;font-size:13.5px;font-weight:600;gap:9px}.dock .tog.chtog input{width:20px;height:20px}

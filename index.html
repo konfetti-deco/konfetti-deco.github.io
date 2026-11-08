@@ -1219,6 +1219,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
 .dock .fld.stk>.seg{display:flex;width:100%}
 .dock .fld.stk>.seg button{flex:1 1 0;min-width:0;padding:0 4px;overflow:hidden;text-overflow:ellipsis}
 .dock .fld.stk>.seg button svg{display:block;margin:auto}
+.dock .tog.chtog{min-height:36px;font-size:13.5px;font-weight:600;gap:9px}.dock .tog.chtog input{width:20px;height:20px}
 
 </style>
 </head>
@@ -1231,7 +1232,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 60</span>
+  <span class="ver" id="ver">версия 61</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -3384,6 +3385,19 @@ var PG = (function () {
     return T.length;
   }
   /* one seating for a table: the sides that already have chairs (or the long ones when none) get as many as that density allows */
+  /* chairs off and back on: the chairs taken away are remembered on the table (chOff), so switching back brings the same ones;
+     a table that never had any gets its catalogue chairs, cut to what fits */
+  function setChairs(it, on) {
+    if (it.kind !== 'table' || it.stand) return false;
+    if (!on) { if (seatCount(it) === 0) return false; it.chOff = it.shape === 'rect' ? { sides: (it.sides || [0, 0, 0, 0]).slice() } : { seats: +it.seats || 0 }; if (it.shape === 'rect') it.sides = [0, 0, 0, 0]; else it.seats = 0; return true; }
+    if (seatCount(it) > 0) { delete it.chOff; return false; }
+    const o = it.chOff, c = CAT[it.ref] || {};
+    if (it.shape === 'rect') it.sides = o && Array.isArray(o.sides) && o.sides.some((v) => v > 0) ? o.sides.slice() : (Array.isArray(c.sides) ? c.sides.slice() : [1, 1, 0, 0]);
+    else it.seats = o && o.seats > 0 ? o.seats : (c.seats > 0 ? c.seats : 0);
+    delete it.chOff; fitSeats(it);
+    if (seatCount(it) === 0) applySeating(it, 'normal');
+    return true;
+  }
   function applySeating(it, density) {
     if (it.kind !== 'table' || it.stand) return false;
     const lim = seatLimits(it);
@@ -3621,7 +3635,8 @@ var PG = (function () {
     o.dims = (Array.isArray(o.dims) ? o.dims : []).map(normDim).filter(Boolean).slice(0, 500);
     o.items = (Array.isArray(o.items) ? o.items : []).filter((it) => it && it.kind && isFinite(+it.x) && isFinite(+it.y) && +it.w > 0).map((it) => {
       it.id = it.id || uid(); it.x = +it.x; it.y = +it.y; it.w = clamp(Math.round(+it.w), 50, 60000); it.d = clamp(Math.round(+it.d || it.w), 50, 60000); it.rot = normDeg(+it.rot || 0);
-      if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1); }
+      if (it.kind === 'table') { if (it.shape === 'rect') it.sides = [0, 1, 2, 3].map((k) => clamp(Math.round(+(it.sides || [])[k] || 0), 0, 60)); else it.seats = clamp(Math.round(+it.seats || 0), 0, 40); if (it.num != null) it.num = Math.max(1, Math.round(+it.num) || 1);
+        if (it.chOff && typeof it.chOff === 'object') it.chOff = Array.isArray(it.chOff.sides) ? { sides: [0, 1, 2, 3].map((k) => clamp(Math.round(+it.chOff.sides[k] || 0), 0, 60)) } : { seats: clamp(Math.round(+it.chOff.seats || 0), 0, 40) }; else delete it.chOff; }
       it.name = String(it.name || '').slice(0, 60);
       if (it.kind === 'shape') {
         it.shape = ['rect', 'oval', 'poly'].indexOf(it.shape) >= 0 ? it.shape : 'rect';
@@ -3832,7 +3847,7 @@ var PG = (function () {
     solveLens, quadDirs, roomGeom, outward, cornerName, wallName, wallFree, wallLabelAt, cornerPoint,
     SHAPES, makeRoom, roomFromPoints, OPENINGS, addOpening, clampOpening, rotateRoom, mirrorRoom, setInterior,
     splitWall, insertJog, deleteCorner, itemCorners, isRound, itemBBox, hitItem, itemClearances, planBBox,
-    newPlan, normalize, summary, NAMES, parseSpoken, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
+    newPlan, normalize, summary, NAMES, parseSpoken, setChairs, sideView, SIDE_NAMES, SHAPE_COLS, recenterPoly, scalePoly, shapeFromPoints, shapeArea, shapeLength, polyArea, localKey, refPoint, dimPoint, keyPoints, dimEdges, dimGeom, dimOffsetAt, dimText, normDim,
     bake, moveCorner, moveWall, snapCorner, MARK_COLS, normPhotos, photoChecks, photoFigures, heron, wallSeen, sendToWall, sq2quad, triAffine, quadOk, fitQuad, normFit, figTol, reportData, homMat, quad2sq, refLen, normRef, SEAT, edgeLens, seatLimits, fitSeats, alignItems, distributeItems, renumber, applySeating, closest, narrowGaps, seatingSummary, gridOrigin, snapGrid, alignSnap, snapLine, snapResize, fullBox, freeSpot, isTop, ceilingAt, topH, topChecks, CHAIR, CAT, makeItem, itemLabel, seatCount, chairsLocal, toWorld, footprint, polysTouch, doorSwings, conflicts, polyDist, nearestItems, totals, nextNum,
   };
 })();
@@ -6623,6 +6638,8 @@ var PL = (function () {
     const r = selRoom(), s = st.sel || {};
     const len = () => { const v = G.parseLen(raw, unit()); if (v === null || v <= 0) { toast('Не число: «' + raw + '». Длина в ' + uLab() + ', можно сумму: 2,35+1,12.'); render(); return null; } return v; };
     switch (path) {
+      case 'it.chairs': { const it = s.t === 'item' ? item(s.i) : null; if (!it) return; if (G.setChairs(it, !!n.checked)) label((n.checked ? 'стулья вернулись — ' : 'без стульев — ') + G.itemLabel(it) + (it.num != null ? ' №' + it.num : '')); else render(); return; }
+      case 'm.chairs': { const L = st.multi.map(item).filter((t) => t && t.kind === 'table' && !t.stand); let k = 0; L.forEach((t) => { if (G.setChairs(t, !!n.checked)) k++; }); if (k) label((n.checked ? 'стулья вернулись — ' : 'без стульев — ') + k + ' стол' + (k % 10 === 1 && k % 100 !== 11 ? '' : k % 10 >= 2 && k % 10 <= 4 && (k % 100 < 10 || k % 100 >= 20) ? 'а' : 'ов')); else render(); return; }
       case 'm.gap': { if (String(raw).trim() === '') { st.mgap = null; render(); return; } const v = G.parseLen(raw, unit()); if (v === null || v < 0) { toast('Промежуток — число в ' + uLab() + '.'); render(); return; } st.mgap = v; render(); return; }
       case 'g.at': { const g = (P().guides || []).find((q) => s.t === 'guide' && q.id === s.g); if (!g) return; const v = G.parseLen(raw, unit()); if (v === null) { toast('Не число: «' + raw + '».'); render(); return; } g.at = Math.round(G.gridOrigin(P())[g.vert ? 0 : 1] + v); label('направляющая: ' + fl(v) + ' от угла A'); return; }
       case 'p.aisle': { const v = String(raw).trim() === '' ? 0 : G.parseLen(raw, unit()); if (v === null || v < 0) { toast('Проход — число в ' + uLab() + ', 0 — не проверять.'); render(); return; } P().aisle = v === 0 ? 0 : G.clamp(Math.round(v), 300, 3000); label(P().aisle ? 'мин. проход ' + fl(P().aisle) + ' ' + uLab() : 'проходы не проверяются'); return; }
@@ -6821,10 +6838,10 @@ var PL = (function () {
         if (isC) body += grp('Форма и размер', '<div class="fld full"><span class="fl">Форма</span>' + seg([['round', 'круглая'], ['rect', 'квадратная / прямоугольная']], it.shape, 'it-shape') + '</div>' +
           fld('it.w', (round ? 'Диаметр' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', 'Глубина, ' + uLab(), fs(it.d || it.w)) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 1))));
         else {
-          body += grp(isT ? 'Стол' : 'Объект', (isT && !it.stand ? fld('it.num', 'Номер стола', it.num != null ? it.num : '') : '') + fld('it.name', 'Подпись', it.name, { cls: isT && !it.stand ? '' : 'full', ph: G.itemLabel(Object.assign({}, it, { name: '' })) }) +
+          body += grp(isT ? 'Стол' : 'Объект', (isT && !it.stand ? '<label class="tog chtog full"><input type="checkbox" data-pbind="it.chairs"' + (G.seatCount(it) > 0 ? ' checked' : '') + '><span>Со стульями</span></label>' + fld('it.num', 'Номер стола', it.num != null ? it.num : '') : '') + fld('it.name', 'Подпись', it.name, { cls: isT && !it.stand ? '' : 'full', ph: G.itemLabel(Object.assign({}, it, { name: '' })) }) +
             fld('it.w', (round ? 'Диаметр' : it.shape === 'oval' ? 'Длина' : 'Ширина') + ', ' + uLab(), fs(it.w)) + (round ? '' : fld('it.d', (it.shape === 'oval' ? 'Ширина' : 'Глубина') + ', ' + uLab(), fs(it.d))) + fld('it.rot', 'Поворот, °', G.nf(it.rot || 0, 0)) + ((G.CAT[it.ref] || {}).sub === 'stage' ? fld('it.sh', 'Высота сцены, ' + uLab(), fs(+it.h || 0)) : '') +
             '<p class="muted small full">Размер — тянуть за квадратики по углам, поворот — за кружок сверху.</p>');
-          if (isT && !it.stand) body += grp('Стулья — ' + G.seatCount(it) + ' мест', seatHtml(it));
+          if (isT && !it.stand && (G.seatCount(it) > 0 || !it.chOff)) body += grp('Стулья — ' + G.seatCount(it) + ' мест', seatHtml(it));
           body += grp('Размножить сеткой', fld('grid.rows', 'Рядов', G2.rows) + fld('grid.cols', 'В ряду', G2.cols) + fld('grid.sx', 'Шаг вдоль ряда, ' + uLab(), fl(sx)) + fld('grid.sy', 'Шаг между рядами, ' + uLab(), fl(sy)) +
             '<p class="muted small full">Шаг — от центра до центра; сейчас он равен размеру со стульями + 1,2 м прохода. Получится ' + (G2.rows * G2.cols) + ' шт.' + (isT && !it.stand ? ', мест ' + G2.rows * G2.cols * G.seatCount(it) : '') + '.</p>' +
             '<div class="pacts full">' + btn('it-grid', 'Расставить ' + G2.rows + ' × ' + G2.cols) + '</div>');
@@ -6905,7 +6922,7 @@ var PL = (function () {
         '<p class="muted small full">Поставить в одну линию — если выделенные столы стоят «лесенкой», они встают ровно по одному краю или по центру. Край берётся по самому крайнему объекту, закреплённые не двигаются.</p>' +
         '<div class="fl full">Равные промежутки</div><div class="albar full"><button type="button" class="btn sm" data-pact="m-dist" data-v="x">' + alIco('dx') + ' по горизонтали</button><button type="button" class="btn sm" data-pact="m-dist" data-v="y">' + alIco('dy') + ' по вертикали</button></div>' +
         fld('m.gap', 'Промежуток, ' + uLab(), st.mgap == null ? '' : fs(st.mgap), { cls: 'full', ph: 'пусто — поровну между крайними' }) + '<p class="muted small full">Равные промежутки — например, 10 столов в ряд через 1,5 м одним нажатием. Промежуток — между краями столов (без стульев). Пусто — крайние остаются на месте, остальные встают через равные промежутки.</p>') +
-      (T.length ? grp('Столы: ' + T.length, '<div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
+      (T.length ? grp('Столы: ' + T.length, '<label class="tog chtog full"><input type="checkbox" data-pbind="m.chairs"' + (T.some((t) => G.seatCount(t) > 0) ? ' checked' : '') + '><span>Со стульями — все ' + T.length + '</span></label><div class="seatrow full"><span class="fl">Посадка</span>' + seatSeg('', '') + '</div><div class="pacts full">' + btn('m-num', 'Номера по рядам', { v: 'rows' }) + btn('m-num', 'по колонкам', { v: 'cols' }) + '</div>') : '') +
       '<div class="pacts">' + btn('m-dup', 'Дублировать ' + L.length) + (L.every((it) => it.grp && it.grp === L[0].grp) ? btn('m-ungroup', 'Разгруппировать') : btn('m-group', 'Сгруппировать')) + btn('m-rot', 'Повернуть на 90°') + btn('m-lock', lk ? 'Закрепить все' : 'Открепить все') + btn('m-del', 'Удалить ' + L.length, { cls: 'dng' }) + btn('m-none', 'Снять выделение') + '</div>';
   }
   function fallbackCopy(t) { const ta = document.createElement('textarea'); ta.value = t; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} ta.remove(); }
