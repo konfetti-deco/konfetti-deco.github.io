@@ -5,7 +5,7 @@ let fails=0,pass=0;const ok=(c,m)=>{if(c)pass++;else{fails++;console.log('  FAIL
  await ctx.route(/fonts\.(googleapis|gstatic)\.com|cdnjs|jsdelivr/,r=>r.abort());
  await p.goto('file://'+path.resolve('dist/konstruktor-fotozon.html'));await p.waitForSelector('#canvas');await p.waitForTimeout(400);
  const ev=(f,a)=>p.evaluate(f,a);
- ok(/версия 63/.test(await p.textContent('#ver')),'version label 63');
+ ok(/версия 64/.test(await p.textContent('#ver')),'version label 64');
  const ta=await p.evaluate(()=>[...document.querySelectorAll('#dock input:not([type=range]):not([type=checkbox]):not([type=color]):not([type=file]), #dock textarea, #dock select')].map(i=>getComputedStyle(i).touchAction));ok(ta.length>0&&ta.every(t=>t==='none'),'panel text fields: touch-action none (no stylus handwriting) '+ta.length);
  const rng=await p.evaluate(()=>{const r=document.querySelector('input[type=range]');return r?getComputedStyle(r).touchAction:'pan-y'});ok(rng!=='none','sliders keep their own touch-action: '+rng);
  ok(await ev(()=>document.querySelectorAll('#scn .el').length>0),'scene elements drawn');

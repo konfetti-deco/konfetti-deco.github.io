@@ -575,6 +575,7 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'offer-pdf':IO.exportOfferPdf();break;
     case 'report-pdf':RP.pdf();break;
     case 'qa':QB.run(id);break;
+    case 'diag':DG.open();break;
     case 'qcfg':menuOpen('qbar',a);break;
     case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
@@ -990,6 +991,47 @@ function themeNow(){var t=document.documentElement.getAttribute('data-theme');re
    In the top bar (default), floating over the canvas (dragged by its grip, place remembered), or hidden (then only undo/redo
    stay in the top bar). Each button does the same thing as its menu item or key in the current tab; what the tab has no use
    for is not shown, what has nothing to act on is greyed. Which buttons show is the user's choice (⋯ → Кнопки). ===== */
+/* ===== DG: a check of the screen and of touches, for comparing tablets — what the browser reports (size in CSS pixels,
+   pixel ratio, browser), and what a finger or a pen does on three test fields (touch-action none / manipulation / auto)
+   and on a chip to drag. The result can be copied as text. ===== */
+var DG=(function(){
+  var log=[],box=null;
+  function ua(){var u=navigator.userAgent,m;var br=(m=u.match(/SamsungBrowser\/([\d.]+)/))?'Samsung Internet '+m[1]:(m=u.match(/EdgA?\/([\d.]+)/))?'Edge '+m[1]:(m=u.match(/Firefox\/([\d.]+)/))?'Firefox '+m[1]:(m=u.match(/Chrome\/([\d.]+)/))?'Chrome '+m[1]:'?';
+    var an=(m=u.match(/Android ([\d.]+)/))?'Android '+m[1]:'',md=(m=u.match(/Android [\d.]+; ([^;)]+)/))?m[1].trim():'';return {br:br,os:an,model:md}}
+  function info(){var b=ua(),dpr=window.devicePixelRatio||1,vv=window.visualViewport;
+    return [['Браузер',b.br],['Система',[b.os,b.model].filter(Boolean).join(' · ')||'—'],['Как открыто',(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'установленное приложение':'вкладка браузера'],
+      ['Экран в CSS-пикселях',innerWidth+' × '+innerHeight],['Плотность (devicePixelRatio)',(Math.round(dpr*100)/100)+''],['Физические пиксели ≈',Math.round(innerWidth*dpr)+' × '+Math.round(innerHeight*dpr)],
+      ['Масштаб страницы (pinch)',vv?String(Math.round(vv.scale*100)/100):'—'],['Касаний одновременно',String(navigator.maxTouchPoints||0)],['Версия приложения',(($('#ver')||{}).textContent||'').trim()||'—']]}
+  function add(t){log.unshift(new Date().toLocaleTimeString().slice(0,8)+'  '+t);log=log.slice(0,40);var l=box&&box.querySelector('.dglog');if(l)l.textContent=log.join('\n')}
+  function text(){return 'Проверка экрана и касаний\n'+info().map(function(r){return r[0]+': '+r[1]}).join('\n')+'\n\nСобытия (новые сверху):\n'+log.join('\n')}
+  function open(){
+    menuClose();if(box)box.remove();log=[];
+    box=document.createElement('div');box.className='dgbox';box.setAttribute('role','dialog');box.setAttribute('aria-label','Проверка экрана и касаний');
+    box.innerHTML='<div class="dgcard"><div class="dghead"><b>Проверка экрана и касаний</b><button type="button" class="ib dgx" aria-label="Закрыть">'+U.ico.x+'</button></div>'+
+      '<div class="dginfo">'+info().map(function(r){return '<span>'+U.esc(r[0])+'</span><b>'+U.esc(r[1])+'</b>'}).join('')+'</div>'+
+      '<p class="muted small">Коснитесь пальцем каждого поля — должна выйти клавиатура. Потом стилусом. Потяните квадрат пальцем и стилусом. Внизу записывается, что увидел браузер.</p>'+
+      '<div class="dgf"><label>А — как в приложении (none)<input type="text" data-dg="A" style="touch-action:none" placeholder="коснитесь"></label><label>Б — manipulation<input type="text" data-dg="Б" style="touch-action:manipulation" placeholder="коснитесь"></label><label>В — обычное (auto)<input type="text" data-dg="В" style="touch-action:auto" placeholder="коснитесь"></label></div>'+
+      '<div class="dgdrag"><div class="dgchip" tabindex="0">тяните</div></div>'+
+      '<div class="dgbtn"><button type="button" class="btn sm pri dgcopy">Скопировать результат</button><button type="button" class="btn sm dgclr">Очистить</button></div><pre class="dglog"></pre></div>';
+    document.body.appendChild(box);
+    box.querySelector('.dgx').onclick=function(){box.remove();box=null};
+    box.querySelector('.dgclr').onclick=function(){log=[];add('— очищено —')};
+    box.querySelector('.dgcopy').onclick=function(){var t=text();try{navigator.clipboard.writeText(t).then(function(){toast('Скопировано — вставьте в чат.')},function(){toast('Не удалось скопировать — сделайте снимок экрана.')})}catch(e){toast('Не удалось скопировать — сделайте снимок экрана.')}};
+    var vh0=window.visualViewport?visualViewport.height:innerHeight;
+    box.querySelectorAll('[data-dg]').forEach(function(f){var n=f.dataset.dg;
+      ['pointerdown','pointerup','pointercancel'].forEach(function(e){f.addEventListener(e,function(ev){add('поле '+n+': '+e+' ('+ev.pointerType+')')})});
+      f.addEventListener('click',function(){add('поле '+n+': click')});
+      f.addEventListener('focus',function(){add('поле '+n+': фокус');setTimeout(function(){var h=window.visualViewport?visualViewport.height:innerHeight;add('поле '+n+': '+(h<vh0-80?'клавиатура вышла (экран −'+Math.round(vh0-h)+' px)':'клавиатуры не видно'))},700)});
+      f.addEventListener('blur',function(){add('поле '+n+': фокус ушёл')})});
+    var ch=box.querySelector('.dgchip'),dd=null,moves=0;
+    ch.addEventListener('pointerdown',function(ev){dd={x:ev.clientX,y:ev.clientY,id:ev.pointerId,t:ev.pointerType};moves=0;try{ch.setPointerCapture(ev.pointerId)}catch(e){}add('квадрат: pointerdown ('+ev.pointerType+')')});
+    ch.addEventListener('pointermove',function(ev){if(!dd||ev.pointerId!==dd.id)return;moves++;ch.style.transform='translate('+Math.round(ev.clientX-dd.x)+'px,'+Math.round(ev.clientY-dd.y)+'px)'});
+    var end=function(ev,w){if(!dd||ev.pointerId!==dd.id)return;add('квадрат: '+w+' ('+dd.t+'), движений '+moves);dd=null;ch.style.transform=''};
+    ch.addEventListener('pointerup',function(ev){end(ev,'pointerup')});ch.addEventListener('pointercancel',function(ev){end(ev,'pointercancel — браузер забрал жест')});
+    add('открыто');
+  }
+  return {open:open,info:info,text:text}
+})();
 var QB=(function(){
   var KEY='fotozona.qbar.v1',st={pos:'top',x:null,y:null,vert:false,hide:{}};
   try{var t=JSON.parse(localStorage.getItem(KEY)||'null');if(t&&typeof t==='object'){if(/^(top|float|off)$/.test(t.pos))st.pos=t.pos;if(isFinite(t.x))st.x=+t.x;if(isFinite(t.y))st.y=+t.y;st.vert=!!t.vert;if(t.hide&&typeof t.hide==='object')st.hide=t.hide}}catch(e){}
