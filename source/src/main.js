@@ -576,6 +576,7 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'report-pdf':RP.pdf();break;
     case 'qa':QB.run(id);break;
     case 'diag':DG.open();break;
+    case 'pen':PEN.set(id);toast(id==='hand'?'Стилус в полях: рукописный ввод — пишите прямо в поле. Пальцем — клавиатура.':'Стилус в полях: клавиатура.');break;
     case 'qcfg':menuOpen('qbar',a);break;
     case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
@@ -994,6 +995,10 @@ function themeNow(){var t=document.documentElement.getAttribute('data-theme');re
 /* ===== DG: a check of the screen and of touches, for comparing tablets — what the browser reports (size in CSS pixels,
    pixel ratio, browser), and what a finger or a pen does on three test fields (touch-action none / manipulation / auto)
    and on a chip to drag. The result can be copied as text. ===== */
+/* how a stylus tap on a text field behaves, chosen per tablet: 'key' — the keyboard comes up (Xiaomi), 'hand' — the system's handwriting takes the pen (Samsung S Pen to text) */
+var PEN=(function(){var v='key';try{if(localStorage.getItem('fotozona.pen.v1')==='hand')v='hand'}catch(e){}
+  function apply(){document.documentElement.classList.toggle('penhand',v==='hand')}apply();
+  return {get:function(){return v},set:function(x){v=x==='hand'?'hand':'key';try{localStorage.setItem('fotozona.pen.v1',v)}catch(e){}apply()}}})();
 var DG=(function(){
   var log=[],box=null,rec=false;
   /* «Записывать касания везде»: every touch in the whole app goes to the log — what was touched, whether a handler stopped it, and whether a field lost its focus because the panel was drawn anew */
@@ -1006,7 +1011,7 @@ var DG=(function(){
   function info(){var b=ua(),dpr=window.devicePixelRatio||1,vv=window.visualViewport;
     return [['Браузер',b.br],['Система',[b.os,b.model].filter(Boolean).join(' · ')||'—'],['Как открыто',(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'установленное приложение':'вкладка браузера'],
       ['Экран в CSS-пикселях',innerWidth+' × '+innerHeight],['Плотность (devicePixelRatio)',(Math.round(dpr*100)/100)+''],['Физические пиксели ≈',Math.round(innerWidth*dpr)+' × '+Math.round(innerHeight*dpr)],
-      ['Масштаб страницы (pinch)',vv?String(Math.round(vv.scale*100)/100):'—'],['Касаний одновременно',String(navigator.maxTouchPoints||0)],['Команда «покажи клавиатуру»',navigator.virtualKeyboard?'есть':'нет'],['Версия приложения',(($('#ver')||{}).textContent||'').trim()||'—']]}
+      ['Масштаб страницы (pinch)',vv?String(Math.round(vv.scale*100)/100):'—'],['Касаний одновременно',String(navigator.maxTouchPoints||0)],['Стилус в полях',PEN.get()==='hand'?'рукописный ввод':'клавиатура'],['Команда «покажи клавиатуру»',navigator.virtualKeyboard?'есть':'нет'],['Версия приложения',(($('#ver')||{}).textContent||'').trim()||'—']]}
   function add(t){log.unshift(new Date().toLocaleTimeString().slice(0,8)+'  '+t);log=log.slice(0,40);var l=box&&box.querySelector('.dglog');if(l)l.textContent=log.join('\n')}
   function text(){return 'Проверка экрана и касаний'+(rec?' (запись по приложению)':'')+'\n'+info().map(function(r){return r[0]+': '+r[1]}).join('\n')+'\n\nСобытия (новые сверху):\n'+log.join('\n')}
   function open(){

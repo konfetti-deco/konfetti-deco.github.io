@@ -1040,6 +1040,8 @@ html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gr
 /* v38: a stylus tap on a text field brings up the keyboard. Android/Chrome start stylus handwriting on fields whose
    touch-action allows panning, and then no keyboard appears; without panning the tap is an ordinary tap */
 input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),textarea,select,[contenteditable]:not([contenteditable=false]){touch-action:none}
+/* v66: «Стилус в полях — рукописный ввод» (chosen per tablet): fields let the system's handwriting take the pen (Samsung S Pen to text) */
+html.penhand input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),html.penhand textarea,html.penhand select,html.penhand [contenteditable]:not([contenteditable=false]){touch-action:auto}
 
 /* v40: guides while dragging, the grid with snapping */
 #plan .pgd{stroke:#E8557A;stroke-width:1.4;stroke-dasharray:7 5;pointer-events:none}

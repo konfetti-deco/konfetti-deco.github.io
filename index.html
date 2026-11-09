@@ -1059,6 +1059,8 @@ html.glass .kk{background:var(--surface)} html.glass .kk.ok{background:linear-gr
 /* v38: a stylus tap on a text field brings up the keyboard. Android/Chrome start stylus handwriting on fields whose
    touch-action allows panning, and then no keyboard appears; without panning the tap is an ordinary tap */
 input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),textarea,select,[contenteditable]:not([contenteditable=false]){touch-action:none}
+/* v66: «Стилус в полях — рукописный ввод» (chosen per tablet): fields let the system's handwriting take the pen (Samsung S Pen to text) */
+html.penhand input:not([type=range]):not([type=checkbox]):not([type=radio]):not([type=color]):not([type=file]),html.penhand textarea,html.penhand select,html.penhand [contenteditable]:not([contenteditable=false]){touch-action:auto}
 
 /* v40: guides while dragging, the grid with snapping */
 #plan .pgd{stroke:#E8557A;stroke-width:1.4;stroke-dasharray:7 5;pointer-events:none}
@@ -1259,7 +1261,7 @@ html.glass .qfloat{background:var(--glpop);-webkit-backdrop-filter:blur(26px) sa
   <div class="modesw" id="modesw" role="group" aria-label="Режим"><button type="button" data-pact="mode" data-v="scene" aria-pressed="true">Сцена</button><button type="button" data-pact="mode" data-v="plan" aria-pressed="false">План</button><button type="button" data-pact="mode" data-v="photo" aria-pressed="false">Фото</button></div>
   <div class="qbar" id="qbar" role="toolbar" aria-label="Действия"></div>
   <span class="sp"></span>
-  <span class="ver" id="ver">версия 65</span>
+  <span class="ver" id="ver">версия 66</span>
   <button type="button" class="pill" data-act="photo" id="photobtn"></button>
   <button type="button" class="ib thm" id="thm" data-act="theme" title="Светлая тема" aria-label="Светлая тема" aria-pressed="true"></button>
   <button type="button" class="pill pri" data-act="save" id="savebtn"></button>
@@ -5550,7 +5552,7 @@ V.MENUS = {file:'Файл',edit:'Правка',view:'Вид',calc:'Расчёт�
 V.mmenu = function(id){var it=function(act,lab,o){o=o||{};return '<button type="button" class="mi'+(o.on?' on':'')+'" data-act="'+act+'"'+(o.id?' data-id="'+o.id+'"':'')+(o.dis?' disabled':'')+'><i class="mck" aria-hidden="true">'+(o.on?'✓':'')+'</i><span>'+lab+'</span>'+(o.k?'<kbd>'+o.k+'</kbd>':'')+'</button>'},hr='<hr>',el=V.sel(),ms=V.multi().length>1;
   if(id==='file')return it('new-proj','Новый проект…')+it('menu','Проекты и шаблоны…')+hr+it('save','Сохранить',{k:'Ctrl+S'})+it('save-as','Сохранить как новый',{dis:!IO.db||!S.pid})+hr+it('json','Скачать проект файлом')+'<label class="mi"><i class="mck"></i><span>Открыть файл проекта…</span><input type="file" id="mfile" accept=".json,application/json" aria-label="Открыть файл проекта"></label>'+hr+V.fileSubs(it)+hr+it('export-all',window.SITE?'Выгрузить всё для переноса':'Перенести всё на сайт: выгрузить файл')+'<label class="mi"><i class="mck"></i><span>'+'Загрузить файл переноса…'+'</span><input type="file" id="mfile2" accept=".json,application/json" aria-label="Файл переноса"></label>'+hr+it('photo','Собрать сцену по фото…');
   if(id==='edit')return it('undo','Отменить',{k:'Ctrl+Z',dis:UI.hi<=0})+it('redo','Вернуть',{k:'Ctrl+Y',dis:UI.hi>=UI.hist.length-1})+it('dopen','История шагов',{id:'hist'})+hr+it(ms?'gdup':'dup','Дублировать',{k:'Ctrl+D',dis:!el&&!ms})+it(ms?'gdel':'del','Удалить',{k:'Del',dis:!el&&!ms})+it('lib-open','В мои шаблоны',{dis:!el&&!ms})+hr+it('copy','Копировать',{k:'Ctrl+C',dis:!el&&!ms})+it('cut','Вырезать',{k:'Ctrl+X',dis:!el&&!ms})+it('paste','Вставить',{k:'Ctrl+V',dis:!V.hasClip()})+hr+it('selall','Выделить всё',{k:'Ctrl+A',dis:!S.els.length})+it('multi','Выбирать несколько',{on:UI.mmode})+it('gclear','Снять выделение',{k:'Esc',dis:!el&&!ms});
-  if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+'<button type="button" class="mi" data-act="qset" data-id="pos:top"><i class="mck" aria-hidden="true">'+(QB.st.pos==='top'?'✓':'')+'</i><span>Панель действий — сверху</span></button><button type="button" class="mi" data-act="qset" data-id="pos:float"><i class="mck" aria-hidden="true">'+(QB.st.pos==='float'?'✓':'')+'</i><span>Панель действий — на холсте</span></button><button type="button" class="mi" data-act="qset" data-id="pos:off"><i class="mck" aria-hidden="true">'+(QB.st.pos==='off'?'✓':'')+'</i><span>Панель действий — скрыть</span></button>'+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()})+hr+it('diag','Проверка экрана и касаний…');
+  if(id==='view')return it('vt','Размеры на сцене',{id:'dims',on:S.show.dims})+it('vt','Точки накладок',{id:'grid',on:S.show.grid})+(S.ref?it('ref-toggle','Фото-образец поверх сцены',{on:S.ref.on}):'')+it('night','Вечерний вид',{on:UI.night})+(S.els.some(function(e){return e.type==='person'})?it('people','Люди для масштаба',{on:S.els.some(function(e){return e.type==='person'&&!e.hide})}):'')+hr+it('zoom-in','Приблизить',{k:'+'})+it('zoom-out','Отдалить',{k:'−'})+it('zoom-fit','Вписать сцену',{k:'0'})+hr+'<button type="button" class="mi" data-act="qset" data-id="pos:top"><i class="mck" aria-hidden="true">'+(QB.st.pos==='top'?'✓':'')+'</i><span>Панель действий — сверху</span></button><button type="button" class="mi" data-act="qset" data-id="pos:float"><i class="mck" aria-hidden="true">'+(QB.st.pos==='float'?'✓':'')+'</i><span>Панель действий — на холсте</span></button><button type="button" class="mi" data-act="qset" data-id="pos:off"><i class="mck" aria-hidden="true">'+(QB.st.pos==='off'?'✓':'')+'</i><span>Панель действий — скрыть</span></button>'+hr+it('dock','Панели справа',{on:UI.dock!=='mini'})+it('theme','Тёмная тема',{on:themeNow()==='dark'})+it('glass','Стеклянный интерфейс',{on:glassNow()})+hr+it('pen','Стилус в полях — клавиатура',{id:'key',on:PEN.get()==='key'})+it('pen','Стилус в полях — рукописный ввод',{id:'hand',on:PEN.get()==='hand'})+hr+it('diag','Проверка экрана и касаний…');
   if(id==='qbar')return QB.menu(it);
   if(id==='calc')return V.TABS.slice(1).map(function(t,i){return it('tab',t[1],{id:t[0],k:String(i+1),on:UI.tab===t[0]})}).join('');
   return ''};
@@ -8862,6 +8864,7 @@ toast(UI.mmode?'Обведите элементы рамкой или касай
     case 'report-pdf':RP.pdf();break;
     case 'qa':QB.run(id);break;
     case 'diag':DG.open();break;
+    case 'pen':PEN.set(id);toast(id==='hand'?'Стилус в полях: рукописный ввод — пишите прямо в поле. Пальцем — клавиатура.':'Стилус в полях: клавиатура.');break;
     case 'qcfg':menuOpen('qbar',a);break;
     case 'photo-pdf':{var tp=V.photoTarget();if(tp)RP.photosPdf([tp]);else toast('Откройте фото во вкладке «Фото».');break}
     case 'photo-png':{var tq=V.photoTarget();if(tq)PF.exportPng(tq);else toast('Откройте фото во вкладке «Фото».');break}
@@ -9280,6 +9283,10 @@ function themeNow(){var t=document.documentElement.getAttribute('data-theme');re
 /* ===== DG: a check of the screen and of touches, for comparing tablets — what the browser reports (size in CSS pixels,
    pixel ratio, browser), and what a finger or a pen does on three test fields (touch-action none / manipulation / auto)
    and on a chip to drag. The result can be copied as text. ===== */
+/* how a stylus tap on a text field behaves, chosen per tablet: 'key' — the keyboard comes up (Xiaomi), 'hand' — the system's handwriting takes the pen (Samsung S Pen to text) */
+var PEN=(function(){var v='key';try{if(localStorage.getItem('fotozona.pen.v1')==='hand')v='hand'}catch(e){}
+  function apply(){document.documentElement.classList.toggle('penhand',v==='hand')}apply();
+  return {get:function(){return v},set:function(x){v=x==='hand'?'hand':'key';try{localStorage.setItem('fotozona.pen.v1',v)}catch(e){}apply()}}})();
 var DG=(function(){
   var log=[],box=null,rec=false;
   /* «Записывать касания везде»: every touch in the whole app goes to the log — what was touched, whether a handler stopped it, and whether a field lost its focus because the panel was drawn anew */
@@ -9292,7 +9299,7 @@ var DG=(function(){
   function info(){var b=ua(),dpr=window.devicePixelRatio||1,vv=window.visualViewport;
     return [['Браузер',b.br],['Система',[b.os,b.model].filter(Boolean).join(' · ')||'—'],['Как открыто',(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)?'установленное приложение':'вкладка браузера'],
       ['Экран в CSS-пикселях',innerWidth+' × '+innerHeight],['Плотность (devicePixelRatio)',(Math.round(dpr*100)/100)+''],['Физические пиксели ≈',Math.round(innerWidth*dpr)+' × '+Math.round(innerHeight*dpr)],
-      ['Масштаб страницы (pinch)',vv?String(Math.round(vv.scale*100)/100):'—'],['Касаний одновременно',String(navigator.maxTouchPoints||0)],['Команда «покажи клавиатуру»',navigator.virtualKeyboard?'есть':'нет'],['Версия приложения',(($('#ver')||{}).textContent||'').trim()||'—']]}
+      ['Масштаб страницы (pinch)',vv?String(Math.round(vv.scale*100)/100):'—'],['Касаний одновременно',String(navigator.maxTouchPoints||0)],['Стилус в полях',PEN.get()==='hand'?'рукописный ввод':'клавиатура'],['Команда «покажи клавиатуру»',navigator.virtualKeyboard?'есть':'нет'],['Версия приложения',(($('#ver')||{}).textContent||'').trim()||'—']]}
   function add(t){log.unshift(new Date().toLocaleTimeString().slice(0,8)+'  '+t);log=log.slice(0,40);var l=box&&box.querySelector('.dglog');if(l)l.textContent=log.join('\n')}
   function text(){return 'Проверка экрана и касаний'+(rec?' (запись по приложению)':'')+'\n'+info().map(function(r){return r[0]+': '+r[1]}).join('\n')+'\n\nСобытия (новые сверху):\n'+log.join('\n')}
   function open(){
